@@ -81,5 +81,23 @@ function VerticalMPCC(mod::AbstractMPCCModel{T,S}) where {T,S}
     )
 
     return VerticalMPCC(meta, cc_meta, MPCCCounters(), mod)
-
 end
+
+for meth in (:obj, :grad!, :objgrad!, :objcons!, :jac_op!, :ghjvprod!, :jth_hprod!)
+  @eval begin
+    $meth(vmpcc::VerticalMPCC, x, args...; kwargs...) = $meth(vmpcc.mod, x[1:vmpcc.mod.meta.nvar], args...; kwargs...)
+  end
+end
+
+cons!(vmpcc::VerticalMPCC, x::AbstractVector, cx::AbstractVector) = cons!(vmpcc.mod, x, cx)
+jac_coord!(vmpcc::VerticalMPCC, x::AbstractVector, vals::AbstractVector) =
+  jac_coord!(vmpcc.mod, x, vals)
+jac_structure!(vmpcc::VerticalMPCC, rows::AbstractVector, cols::AbstractVector) =
+  jac_structure!(vmpcc.mod, rows, cols)
+jprod!(vmpcc::VerticalMPCC, x::AbstractVector, v::AbstractVector, Jv::AbstractVector) =
+  jprod!(vmpcc.mod, x, v, Jv)
+jtprod!(vmpcc::VerticalMPCC, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector) =
+  jtprod!(vmpcc.mod, x, v, Jtv)
+
+# FIXME(@anton) this is currently not going to work as we don't have a _generic_ way of getting the inner counter
+@default_cc_counters VerticalMPCC mod.nlp
