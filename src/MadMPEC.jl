@@ -1,9 +1,14 @@
 module MadMPEC
-using MPCC: @default_cc_counters, AbstractMPCCModel
-using MPCC
 using NLPModels
 
-import MPCC:
+
+export AbstractMPCCModel,
+    MPCCModelVarVar,
+    MPCCModelVarCon,
+    MPCCModelConCon,
+    MPCCVerticalForm,
+    getproprty,
+    ScholtesRelaxation,
     obj,
     grad,
     grad!,
@@ -13,6 +18,14 @@ import MPCC:
     objcons!,
     cons,
     cons!,
+    cons_nl,
+    cons_nl!,
+    consG,
+    consG!,
+    consH,
+    consH!,
+    viol,
+    viol!,
     jth_con,
     jth_congrad,
     jth_congrad!,
@@ -28,24 +41,18 @@ import MPCC:
     jtprod!,
     jac_op,
     jac_op!,
-    jth_hprod,
-    jth_hprod!,
-    ghjvprod,
-    ghjvprod!,
-    hess_structure!,
-    hess_structure,
-    hess_coord!,
-    hess_coord,
-    hess,
-    hess_op,
-    hess_op!,
-    hprod,
-    hprod!,
-    sum_counters,
-    reset!,
-    increment!
-export VerticalMPCC
+    jac_nl_structure!,
+    jac_nl_structure,
+    jac_nl_coord!,
+    jac_nl_coord,
+    jac_nl,
+    jnlprod,
+    jnlprod!,
+    jnltprod,
+    jnltprod!,
+    jac_nl_op,
+    jac_nl_op!
 
-include("VerticalMPCC.jl")
+include("MPCCModel.jl")
 
 end # module MadMPEC
