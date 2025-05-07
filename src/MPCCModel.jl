@@ -104,19 +104,50 @@ NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector
 # Perhaps there is another way however, I haven't found a good one yet.
 
 function NLPModels.cons_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
-    cxc = cons_lin(mpcc.nlp, x)
-    cx[:] = cxc[intersect(mpcc.ind_c, mpcc.nlp.lin)]; # NOTE: intersect maintains order
+    cons_lin!(mpcc.nlp, x, cx)
+    deleteat!(cx, intersect(mpcc.ind_c, mpcc.nlp.lin))
+    return cx
 end
 
 function NLPModels.cons_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
-    cxc = cons_nln(mpcc.nlp, x)
-    cx[:] = cxc[intersect(mpcc.ind_c, mpcc.nlp.nln)]; # NOTE: intersect maintains order
+    cons_nln!(mpcc.nlp, x, cx)
+    deleteat!(cx, intersect(mpcc.ind_c, mpcc.nlp.nln))
+    return cx
 end
 
-#function NLPModels.jth_con(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) end
-function NLPModels.jth_congrad!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
-function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
-function NLPModels.jac_nln_structure!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
+
+function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, rows::Vector{int}, cols::Vector{int})
+    jac_lin_structure!(mpcc, rows, cols) # get including complementarities
+
+    # now do allocationless search through row,cols and remove
+    ii = firstindex(rows);
+    while ii ≤ length(rows)
+        if rows[ii] ∈ mpcc.ind_ccc1 || rows[ii] ∈ mpcc.ind_ccc2
+            # TODO(@anton) Is this even a good idea as this is quadratic. All this to save one memory alloc???
+            deleteat!(rows, ii)
+            deteteat!(cols, ii)
+        end
+        ii += 1
+    end
+    return rows, cols
+end
+
+function NLPModels.jac_nln_structure!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
+    jac_nln_structure!(mpcc, rows, cols) # get including complementarities
+
+    # now do allocationless search through row,cols and remove
+    ii = firstindex(rows);
+    while ii ≤ length(rows)
+        if rows[ii] ∈ mpcc.ind_ccc1 || rows[ii] ∈ mpcc.ind_ccc2
+            # TODO(@anton) Is this even a good idea as this is quadratic. All this to save one memory alloc???
+            deleteat!(rows, ii)
+            deteteat!(cols, ii)
+        end
+        ii += 1
+    end
+    return rows, cols
+end
+
 function NLPModels.jac_lin_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
 function NLPModels.jac_nln_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
 function NLPModels.jprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
@@ -171,14 +202,20 @@ function MPCCModelVerticalForm(mpcc::MPCCModelVarVar)
     return MPCCModelVerticalForm(mpcc, Int[], Int[], mpcc.ind_vcc1, mpcc.ind_vcc2, mpcc.ind_x, mpcc.ind_c)
 end
 
+######################### Scholtes Relaxation #########################
 struct ScholtesRelaxation{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     𝜎::Ref{T}
 end
 
-
-function ScholtesRelaxation(mpcc::AbstractMPCCModel)
-    # TODO
+function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
+    if sym ∈ [:meta, :counters]
+        getfield(rnlp.mpcc.nlp, sym)
+    else
+        getfield(rnlp, sym)
+    end
 end
+
+
 
 # TODO(@anton) Add Core.show overload
