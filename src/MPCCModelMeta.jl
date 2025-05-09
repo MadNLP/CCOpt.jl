@@ -9,11 +9,10 @@ struct MPCCModelMeta{T, VT, MT<: AbstractNLPModelMeta{T, VT}} <: AbstractNLPMode
     lin::IndexSet
     nln::IndexSet
 
+    c_lin::IndexSet
+    c_nln::IndexSet
+
     # Index Sets of complementarity variables
-    ind_vcc1::IndexSet
-    ind_vcc2::IndexSet
-    ind_ccc1::IndexSet
-    ind_ccc2::IndexSet
     ind_cc1::IndexSet
     ind_cc2::IndexSet
     cc_types::Vector{CCType} # VarCon, VarVar, ConCon

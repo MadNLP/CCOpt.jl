@@ -3,53 +3,69 @@
 # TODO: limit type T to be numeric
 # TODO: This probably does not work well with @view
 
-struct MappedVector{T, VT} <: AbstractVector{T}
+struct MappedVector{T, VT<:AbstractVector{T}} <: AbstractVector{T}
     par_vec::Base.RefValue{VT}
-    ind_set::Set{Int}
+    ind_set::AbstractDict{Int, Int}
+    len::Int
+end
+
+function MappedVector(par_vec::AbstractVector{T}, inds::AbstractVector{Int}, n::Int) where {T}
+    MappedVector(Ref(par_vec), Dict([(ind, i) for (i,ind)=enumerate(inds)]), n)
 end
 
 function Base.size(A::MappedVector{T, VT}) where {T, VT}
-    return size(A.par_vec[])
+    return (A.len,)
 end
 
 function Base.length(A::MappedVector{T, VT}) where {T, VT}
-    return length(A.par_vec[])
+    return A.len
 end
 
+function Base.axes(A::MappedVector{T, VT}) where {T, VT}
+    return (Base.OneTo(A.len),)
+end
+
+function Base.axes(A::MappedVector{T, VT}, i::Int) where {T, VT}
+    if i==1
+        return Base.OneTo(A.len)
+    else
+        return Base.OneTo(1)
+    end
+end
+
+Base.ndims(A::MappedVector{T,VT}) where {T,VT} = 1
+
+#function checkindex(A)
 
 function Base.getindex(A::MappedVector{T,VT}, i::Int) where {T,VT}
-    if i ∈ A.ind_set
-        return A.par_vec[][i]
+    if haskey(A.ind_set, i)
+        return A.par_vec[][A.ind_set[i]]
     else
         return zero(T)
     end
 end
 
 function Base.getindex(A::MappedVector{T,VT}, i::AbstractRange{Int}) where {T,VT}
-    out = A.par_vec[][i]
-    out[i ∉ A.ind_set] = zero(T)
-    return out
+    return [haskey(A.ind_set, ii) ? A.par_vec[][A.ind_set[ii]] : zero(T) for ii=i]
 end
 
 function Base.getindex(A::MappedVector{T,VT}, i::AbstractVector{Int}) where {T,VT}
-    out = A.par_vec[][i]
-    out[i ∉ A.ind_set] = zero(T)
-    return out
+    return [haskey(A.ind_set, ii) ? A.par_vec[][A.ind_set[ii]] : zero(T) for ii=i]
 end
 
 function Base.setindex!(A::MappedVector{T,VT}, x::T, i::Int) where {T,VT}
-    if i ∈ A.ind_set
-        par_vec = A.par_vec[][i] = x
+    if haskey(A.ind_set, i)
+        par_vec = A.par_vec[][A.ind_set[i]] = x
     end
 end
 
 function Base.setindex!(A::MappedVector{T,VT}, x::AbstractVector{T}, i::AbstractRange{Int}) where {T,VT}
-    # TODO(@anton) check how efficient this is.
-    A.par_vec[][filter((x) -> x ∈ A.ind_set,i)] = x[filter((x) -> x ∈ A.ind_set,i)]
+    # TODO(@anton) check how efficient this is
+    A.par_vec[][[A.ind_set(ii) for ii=i if haskey(A.ind_set, ii)]] = x[[ii for ii=i if haskey(A.indset, ii)]]
 end
 
 function Base.setindex!(A::MappedVector{T,VT}, x::AbstractVector{T}, i::AbstractVector{Int}) where {T,VT}
-    A.par_vec[][filter((x) -> x ∈ A.ind_set,i)] = x[filter((x) -> x ∈ A.ind_set,i)]
+    A.par_vec[][[A.ind_set(ii) for ii=i if haskey(A.ind_set, ii)]] = x[[ii for ii=i if haskey(A.indset, ii)]]
 end
 
 function Base.nextind(A::MappedVector{T,VT}, i::Integer) where {T,VT}

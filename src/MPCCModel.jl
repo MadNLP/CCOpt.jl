@@ -24,12 +24,6 @@ end
 
 
 ######################### MPCC Types #########################
-struct MPCCModelVarVar{T,VT} <: AbstractMPCCModel{T,VT}
-    nlp::NLPModels.AbstractNLPModel{T, VT}
-
-    meta::MPCCModelMeta{T, VT}
-end
-
 # Constructor
 function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::IndexSet)
     # compute sizes
@@ -49,10 +43,12 @@ function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::In
     # compute nln and lin index sets
     lin = nlp.meta.lin
     nln = nlp.meta.nln
+    nlin = length(lin)
+    nnln = length(nln)
+    c_lin = 1:nlin
+    c_nln =1:nnln
 
-    # UNUSED
-    ind_ccc1 = IndexSet();
-    ind_ccc2 = IndexSet();
+    # Complementarity Constraints
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_vcc2;
     cc_types = fill!(Vector{CCType}(undef,ncc), VarVar())
@@ -61,21 +57,13 @@ function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::In
     meta = MPCCModelMeta(Ref(nlp.meta),
                          ncc, ncon, nlin, nnln,
                          lin, nln,
-                         ind_vcc1, ind_vcc2,
-                         ind_ccc1, ind_ccc2,
+                         c_lin, c_nln,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
                          ind_j_lin_triplets, ind_j_nln_triplets)
 
-    MPCCModelVarVar(nlp, meta)
-end
-
-
-struct MPCCModelConCon{T,VT} <: AbstractMPCCModel{T,VT}
-    nlp::NLPModels.AbstractNLPModel{T, VT}
-
-    meta::MPCCModelMeta{T, VT}
+    MPCCModel(nlp, meta)
 end
 
 # Constructor
@@ -99,10 +87,10 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     nln = intersect(nlp.meta.nln, ind_c)
     nlin = length(lin)
     nnln = length(nln)
+    c_lin = [i for i=1:nln if nlp.meta.lin[i] ∈ ind_c]
+    c_nln = [i for i=1:nln if nlp.meta.nln[i] ∈ ind_c]
 
-    # UNUSED
-    ind_vcc1 = IndexSet();
-    ind_vcc2 = IndexSet();
+    # Complementarity Constraints
     ind_cc1 = ind_ccc1;
     ind_cc2 = ind_ccc2;
     cc_types = fill!(Vector{CCType}(undef,ncc), ConCon())
@@ -110,20 +98,12 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     meta = MPCCModelMeta(Ref(nlp.meta),
                          ncc, ncon, nlin, nnln,
                          lin, nln,
-                         ind_vcc1, ind_vcc2,
-                         ind_ccc1, ind_ccc2,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
                          ind_j_lin_triplets, ind_j_nln_triplets)
 
-    MPCCModelConCon(nlp, meta)
-end
-
-struct MPCCModelVarCon{T,VT} <: AbstractMPCCModel{T,VT}
-    nlp::NLPModels.AbstractNLPModel{T, VT}
-
-    meta::MPCCModelMeta{T, VT}
+    MPCCModel(nlp, meta)
 end
 
 # Constructor
@@ -147,27 +127,25 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     nln = intersect(nlp.meta.nln, ind_c)
     nlin = length(lin)
     nnln = length(nln)
+    c_lin = [i for i=1:nln if nlp.meta.lin[i] ∈ ind_c]
+    c_nln = [i for i=1:nln if nlp.meta.nln[i] ∈ ind_c]
 
     # UNUSED
-    ind_ccc1 = IndexSet();
-    ind_vcc2 = IndexSet();
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_ccc2;
     cc_types = fill!(Vector{CCType}(undef,ncc), VarCon())
 
 
     meta = MPCCModelMeta(Ref(nlp.meta), ncc,
-                         ind_vcc1, ind_vcc2,
-                         ind_ccc1, ind_ccc2,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
                          ind_j_lin_triplets, ind_j_nln_triplets)
 
-    MPCCModelVarCon(nlp, meta)
+    MPCCModel(nlp, meta)
 end
 
-struct MPCCModelGeneric{T, VT} <: AbstractMPCCModel{T, VT}
+struct MPCCModel{T, VT} <: AbstractMPCCModel{T, VT}
     nlp::NLPModels.AbstractNLPModel{T, VT}
 
     meta::MPCCModelMeta{T, VT}
@@ -191,17 +169,16 @@ NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector
 # Perhaps there is another way however, I haven't found a good one yet.
 
 function NLPModels.cons_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
-    cons_lin!(mpcc.nlp, x, cx)
-    keepat!(cx, intersect(mpcc.meta.ind_c, mpcc.nlp.lin))
+    mcx = MappedVector(cx, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
+    cons_lin!(mpcc.nlp, x, mcx)
     return cx
 end
 
 function NLPModels.cons_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
-    cons_nln!(mpcc.nlp, x, cx)
-    keepat!(cx, intersect(mpcc.meta.ind_c, mpcc.nlp.nln))
+    mcx = MappedVector(cx, mpcc.meta.c_lin, mpcc.nlp.meta.nnln)
+    cons_nln!(mpcc.nlp, x, mcx)
     return cx
 end
-
 
 function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
     jac_lin_structure!(mpcc.nlp, rows, cols) # get including complementarities
@@ -233,16 +210,14 @@ function NLPModels.jac_nln_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j:
 end
 
 function NLPModels.jprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
-    jprod_lin!(mpcc.nlp, x, v, jv)
-
-    keepat!(jv, mpcc.meta.ind_c)
+    mjv = MappedVector(jv, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
+    jprod_lin!(mpcc.nlp, x, v, mjv)
     return jv
 end
 
 function NLPModels.jprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
-    jprod_lin!(mpcc.nlp, x, v, jv)
-
-    keepat!(jv, mpcc.meta.ind_c)
+    mjv = MappedVector(jv, mpcc.meta.c_nln, mpcc.nlp.meta.nnln)
+    jprod_lin!(mpcc.nlp, x, v, mjv)
     return jv
 end
 
