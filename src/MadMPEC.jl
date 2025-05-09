@@ -3,10 +3,12 @@ using NLPModels
 
 
 export AbstractMPCCModel,
+    CCType,
     MPCCModelVarVar,
     MPCCModelVarCon,
     MPCCModelConCon,
     MPCCVerticalForm,
+    MPCCModelMeta,
     getproprty,
     ScholtesRelaxation,
     obj,
@@ -53,6 +55,9 @@ export AbstractMPCCModel,
     jac_nl_op,
     jac_nl_op!
 
+include("Types.jl")
+include("MappedVector.jl")
+include("MPCCModelMeta.jl")
 include("MPCCModel.jl")
 
 end # module MadMPEC

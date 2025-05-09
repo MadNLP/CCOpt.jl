@@ -22,16 +22,6 @@ function Base.show(io::IO, mpcc::AbstractMPCCModel)
     show(io, mpcc.nlp.counters)
 end
 
-######################### Type Definitions #########################
-# Typealias for index set
-# TODO(@anton) Perhaps this should be Set{Int}
-IndexSet = Vector{Int}
-
-abstract type CCType end
-struct VarCon <: CCType end
-struct VarVar <: CCType end
-struct ConCon <: CCType end
-
 
 ######################### MPCC Types #########################
 struct MPCCModelVarVar{T,VT} <: AbstractMPCCModel{T,VT}
@@ -247,7 +237,7 @@ end
 function NLPModels.hess_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
     return hess_structure!(mpcc.nlp, rows, cols)
 end
-function NLPModels.hess_coord!(mpcc::AbstractMPCCModel{T,S}, x::AbstractVector{T}, y::AbstractVector{T}, Hv::AbstractVector, obj_weight::Real = one(T))
+function NLPModels.hess_coord!(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, Hv::AbstractVector, obj_weight::Real = one(T)) where {T, VT}
     return hess_coord!(mpcc.nlp, x, y, Hv, obj_weight)
 end
 function NLPModels.hprod!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end

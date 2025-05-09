@@ -1,4 +1,4 @@
-# TODO(@anton) Most of the index sets should perhaps live in a metadata field as in NLPModels
+IndexSet = Vector{Int}
 struct MPCCModelMeta{T, VT} <: AbstractNLPModelMeta{T, VT}
     nlp_meta::Ref{AbstractNLPModelMeta{T, VT}}
 
