@@ -1,8 +1,13 @@
-IndexSet = Vector{Int}
-struct MPCCModelMeta{T, VT} <: AbstractNLPModelMeta{T, VT}
-    nlp_meta::Ref{AbstractNLPModelMeta{T, VT}}
+struct MPCCModelMeta{T, VT, MT<: AbstractNLPModelMeta{T, VT}} <: AbstractNLPModelMeta{T, VT}
+    nlp_meta::Base.RefValue{MT}
 
     ncc::Int
+    ncon::Int # This may or may not be different depending on the type of constraints
+    nlin::Int # This may or may not be different depending on the type of constraints
+    nnln::Int # This may or may not be different depending on the type of constraints
+
+    lin::IndexSet
+    nln::IndexSet
 
     # Index Sets of complementarity variables
     ind_vcc1::IndexSet
@@ -23,12 +28,7 @@ struct MPCCModelMeta{T, VT} <: AbstractNLPModelMeta{T, VT}
 end
 
 function Base.getproperty(meta::MPCCModelMeta, sym::Symbol)
-    if sym ∈ [:ind_vcc1, :ind_vcc2,
-              :ind_ccc1, :ind_ccc2,
-              :ind_cc1, :ind_cc2,
-              :ind_x, :ind_c,
-              :ind_j_lin_triplets,
-              :ind_j_nln_triplets]
+    if sym ∈ fieldnames(MPCCModelMeta) # NOTE: This is either elegant or EXTREMELY not, depending on how "static" the field names are
         getfield(meta, sym)
     else
         getfield(meta.nlp_meta[], sym)

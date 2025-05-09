@@ -9,7 +9,7 @@ abstract type AbstractMPCCModel{T, VT} <: NLPModels.AbstractNLPModel{T, VT} end
 # TODO(@anton) For a prototype this is a bit of a hack to account for not having meta and counters
 #              In principle we want to have a MPCCModelMeta and MPCCModelCounters?
 function Base.getproperty(mpcc::AbstractMPCCModel, sym::Symbol)
-    if sym ∈ [:meta, :counters]
+    if sym ∈ [:counters]
         getfield(mpcc.nlp, sym)
     else
         getfield(mpcc, sym)
@@ -32,26 +32,37 @@ end
 
 # Constructor
 function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::IndexSet)
-    # compute non-complementarity variables/constraints
+    # compute sizes
     ncc = length(ind_vcc1)
-    ind_x = setminus(1:nlp.meta.nvar, union(ind_vcc1, ind_vcc2))
+    ncon = nlp.meta.ncon
+    nlin = nlp.meta.nlin
+    nnln = nlp.meta.nnln
+
+    # compute non-complementarity variables/constraints
+    ind_x = setdiff(1:nlp.meta.nvar, union(ind_vcc1, ind_vcc2))
     ind_c = collect(1:nlp.meta.ncon)
 
     # compute jacobian structure indexset
     ind_j_lin_triplets = collect(1:nlp.meta.lin_nnzj)
     ind_j_nln_triplets = collect(1:nlp.meta.nln_nnzj)
 
+    # compute nln and lin index sets
+    lin = nlp.meta.lin
+    nln = nlp.meta.nln
+
     # UNUSED
     ind_ccc1 = IndexSet();
     ind_ccc2 = IndexSet();
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_vcc2;
-    cc_types = fill!(Vector{CCType}(undef,ncc), VarVar)
+    cc_types = fill!(Vector{CCType}(undef,ncc), VarVar())
 
 
-    meta = MPCCModelMeta(Ref(nlp.meta), ncc,
+    meta = MPCCModelMeta(Ref(nlp.meta),
+                         ncc, ncon, nlin, nnln,
+                         lin, nln,
                          ind_vcc1, ind_vcc2,
-                         ind_ccc, ind_ccc2,
+                         ind_ccc1, ind_ccc2,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
@@ -69,10 +80,13 @@ end
 
 # Constructor
 function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::IndexSet)
-    # compute non-complementarity variables/constraints
+    # compute sizes
     ncc = length(ind_ccc1)
+    ncon = nlp.meta.ncon - ncc
+
+    # compute non-complementarity variables/constraints
     ind_x = collect(1:nlp.meta.nvar)
-    ind_c = setminus(1:nlp.meta.ncon, union(ind_ccc1, ind_ccc2))
+    ind_c = setdiff(1:nlp.meta.ncon, union(ind_ccc1, ind_ccc2))
 
     # compute jacobian structure indexset
     lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
@@ -80,17 +94,24 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     ind_j_lin_triplets = findall(x->!((x∈ind_ccc1) || (x∈ind_ccc2)),lin_rows)
     ind_j_nln_triplets = findall(x->!((x∈ind_ccc1) || (x∈ind_ccc2)),nln_rows)
 
+    # compute nln and lin index sets
+    lin = intersect(nlp.meta.lin, ind_c)
+    nln = intersect(nlp.meta.nln, ind_c)
+    nlin = length(lin)
+    nnln = length(nln)
+
     # UNUSED
     ind_vcc1 = IndexSet();
     ind_vcc2 = IndexSet();
     ind_cc1 = ind_ccc1;
     ind_cc2 = ind_ccc2;
-    cc_types = fill!(Vector{CCType}(undef,ncc), ConCon)
+    cc_types = fill!(Vector{CCType}(undef,ncc), ConCon())
 
-
-    meta = MPCCModelMeta(Ref(nlp.meta), ncc,
+    meta = MPCCModelMeta(Ref(nlp.meta),
+                         ncc, ncon, nlin, nnln,
+                         lin, nln,
                          ind_vcc1, ind_vcc2,
-                         ind_ccc, ind_ccc2,
+                         ind_ccc1, ind_ccc2,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
@@ -107,10 +128,12 @@ end
 
 # Constructor
 function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::IndexSet)
-    # compute non-complementarity variables/constraints
+    # compute sizes
     ncc = length(ind_vcc1)
-    ind_x = setminus(1:nlp.meta.nvar, ind_vcc1)
-    ind_c = setminus(1:nlp.meta.ncon, ind_ccc2)
+    ncon = nlp.meta.ncon - ncc
+    # compute non-complementarity variables/constraints
+    ind_x = setdiff(1:nlp.meta.nvar, ind_vcc1)
+    ind_c = setdiff(1:nlp.meta.ncon, ind_ccc2)
 
     # compute jacobian structure indexset
     lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
@@ -118,17 +141,24 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     ind_j_lin_triplets = findall(x->!(x∈ind_ccc2),lin_rows)
     ind_j_nln_triplets = findall(x->!(x∈ind_ccc2),nln_rows)
 
+
+    # compute nln and lin index sets
+    lin = intersect(nlp.meta.lin, ind_c)
+    nln = intersect(nlp.meta.nln, ind_c)
+    nlin = length(lin)
+    nnln = length(nln)
+
     # UNUSED
     ind_ccc1 = IndexSet();
     ind_vcc2 = IndexSet();
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_ccc2;
-    cc_types = fill!(Vector{CCType}(undef,ncc), VarCon)
+    cc_types = fill!(Vector{CCType}(undef,ncc), VarCon())
 
 
     meta = MPCCModelMeta(Ref(nlp.meta), ncc,
                          ind_vcc1, ind_vcc2,
-                         ind_ccc, ind_ccc2,
+                         ind_ccc1, ind_ccc2,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
@@ -219,7 +249,7 @@ end
 function NLPModels.jtprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
     error("not implemented")
     # TODO(@anton) this is not correct
-    v[setminus(1:mpcc.meta.ncon, mpcc.meta.ind_c)] = 0 # TODO(@anton) this is not a great solution
+    v[setdiff(1:mpcc.meta.ncon, mpcc.meta.ind_c)] = 0 # TODO(@anton) this is not a great solution
     jtprod_lin!(mpcc.nlp, x, v, jtv)
 
     return jtv
