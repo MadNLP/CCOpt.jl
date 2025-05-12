@@ -155,10 +155,9 @@ struct MPCCModel{T, VT} <: AbstractMPCCModel{T, VT}
     meta::MPCCModelMeta{T, VT}
 end
 
-struct MPCCModelVerticalForm{T, VT} <: AbstractMPCCModel{T, VT}
-    nlp::NLPModels.AbstractNLPModel{T, VT}
-
-    meta::MPCCModelMeta{T, VT} # TODO(@anton) this needs its own metadata class
+######################### Helper functions for MPCCModel #########################
+function is_vertical(mpcc::MPCCModel)
+    return all(map((x)->isa(x,VarVar), mpcc.meta.cc_types))
 end
 
 ######################### Implementing NLPModels API #########################
@@ -263,21 +262,5 @@ function MPCCModelVerticalForm(mpcc::MPCCModel)
     ind_x = collect(1:nw)
     MPCCModelVerticalForm(nlp, ind_cc1_lift, ind_cc2_lift, ind_vcc1, ind_vcc2, ind_x, mpcc.ind_c);
 end
-
-######################### Scholtes Relaxation #########################
-struct ScholtesRelaxation{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
-    mpcc::AbstractMPCCModel{T, VT}
-    𝜎::Ref{T}
-end
-
-function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
-    if sym ∈ [:counters]
-        getfield(rnlp.mpcc.nlp, sym)
-    else
-        getfield(rnlp, sym)
-    end
-end
-
-
 
 # TODO(@anton) Add Core.show overload
