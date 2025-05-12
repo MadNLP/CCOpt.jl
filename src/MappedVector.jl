@@ -59,6 +59,14 @@ function Base.setindex!(A::MappedVector{T,VT}, x::T, i::Int) where {T,VT}
     end
 end
 
+function Base.setindex!(A::MappedVector{T,VT}, x::AbstractVector{T}, i::IndexCartesian) where {T,VT}
+    # TODO(@anton) This may cause bugs in the future but for now assume that we are always a VECTOR
+    #              Should be a safe assumption but who knows what crazy things an NLPModel may do
+    lin_i = LinearIndices(i) # TODO Does this copy a bunch?
+    show(lin_i)
+    A.par_vec[][[A.ind_set(ii) for ii=lin_i if haskey(A.ind_set, ii)]] = x[[ii for ii=lin_i if haskey(A.indset, ii)]]
+end
+
 function Base.setindex!(A::MappedVector{T,VT}, x::AbstractVector{T}, i::AbstractRange{Int}) where {T,VT}
     # TODO(@anton) check how efficient this is
     A.par_vec[][[A.ind_set(ii) for ii=i if haskey(A.ind_set, ii)]] = x[[ii for ii=i if haskey(A.indset, ii)]]

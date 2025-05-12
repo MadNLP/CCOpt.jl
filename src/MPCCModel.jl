@@ -70,7 +70,7 @@ end
 function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::IndexSet)
     # compute sizes
     ncc = length(ind_ccc1)
-    ncon = nlp.meta.ncon - ncc
+    ncon = nlp.meta.ncon - 2*ncc
 
     # compute non-complementarity variables/constraints
     ind_x = collect(1:nlp.meta.nvar)
@@ -87,8 +87,8 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     nln = intersect(nlp.meta.nln, ind_c)
     nlin = length(lin)
     nnln = length(nln)
-    c_lin = [i for i=1:nln if nlp.meta.lin[i] ∈ ind_c]
-    c_nln = [i for i=1:nln if nlp.meta.nln[i] ∈ ind_c]
+    c_lin = [i for i=1:nlin if nlp.meta.lin[i] ∈ ind_c]
+    c_nln = [i for i=1:nnln if nlp.meta.nln[i] ∈ ind_c]
 
     # Complementarity Constraints
     ind_cc1 = ind_ccc1;
@@ -128,8 +128,8 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     nln = intersect(nlp.meta.nln, ind_c)
     nlin = length(lin)
     nnln = length(nln)
-    c_lin = [i for i=1:nln if nlp.meta.lin[i] ∈ ind_c]
-    c_nln = [i for i=1:nln if nlp.meta.nln[i] ∈ ind_c]
+    c_lin = [i for i=1:nlin if nlp.meta.lin[i] ∈ ind_c]
+    c_nln = [i for i=1:nnln if nlp.meta.nln[i] ∈ ind_c]
 
     # UNUSED
     ind_cc1 = ind_vcc1;
@@ -137,7 +137,8 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     cc_types = fill!(Vector{CCType}(undef,ncc), VarCon())
 
 
-    meta = MPCCModelMeta(Ref(nlp.meta), ncc, nlin, nnln,
+    meta = MPCCModelMeta(Ref(nlp.meta),
+                         ncc, ncon, nlin, nnln,
                          lin, nln,
                          c_lin, c_nln,
                          ind_cc1, ind_cc2,
