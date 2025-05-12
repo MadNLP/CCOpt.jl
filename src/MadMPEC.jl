@@ -4,6 +4,7 @@ using NLPModels
 
 export AbstractMPCCModel,
     CCType,
+    MPCCModel,
     MPCCModelVarVar,
     MPCCModelVarCon,
     MPCCModelConCon,

@@ -45,8 +45,8 @@ function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::In
     nln = nlp.meta.nln
     nlin = length(lin)
     nnln = length(nln)
-    c_lin = 1:nlin
-    c_nln =1:nnln
+    c_lin = collect(1:nlin)
+    c_nln = collect(1:nnln)
 
     # Complementarity Constraints
     ind_cc1 = ind_vcc1;
@@ -98,6 +98,7 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     meta = MPCCModelMeta(Ref(nlp.meta),
                          ncc, ncon, nlin, nnln,
                          lin, nln,
+                         c_lin, c_nln,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
@@ -136,7 +137,9 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     cc_types = fill!(Vector{CCType}(undef,ncc), VarCon())
 
 
-    meta = MPCCModelMeta(Ref(nlp.meta), ncc,
+    meta = MPCCModelMeta(Ref(nlp.meta), ncc, nlin, nnln,
+                         lin, nln,
+                         c_lin, c_nln,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
@@ -161,12 +164,6 @@ end
 NLPModels.obj(mpcc::AbstractMPCCModel, x::AbstractVector) = NLPModels.obj(mpcc.nlp, x)
 NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector) = NLPModels.grad!(mpcc.nlp, x, gx)
 NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector) = NLPModels.objgrad!(mpcc.nlp, x, g)
-
-# TODO(@anton) This is not currently allocationless and requires initial arrays
-# which are the size of nlp.meta.ncon rather than the "true" ncon which is nlp.meta.ncon - ncc,
-# and these are then shrunk to size (hence avoiding allocation).
-# The only way to make it so in my view is to implement a custom Subarray which allows for "ignored" indices
-# Perhaps there is another way however, I haven't found a good one yet.
 
 function NLPModels.cons_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
     mcx = MappedVector(cx, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
@@ -253,13 +250,7 @@ function NLPModels.hprod!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::Abstra
 # Note: This requires special handling for all values because you also have lifted variables, which are not represented in nlp.
 
 ######################### Vertical Form Conversions #########################
-function MPCCModelVerticalForm(mpcc::MPCCModelGeneric)
-    # TODO
-    error("unimplemented")
-    MPCCModelVarVar(nlp, ind_vcc1, ind_vcc2, ind_x);
-end
-
-function MPCCModelVerticalForm(mpcc::MPCCModelConCon)
+function MPCCModelVerticalForm(mpcc::MPCCModel)
     # NOTE: We assume that we have to lift ALL Nonlinear complementarity constraints
 
     ncc = length(mpcc.ind_ccc1)
@@ -270,22 +261,6 @@ function MPCCModelVerticalForm(mpcc::MPCCModelConCon)
     ind_vcc2 = collect(nw+ncc+1:nw+2*ncc)
     ind_x = collect(1:nw)
     MPCCModelVerticalForm(nlp, ind_cc1_lift, ind_cc2_lift, ind_vcc1, ind_vcc2, ind_x, mpcc.ind_c);
-end
-
-function MPCCModelVerticalForm(mpcc::MPCCModelVarCon)
-    ncc = length(mpcc.ind_vcc1)
-    nw = mpcc.nlp.meta.nvar
-    ind_vcc1 = mpcc.ind_vcc1
-    ind_vcc2 = collect(nw+1:nw+ncc)
-    ind_x = collect(1:nw)
-    MPCCModelVerticalForm(nlp, [], mpcc.ind_ccc2, ind_vcc1, ind_vcc2, ind_x);
-end
-
-"""
-  A noop because the mpcc is already in vertical form
-"""
-function MPCCModelVerticalForm(mpcc::MPCCModelVarVar)
-    return MPCCModelVerticalForm(mpcc, Int[], Int[], mpcc.ind_vcc1, mpcc.ind_vcc2, mpcc.ind_x, mpcc.ind_c)
 end
 
 ######################### Scholtes Relaxation #########################
