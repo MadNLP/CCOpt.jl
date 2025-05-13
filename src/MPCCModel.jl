@@ -261,37 +261,36 @@ function NLPModels.cons_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::Abs
     return cx
 end
 
-function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
-    jac_lin_structure!(mpcc.nlp, rows, cols) # get including complementarities
+function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
+    mrows = MappedVector(rows, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
+    mcols = MappedVector(cols, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
+    jac_lin_structure!(mpcc.nlp, mrows, mcols) # get including complementarities
 
     # Convert row values adjusting for the number of linear complementarities
-    map!((x) -> mpcc.meta.ind_j_lin_row_map[x], rows)
+    map!((x) -> mpcc.meta.ind_j_lin_row_map[x], rows, rows)
 
-    keepat!(rows, mpcc.meta.ind_j_lin_structure)
-    keepat!(cols, mpcc.meta.ind_j_lin_structure)
     return rows, cols
 end
 
-function NLPModels.jac_nln_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
-    jac_nln_structure!(mpcc.nlp, rows, cols) # get including complementarities
+function NLPModels.jac_nln_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
+    mrows = MappedVector(rows, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
+    mcols = MappedVector(cols, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
+    jac_nln_structure!(mpcc.nlp, mrows, mcols) # get including complementarities
 
-    map!((x) -> mpcc.meta.ind_j_nln_row_map[x], rows)
-
-    keepat!(rows, mpcc.meta.ind_j_nln_structure)
-    keepat!(cols, mpcc.meta.ind_j_nln_structure)
+    map!((x) -> mpcc.meta.ind_j_nln_row_map[x], rows, rows)
     return rows, cols
 end
 
 function NLPModels.jac_lin_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j::AbstractVector)
-    jac_lin_coord!(mpcc.nlp, x, j)
+    mj = MappedVector(j, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
+    jac_lin_coord!(mpcc.nlp, x, mj)
 
-    keepat!(j, mpcc.meta.ind_j_lin_structure)
     return j
 end
 function NLPModels.jac_nln_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j::AbstractVector)
-    jac_nln_coord!(mpcc.nlp, x, j)
+    mj = MappedVector(j, mpcc.meta.ind_j_nln_triplets, mpcc.nlp.meta.nln_nnzj)
+    jac_lin_coord!(mpcc.nlp, x, mj)
 
-    keepat!(j, mpcc.meta.ind_j_nln_structure)
     return j
 end
 
@@ -325,7 +324,7 @@ function NLPModels.jtprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::Ab
     return jv
 end
 
-function NLPModels.hess_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
+function NLPModels.hess_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
     return hess_structure!(mpcc.nlp, rows, cols)
 end
 function NLPModels.hess_coord!(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, Hv::AbstractVector, obj_weight::Real = one(T)) where {T, VT}
@@ -410,6 +409,37 @@ function lcomp_right!(mpcc::AbstractMPCCModel, lccx::AbstractVector)
     return lccx
 end
 
+function comp_res_left!(mpcc::AbstractMPCCModel, x::AbstractVector, rccx::AbstractVector)
+    @lencheck mpcc.meta.ncc rccx
+    @lencheck mpcc.meta.nvar x
+
+    comp_left!(mpcc, x, rccx)
+
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+            rccx[i] -= mpcc.nlp.meta.lvar[mpcc.meta.ind_cc1[i]]
+        else
+            rccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc1[i]]
+        end
+    end
+end
+
+function comp_res_right!(mpcc::AbstractMPCCModel, x::AbstractVector, rccx::AbstractVector)
+    @lencheck mpcc.meta.ncc rccx
+    @lencheck mpcc.meta.nvar x
+
+    comp_right!(mpcc, x, rccx)
+
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], VarVar)
+            rccx[i] -= mpcc.nlp.meta.lvar[mpcc.meta.ind_cc2[i]]
+        else
+            rccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc2[i]]
+        end
+    end
+end
+
+
 function jac_comp_left_structure(mpcc::AbstractMPCCModel)
     rows = IndexSet(undef, mpcc.meta.comp_left_nnzj)
     cols = IndexSet(undef, mpcc.meta.comp_left_nnzj)
@@ -417,7 +447,7 @@ function jac_comp_left_structure(mpcc::AbstractMPCCModel)
     return jac_comp_left_structure!(mpcc, rows, cols)
 end
 
-function jac_comp_left_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
+function jac_comp_left_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
     # NOTE: Var type nnz triples come at end ALWAYS
     mrows = MappedVector(rows, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
     mcols = MappedVector(cols, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
@@ -445,7 +475,7 @@ function jac_comp_right_structure(mpcc::AbstractMPCCModel)
     return jac_comp_right_structure!(mpcc, rows, cols)
 end
 
-function jac_comp_right_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
+function jac_comp_right_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
     # NOTE: Var type nnz triples come at end ALWAYS
     mrows = MappedVector(rows, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
     mcols = MappedVector(cols, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
@@ -497,23 +527,19 @@ end
 
 function jac_comp_right_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, vals::AbstractVector)
     # NOTE: Var type nnz triples come at end ALWAYS
-    mrows = MappedVector(rows, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
-    mcols = MappedVector(cols, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
+    mvals = MappedVector(vals, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
 
-    NLPModels.jac_coord!(mpcc.nlp, mrows, mcols)
-
-    map!(x-> (x ≠ 0 ? mpcc.meta.ind_j_comp_right_row_map[x] : 0), mrows, mrows)
+    NLPModels.jac_coord!(mpcc.nlp, x, mvals)
 
     i_var_comp = length(mpcc.meta.ind_j_comp_right_triplets) + 1
     # TODO(@anton) maybe vectorize
     for i=1:mpcc.meta.ncc
         if isa(mpcc.meta.cc_types[i], VarVar)
-            rows[i_var_comp] = i;
-            cols[i_var_comp] = mpcc.meta.ind_cc2[i]
+            vals[i_var_comp] = 1.;
             i_var_comp += 1
         end
     end
-    return rows,cols
+    return vals
 end
 
 ######################### MPCCModelVarVar #########################

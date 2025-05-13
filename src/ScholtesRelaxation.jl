@@ -17,7 +17,7 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T,VT}) where {T,VT}
     lcon = append!(mpcc.meta.lcon, -Inf*ones(mpcc.meta.ncc))
     ucon = append!(mpcc.meta.ucon, zeros(mpcc.meta.ncc))
     y0 = append!(mpcc.meta.y0, zeros(mpcc.meta.ncc))
-    # TODO(@anton) this is an upper bound: we can calculate this exactly if we store
+    # TODO(@anton) this is a lower bound: we can calculate this exactly if we store
     #              the nnz for the jacobians of G, and H
     nnzj = mpcc.meta.nnzj + 2*mpcc.meta.ncc
     nln_nnzj = mpcc.meta.nln_nnzj + 2*mpcc.meta.ncc
@@ -69,41 +69,50 @@ function NLPModels.cons_nln!(rnlp::ScholtesRelaxation{T,VT}, x::VT, cx::VT) wher
     cx[(mpcc_nnln+1):(rnlp.meta.nnln)] = (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)).*(comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
 end
 
-function NLPModels.jac_lin_structure!(mpcc::ScholtesRelaxation, rows::Vector{Int}, cols::Vector{Int}) where {T, VT}
-    jac_lin_structure!(mpcc, rows, cols) # get including complementarities
+function NLPModels.jac_lin_structure!(rnlp::ScholtesRelaxation, rows::AbstractVector{Int}, cols::AbstractVector{Int})
+    jac_lin_structure!(rnlp.mpcc, rows, cols) # get including complementarities
     return rows, cols
 end
 
-function NLPModels.jac_nln_structure!(mpcc::ScholtesRelaxation, rows::Vector{Int}, cols::Vector{Int}) where {T, VT}
-    jac_nln_structure!(mpcc, rows, cols) # get including complementarities
+function NLPModels.jac_nln_structure!(rnlp::ScholtesRelaxation, rows::AbstractVector{Int}, cols::AbstractVector{Int})
+    jac_nln_structure!(rnlp.mpcc, @view(rows[1:rnlp.mpcc.meta.nln_nnzj]), @view(cols[1:rnlp.mpcc.meta.nln_nnzj])) # get including complementarities
 
+    for i=1:rnlp.mpcc.meta.ncc
+        rows[i+rnlp.mpcc.meta.nln_nnzj] = i + rnlp.mpcc.meta.ncon
+        cols[i+rnlp.mpcc.meta.nln_nnzj] = rnlp.mpcc.meta.ind_cc1[i]
+    end
+    for i=1:rnlp.mpcc.meta.ncc
+        rows[i+rnlp.mpcc.meta.nln_nnzj + rnlp.mpcc.meta.ncc] = i + rnlp.mpcc.meta.ncon
+        cols[i+rnlp.mpcc.meta.nln_nnzj + rnlp.mpcc.meta.ncc] = rnlp.mpcc.meta.ind_cc2[i]
+    end
 
     return rows, cols
 end
 
-function NLPModels.jac_lin_coord!(mpcc::ScholtesRelaxation, x::VT, j::VT) where {T, VT}
+function NLPModels.jac_lin_coord!(rnlp::ScholtesRelaxation, x::AbstractVector, j::AbstractVector)
+    return jac_lin_coord!(rnlp.mpcc, x, j)
+end
+function NLPModels.jac_nln_coord!(rnlp::ScholtesRelaxation, x::AbstractVector, j::AbstractVector)
+    jac_nln_coord!(rnlp.mpcc, x, @view(j[1:rnlp.mpcc.meta.nln_nnzj]))
+
+    comp_res_right!(rnlp.mpcc, x, @view(j[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj + rnlp.mpcc.meta.ncc)]))
+    comp_res_left!(rnlp.mpcc, x, @view(j[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj + 2*rnlp.mpcc.meta.ncc)]))
     return j
 end
-function NLPModels.jac_nln_coord!(mpcc::ScholtesRelaxation, x::VT, j::VT) where {T, VT}
-    jac_nln_coord!(mpcc.nlp, x, j)
 
-    keepat!(j, mpcc.meta.ind_j_nln_structure)
-    return j
-end
-
-function NLPModels.jprod_lin!(mpcc::ScholtesRelaxation, x::VT, v::VT, jv::VT) where {T, VT}
+function NLPModels.jprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
     mjv = MappedVector(jv, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
     jprod_lin!(mpcc.nlp, x, v, mjv)
     return jv
 end
 
-function NLPModels.jprod_nln!(mpcc::ScholtesRelaxation, x::VT, v::VT, jv::VT) where {T, VT}
+function NLPModels.jprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
     mjv = MappedVector(jv, mpcc.meta.c_nln, mpcc.nlp.meta.nnln)
     jprod_lin!(mpcc.nlp, x, v, mjv)
     return jv
 end
 
-function NLPModels.jtprod_lin!(mpcc::ScholtesRelaxation, x::VT, v::VT, jtv::VT) where {T, VT}
+function NLPModels.jtprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
     error("not implemented")
     # TODO(@anton) this is not correct
     v[setdiff(1:mpcc.meta.ncon, mpcc.meta.ind_c)] = 0 # TODO(@anton) this is not a great solution
@@ -112,7 +121,7 @@ function NLPModels.jtprod_lin!(mpcc::ScholtesRelaxation, x::VT, v::VT, jtv::VT) 
     return jtv
 end
 
-function NLPModels.jtprod_nln!(mpcc::ScholtesRelaxation, x::VT, v::VT, jtv::VT) where {T, VT}
+function NLPModels.jtprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
     error("not implemented")
     # TODO(@anton) this is not correct
     jprod_lin!(mpcc.nlp, x, v, jv)
@@ -121,9 +130,9 @@ function NLPModels.jtprod_nln!(mpcc::ScholtesRelaxation, x::VT, v::VT, jtv::VT) 
     return jv
 end
 
-function NLPModels.hess_structure!(mpcc::ScholtesRelaxation, rows::Vector{Int}, cols::Vector{Int}) where {T, VT}
+function NLPModels.hess_structure!(rnlp::ScholtesRelaxation, rows::Vector{Int}, cols::Vector{Int})
     return hess_structure!(mpcc.nlp, rows, cols)
 end
-function NLPModels.hess_coord!(mpcc::ScholtesRelaxation{T,VT}, x::VT, y::VT, Hv::VT, obj_weight::Real = one(T)) where {T, VT}
+function NLPModels.hess_coord!(rnlp::ScholtesRelaxation, x::AbstractVector, y::AbstractVector, Hv::AbstractVector, obj_weight::Real = one(T))
     return hess_coord!(mpcc.nlp, x, y, Hv, obj_weight)
 end
