@@ -294,34 +294,28 @@ function NLPModels.jac_nln_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j:
     return j
 end
 
-function NLPModels.jprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
-    mjv = MappedVector(jv, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
-    jprod_lin!(mpcc.nlp, x, v, mjv)
-    return jv
+function NLPModels.jprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
+    # TODO(@anton) do this in a smarter way?
+    Jv[1:mpcc.meta.nlin] = jac_lin(mpcc, x) * v
+    return Jv
 end
 
-function NLPModels.jprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
-    mjv = MappedVector(jv, mpcc.meta.c_nln, mpcc.nlp.meta.nnln)
-    jprod_lin!(mpcc.nlp, x, v, mjv)
-    return jv
+function NLPModels.jprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
+    # TODO(@anton) do this in a smarter way?
+    Jv[1:mpcc.meta.nnln] = jac_nln(mpcc, x) * v
+    return Jv
 end
 
-function NLPModels.jtprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
-    error("not implemented")
-    # TODO(@anton) this is not correct
-    v[setdiff(1:mpcc.meta.ncon, mpcc.meta.ind_c)] = 0 # TODO(@anton) this is not a great solution
-    jtprod_lin!(mpcc.nlp, x, v, jtv)
-
-    return jtv
+function NLPModels.jtprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
+    # TODO(@anton) do this in a smarter way?
+    Jtv[1:mpcc.meta.nvar] = jac_lin(mpcc, x)' * v
+    return Jtv
 end
 
-function NLPModels.jtprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
-    error("not implemented")
-    # TODO(@anton) this is not correct
-    jprod_lin!(mpcc.nlp, x, v, jv)
-
-    keepat!(jv, mpcc.meta.ind_c)
-    return jv
+function NLPModels.jtprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
+    # TODO(@anton) do this in a smarter way?
+    Jv[1:mpcc.meta.nvar] = jac_nln(mpcc, x)' * v
+    return Jtv
 end
 
 function NLPModels.hess_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})

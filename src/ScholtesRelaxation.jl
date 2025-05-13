@@ -100,34 +100,28 @@ function NLPModels.jac_nln_coord!(rnlp::ScholtesRelaxation, x::AbstractVector, j
     return j
 end
 
-function NLPModels.jprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
-    mjv = MappedVector(jv, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
-    jprod_lin!(mpcc.nlp, x, v, mjv)
-    return jv
+function NLPModels.jprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
+    # TODO(@anton) do this in a smarter way
+    Jv[1:rnlp.meta.nlin] = jac_lin(rnlp, x) * v
+    return Jv
 end
 
-function NLPModels.jprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
-    mjv = MappedVector(jv, mpcc.meta.c_nln, mpcc.nlp.meta.nnln)
-    jprod_lin!(mpcc.nlp, x, v, mjv)
-    return jv
+function NLPModels.jprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
+    # TODO(@anton) do this in a smarter way
+    Jv[1:rnlp.meta.nnln] = jac_nln(rnlp, x) * v
+    return Jv
 end
 
-function NLPModels.jtprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
-    error("not implemented")
-    # TODO(@anton) this is not correct
-    v[setdiff(1:mpcc.meta.ncon, mpcc.meta.ind_c)] = 0 # TODO(@anton) this is not a great solution
-    jtprod_lin!(mpcc.nlp, x, v, jtv)
-
-    return jtv
+function NLPModels.jtprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
+    # TODO(@anton) do this in a smarter way
+    Jtv[1:rnlp.meta.nvar] = jac_lin(rnlp, x)' * v
+    return Jtv
 end
 
-function NLPModels.jtprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, jtv::AbstractVector)
-    error("not implemented")
-    # TODO(@anton) this is not correct
-    jprod_lin!(mpcc.nlp, x, v, jv)
-
-    keepat!(jv, mpcc.meta.ind_c)
-    return jv
+function NLPModels.jtprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
+    # TODO(@anton) do this in a smarter way
+    Jtv[1:rnlp.meta.nvar] = jac_nln(rnlp, x)' * v
+    return Jtv
 end
 
 function NLPModels.hess_structure!(rnlp::ScholtesRelaxation, rows::Vector{Int}, cols::Vector{Int})
