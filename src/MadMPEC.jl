@@ -54,7 +54,23 @@ export AbstractMPCCModel,
     jnltprod,
     jnltprod!,
     jac_nl_op,
-    jac_nl_op!
+    jac_nl_op!,
+    comp_left,
+    comp_left!,
+    comp_right,
+    comp_right!,
+    lcomp_left,
+    lcomp_left!,
+    lcomp_right,
+    lcomp_right!,
+    jac_comp_left_structure,
+    jac_comp_left_structure!,
+    jac_comp_right_structure,
+    jac_comp_right_structure!,
+    jac_comp_left_coord,
+    jac_comp_left_coord!,
+    jac_comp_right_coord,
+    jac_comp_right_coord!
 
 include("Types.jl")
 include("MappedVector.jl")

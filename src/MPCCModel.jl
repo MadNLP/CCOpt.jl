@@ -39,7 +39,13 @@ function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::In
     # compute jacobian structure indexset
     ind_j_lin_triplets = collect(1:nlp.meta.lin_nnzj)
     ind_j_nln_triplets = collect(1:nlp.meta.nln_nnzj)
+    ind_j_lin_row_map = Dict(zip(1:nlin, 1:nlin))
+    ind_j_nln_row_map = Dict(zip(1:nnln, 1:nnln))
 
+    ind_j_comp_left_triplets::IndexSet = []
+    ind_j_comp_right_triplets::IndexSet = []
+    ind_j_comp_left_row_map = Dict{Int,Int}()
+    ind_j_comp_right_row_map = Dict{Int,Int}()
     # compute nln and lin index sets
     lin = nlp.meta.lin
     nln = nlp.meta.nln
@@ -47,21 +53,35 @@ function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::In
     nnln = length(nln)
     c_lin = collect(1:nlin)
     c_nln = collect(1:nnln)
+    cc_l::IndexSet = []
+    cc_r::IndexSet = []
 
     # Complementarity Constraints
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_vcc2;
     cc_types = fill!(Vector{CCType}(undef,ncc), VarVar())
 
+    # nnzj updates:
+    nnzj = nlp.meta.nnzj
+    lin_nnzj = nlp.meta.lin_nnzj
+    nln_nnzj = nlp.meta.nln_nnzj
+    comp_left_nnzj = ncc
+    comp_right_nnzj = ncc
 
     meta = MPCCModelMeta(Ref(nlp.meta),
                          ncc, ncon, nlin, nnln,
+                         nnzj, lin_nnzj, nln_nnzj,
+                         comp_left_nnzj, comp_right_nnzj,
                          lin, nln,
                          c_lin, c_nln,
+                         cc_l, cc_r,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
-                         ind_j_lin_triplets, ind_j_nln_triplets)
+                         ind_j_lin_triplets, ind_j_nln_triplets,
+                         ind_j_comp_left_triplets, ind_j_comp_right_triplets,
+                         ind_j_comp_left_row_map, ind_j_comp_right_row_map,
+                         ind_j_lin_row_map, ind_j_nln_row_map)
 
     MPCCModel(nlp, meta)
 end
@@ -79,8 +99,20 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     # compute jacobian structure indexset
     lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
     nln_rows, nln_cols = NLPModels.jac_nln_structure(nlp)
-    ind_j_lin_triplets = findall(x->!((x∈ind_ccc1) || (x∈ind_ccc2)),lin_rows)
-    ind_j_nln_triplets = findall(x->!((x∈ind_ccc1) || (x∈ind_ccc2)),nln_rows)
+    rows, cols = NLPModels.jac_nln_structure(nlp)
+    for i=1:nlp.meta.nlin
+        lin_rows[i] += count(x < nlp.meta.lin[lin_rows[i]] for x in nlp.meta.nln)
+    end
+    for i=1:nlp.meta.nnln
+        nln_rows[i] += count(x < nlp.meta.nln[nln_rows[i]] for x in nlp.meta.lin)
+    end
+    ind_j_lin_triplets = findall(x->!((x∈ind_ccc1) || (x∈ind_ccc2)), lin_rows)
+    ind_j_nln_triplets = findall(x->!((x∈ind_ccc1) || (x∈ind_ccc2)), nln_rows)
+    ind_j_comp_left_triplets = findall(x-> x∈ind_ccc1, rows);
+    ind_j_comp_right_triplets = findall(x-> x∈ind_ccc2, rows);
+    ind_j_comp_left_row_map = Dict{Int,Int}(zip(ind_ccc1,1:ncc))
+    ind_j_comp_right_row_map = Dict{Int,Int}(zip(ind_ccc2,1:ncc))
+
 
     # compute nln and lin index sets
     lin = intersect(nlp.meta.lin, ind_c)
@@ -88,21 +120,41 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     nlin = length(lin)
     nnln = length(nln)
     c_lin = [i for i=1:nlin if nlp.meta.lin[i] ∈ ind_c]
+    cc_lin = [i for i=1:nlin if nlp.meta.lin[i] ∉ ind_c]
     c_nln = [i for i=1:nnln if nlp.meta.nln[i] ∈ ind_c]
+    cc_nln = [i for i=1:nnln if nlp.meta.nln[i] ∉ ind_c]
+
+    ind_j_lin_row_map = Dict((i, i-count([x < j for x in cc_lin])) for i in 1:nlp.meta.nlin)
+    ind_j_nln_row_map = Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
 
     # Complementarity Constraints
     ind_cc1 = ind_ccc1;
     ind_cc2 = ind_ccc2;
     cc_types = fill!(Vector{CCType}(undef,ncc), ConCon())
+    cc_l = [i for i=1:nlp.meta.ncon if i ∈ ind_cc1]
+    cc_r = [i for i=1:nlp.meta.ncon if i ∈ ind_cc2]
+
+    # nnzj updates:
+    lin_nnzj = length(ind_j_lin_triplets)
+    nln_nnzj = length(ind_j_nln_triplets)
+    nnzj = lin_nnzj + nln_nnzj
+    comp_left_nnzj = length(ind_j_comp_left_triplets)
+    comp_right_nnzj = length(ind_j_comp_right_triplets)
 
     meta = MPCCModelMeta(Ref(nlp.meta),
                          ncc, ncon, nlin, nnln,
+                         nnzj, lin_nnzj, nln_nnzj,
+                         comp_left_nnzj, comp_right_nnzj,
                          lin, nln,
                          c_lin, c_nln,
+                         cc_l, cc_r,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
-                         ind_j_lin_triplets, ind_j_nln_triplets)
+                         ind_j_lin_triplets, ind_j_nln_triplets,
+                         ind_j_comp_left_triplets, ind_j_comp_right_triplets,
+                         ind_j_comp_left_row_map, ind_j_comp_right_row_map,
+                         ind_j_lin_row_map, ind_j_nln_row_map)
 
     MPCCModel(nlp, meta)
 end
@@ -119,8 +171,21 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     # compute jacobian structure indexset
     lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
     nln_rows, nln_cols = NLPModels.jac_nln_structure(nlp)
+    rows, cols = NLPModels.jac_nln_structure(nlp)
+    # Convert to true row numbers
+    for i=1:nlp.meta.nlin
+        lin_rows[i] += count(x < nlp.meta.lin[lin_rows[i]] for x in nlp.meta.nln)
+    end
+    for i=1:nlp.meta.nnln
+        nln_rows[i] += count(x < nlp.meta.nln[nln_rows[i]] for x in nlp.meta.lin)
+    end
+    # Keep only the "correct" indices
     ind_j_lin_triplets = findall(x->!(x∈ind_ccc2),lin_rows)
     ind_j_nln_triplets = findall(x->!(x∈ind_ccc2),nln_rows)
+    ind_j_comp_left_triplets::IndexSet = [];
+    ind_j_comp_right_triplets = findall(x-> x∈ind_ccc2, rows);
+    ind_j_comp_left_row_map = Dict{Int,Int}()
+    ind_j_comp_right_row_map = Dict{Int,Int}(zip(ind_ccc2,1:ncc))
 
 
     # compute nln and lin index sets
@@ -129,22 +194,41 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     nlin = length(lin)
     nnln = length(nln)
     c_lin = [i for i=1:nlin if nlp.meta.lin[i] ∈ ind_c]
+    cc_lin = [i for i=1:nlin if nlp.meta.lin[i] ∉ ind_c]
     c_nln = [i for i=1:nnln if nlp.meta.nln[i] ∈ ind_c]
+    cc_nln = [i for i=1:nnln if nlp.meta.nln[i] ∉ ind_c]
+
+    ind_j_lin_row_map = Dict((i, i-count([x < j for x in cc_lin])) for i in 1:nlp.meta.nlin)
+    ind_j_nln_row_map = Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
 
     # UNUSED
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_ccc2;
     cc_types = fill!(Vector{CCType}(undef,ncc), VarCon())
+    cc_l::IndexSet = [];
+    cc_r = [i for i=1:nlp.meta.ncon if i ∈ ind_cc2]
 
+    # nnzj updates:
+    lin_nnzj = length(ind_j_lin_triplets)
+    nln_nnzj = length(ind_j_nln_triplets)
+    nnzj = lin_nnzj + nln_nnzj
+    comp_left_nnzj = ncc
+    comp_right_nnzj = length(ind_j_comp_right_triplets)
 
     meta = MPCCModelMeta(Ref(nlp.meta),
                          ncc, ncon, nlin, nnln,
+                         nnzj, lin_nnzj, nln_nnzj,
+                         comp_left_nnzj, comp_right_nnzj,
                          lin, nln,
                          c_lin, c_nln,
+                         cc_l, cc_r,
                          ind_cc1, ind_cc2,
                          cc_types,
                          ind_x, ind_c,
-                         ind_j_lin_triplets, ind_j_nln_triplets)
+                         ind_j_lin_triplets, ind_j_nln_triplets,
+                         ind_j_comp_left_triplets, ind_j_comp_right_triplets,
+                         ind_j_comp_left_row_map, ind_j_comp_right_row_map,
+                         ind_j_lin_row_map, ind_j_nln_row_map)
 
     MPCCModel(nlp, meta)
 end
@@ -180,6 +264,9 @@ end
 function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
     jac_lin_structure!(mpcc.nlp, rows, cols) # get including complementarities
 
+    # Convert row values adjusting for the number of linear complementarities
+    map!((x) -> mpcc.meta.ind_j_lin_row_map[x], rows)
+
     keepat!(rows, mpcc.meta.ind_j_lin_structure)
     keepat!(cols, mpcc.meta.ind_j_lin_structure)
     return rows, cols
@@ -187,6 +274,8 @@ end
 
 function NLPModels.jac_nln_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
     jac_nln_structure!(mpcc.nlp, rows, cols) # get including complementarities
+
+    map!((x) -> mpcc.meta.ind_j_nln_row_map[x], rows)
 
     keepat!(rows, mpcc.meta.ind_j_nln_structure)
     keepat!(cols, mpcc.meta.ind_j_nln_structure)
@@ -243,6 +332,190 @@ function NLPModels.hess_coord!(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector{
     return hess_coord!(mpcc.nlp, x, y, Hv, obj_weight)
 end
 function NLPModels.hprod!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
+
+function comp_left(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector) where {T, VT}
+    ccx = VT(undef, mpcc.meta.ncc)
+    return comp_left!(mpcc, x, ccx)
+end
+
+function comp_left!(mpcc::AbstractMPCCModel, x::AbstractVector, ccx::AbstractVector)
+    @lencheck mpcc.meta.ncc ccx
+    @lencheck mpcc.meta.nvar x
+    # First get variables:
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], Union{VarVar,VarCon})
+            ccx[i] = x[mpcc.meta.ind_cc1[i]]
+        end
+    end
+
+    mccx = MappedVector(ccx, mpcc.meta.cc_l, mpcc.nlp.meta.ncon)
+    NLPModels.cons!(mpcc.nlp, x, mccx)
+    return ccx
+end
+
+function comp_right(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    ccx = VT(undef, mpcc.meta.ncc)
+    return comp_right!(mpcc, x, ccx)
+end
+
+function comp_right!(mpcc::AbstractMPCCModel, x::AbstractVector, ccx::AbstractVector)
+    @lencheck mpcc.meta.ncc ccx
+    @lencheck mpcc.meta.nvar x
+
+    # First get variables:
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], VarVar)
+            ccx[i] = x[mpcc.meta.ind_cc2[i]]
+        end
+    end
+
+    mccx = MappedVector(ccx, mpcc.meta.cc_r, mpcc.nlp.meta.ncon)
+    NLPModels.cons!(mpcc.nlp, x, mccx)
+    return ccx
+end
+
+function lcomp_left(mpcc::AbstractMPCCModel{T,VT}) where {T, VT}
+    lccx = VT(undef, mpcc.meta.ncc)
+    return lcomp_left!(mpcc, lccx)
+end
+
+function lcomp_left!(mpcc::AbstractMPCCModel, lccx::AbstractVector)
+    @lencheck mpcc.meta.ncc lccx
+
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+            lccx[i] = mpcc.nlp.meta.lvar[mpcc.meta.ind_cc1[i]]
+        else
+            lccx[i] = mpcc.nlp.meta.lcon[mpcc.meta.ind_cc1[i]]
+        end
+    end
+    return lccx
+end
+
+function lcomp_right(mpcc::AbstractMPCCModel{T,VT}) where {T, VT}
+    lccx = VT(undef, mpcc.meta.ncc)
+    return lcomp_right!(mpcc, lccx)
+end
+
+function lcomp_right!(mpcc::AbstractMPCCModel, lccx::AbstractVector)
+    @lencheck mpcc.meta.ncc lccx
+
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], VarVar)
+            lccx[i] = mpcc.nlp.meta.lvar[mpcc.meta.ind_cc2[i]]
+        else
+            lccx[i] = mpcc.nlp.meta.lcon[mpcc.meta.ind_cc2[i]]
+        end
+    end
+    return lccx
+end
+
+function jac_comp_left_structure(mpcc::AbstractMPCCModel)
+    rows = IndexSet(undef, mpcc.meta.comp_left_nnzj)
+    cols = IndexSet(undef, mpcc.meta.comp_left_nnzj)
+
+    return jac_comp_left_structure!(mpcc, rows, cols)
+end
+
+function jac_comp_left_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
+    # NOTE: Var type nnz triples come at end ALWAYS
+    mrows = MappedVector(rows, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
+    mcols = MappedVector(cols, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
+
+    NLPModels.jac_structure!(mpcc.nlp, mrows, mcols)
+
+    map!(x-> (x ≠ 0 ? mpcc.meta.ind_j_comp_left_row_map[x] : 0), mrows, mrows)
+
+    i_var_comp = length(mpcc.meta.ind_j_comp_left_triplets) + 1
+    # TODO(@anton) maybe vectorize
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+            rows[i_var_comp] = i;
+            cols[i_var_comp] = mpcc.meta.ind_cc1[i]
+            i_var_comp += 1
+        end
+    end
+    return rows,cols
+end
+
+function jac_comp_right_structure(mpcc::AbstractMPCCModel)
+    rows = IndexSet(undef, mpcc.meta.comp_right_nnzj)
+    cols = IndexSet(undef, mpcc.meta.comp_right_nnzj)
+
+    return jac_comp_right_structure!(mpcc, rows, cols)
+end
+
+function jac_comp_right_structure!(mpcc::AbstractMPCCModel, rows::Vector{Int}, cols::Vector{Int})
+    # NOTE: Var type nnz triples come at end ALWAYS
+    mrows = MappedVector(rows, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
+    mcols = MappedVector(cols, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
+
+    NLPModels.jac_structure!(mpcc.nlp, mrows, mcols)
+
+    map!(x-> (x ≠ 0 ? mpcc.meta.ind_j_comp_right_row_map[x] : 0), mrows, mrows)
+
+    i_var_comp = length(mpcc.meta.ind_j_comp_right_triplets) + 1
+    # TODO(@anton) maybe vectorize
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], VarVar)
+            rows[i_var_comp] = i;
+            cols[i_var_comp] = mpcc.meta.ind_cc2[i]
+            i_var_comp += 1
+        end
+    end
+    return rows,cols
+end
+
+function jac_comp_left_coord(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector) where {T, VT}
+    vals = VT(undef, mpcc.meta.comp_left_nnzj)
+
+    return jac_comp_left_coord!(mpcc, x, vals)
+end
+
+function jac_comp_left_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, vals::AbstractVector)
+    # NOTE: Var type nnz triples come at end ALWAYS
+    mvals = MappedVector(vals, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
+
+    NLPModels.jac_coord!(mpcc.nlp, x, mvals)
+
+    i_var_comp = length(mpcc.meta.ind_j_comp_left_triplets) + 1
+    # TODO(@anton) maybe vectorize
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+            vals[i_var_comp] = 1.;
+            i_var_comp += 1
+        end
+    end
+    return vals
+end
+
+function jac_comp_right_coord(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+     vals = VT(undef, mpcc.meta.comp_left_nnzj)
+
+    return jac_comp_right_coord!(mpcc, x, vals)
+end
+
+function jac_comp_right_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, vals::AbstractVector)
+    # NOTE: Var type nnz triples come at end ALWAYS
+    mrows = MappedVector(rows, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
+    mcols = MappedVector(cols, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
+
+    NLPModels.jac_coord!(mpcc.nlp, mrows, mcols)
+
+    map!(x-> (x ≠ 0 ? mpcc.meta.ind_j_comp_right_row_map[x] : 0), mrows, mrows)
+
+    i_var_comp = length(mpcc.meta.ind_j_comp_right_triplets) + 1
+    # TODO(@anton) maybe vectorize
+    for i=1:mpcc.meta.ncc
+        if isa(mpcc.meta.cc_types[i], VarVar)
+            rows[i_var_comp] = i;
+            cols[i_var_comp] = mpcc.meta.ind_cc2[i]
+            i_var_comp += 1
+        end
+    end
+    return rows,cols
+end
+
 ######################### MPCCModelVarVar #########################
 ######################### MPCCModelVarCon #########################
 ######################### MPCCModelConCon #########################

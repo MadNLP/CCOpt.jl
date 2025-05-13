@@ -10,6 +10,7 @@ struct MappedVector{T, VT<:AbstractVector{T}} <: AbstractVector{T}
 end
 
 function MappedVector(par_vec::AbstractVector{T}, inds::AbstractVector{Int}, n::Int) where {T}
+    # TODO(@anton) ideally this does not allocate any new memory.
     MappedVector(Ref(par_vec), Dict([(ind, i) for (i,ind)=enumerate(inds)]), n)
 end
 
