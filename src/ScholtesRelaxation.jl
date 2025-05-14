@@ -45,7 +45,7 @@ end
 # Counters should be forwarded
 function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
     if sym ∈ [:counters]
-        getfield(rnlp.mpcc.nlp, sym)
+        getproperty(rnlp.mpcc.nlp, sym)
     else
         getfield(rnlp, sym)
     end
@@ -53,7 +53,7 @@ end
 
 ######################### NLPModels Callbacks #########################
 
-function NLPModels.cons_lin!(rnlp::ScholtesRelaxation{T,VT}, x::VT, cx::VT) where {T, VT}
+function NLPModels.cons_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
     if get_ncon(rnlp.mpcc.nlp) > 0
         return cons_lin!(rnlp.mpcc, x, cx)
     else
@@ -61,14 +61,16 @@ function NLPModels.cons_lin!(rnlp::ScholtesRelaxation{T,VT}, x::VT, cx::VT) wher
     end
 end
 
-function NLPModels.cons_nln!(rnlp::ScholtesRelaxation{T,VT}, x::VT, cx::VT) where {T, VT}
+function NLPModels.cons_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
     mpcc_nnln = rnlp.mpcc.meta.nnln
     # This if statement is necessary as it seems that without it c!(cx,x) does not exist in a possible underlying ADNLPModel
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
     end
+    println(cx)
     # TODO(@anton) figure out if the intermediate outputs cause allocations
     cx[(mpcc_nnln+1):(rnlp.meta.nnln)] = (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)).*(comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+    return cx
 end
 
 function NLPModels.jac_lin_structure!(rnlp::ScholtesRelaxation, rows::AbstractVector{Int}, cols::AbstractVector{Int})

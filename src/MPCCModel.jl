@@ -256,7 +256,7 @@ function NLPModels.cons_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::Abs
 end
 
 function NLPModels.cons_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
-    mcx = MappedVector(cx, mpcc.meta.c_lin, mpcc.nlp.meta.nnln)
+    mcx = MappedVector(cx, mpcc.meta.c_nln, mpcc.nlp.meta.nnln)
     cons_nln!(mpcc.nlp, x, mcx)
     return cx
 end
@@ -549,17 +549,26 @@ end
 # Note: This requires special handling for all values because you also have lifted variables, which are not represented in nlp.
 
 ######################### Vertical Form Conversions #########################
-function MPCCModelVerticalForm(mpcc::MPCCModel)
-    # NOTE: We assume that we have to lift ALL Nonlinear complementarity constraints
+function vertical_form(mpcc::AbstractMPCCModel)
+    ind_var1 = [mpcc.meta.ind_cc1[i] for i=1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)]
 
-    ncc = length(mpcc.ind_ccc1)
-    nw = mpcc.nlp.meta.nvar
-    ind_cc1_lift = mpcc.ind_ccc1
-    ind_cc2_lift = mpcc.ind_ccc2
-    ind_vcc1 = collect(nw+1:nw+ncc)
-    ind_vcc2 = collect(nw+ncc+1:nw+2*ncc)
-    ind_x = collect(1:nw)
-    MPCCModelVerticalForm(nlp, ind_cc1_lift, ind_cc2_lift, ind_vcc1, ind_vcc2, ind_x, mpcc.ind_c);
+    ind_lift1 = [i for i=1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)]
+    ind_lift2 = [i for i=1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], Union{VarCon,ConCon})]
+    nlift1 = length(ind_lift1)
+    nlift2 = length(ind_lift2)
+
+
+    ind_lift = vcat(map((i) -> mpcc.meta.ind_cc1[i], ind_lift1), map((i) -> mpcc.meta.ind_cc2[i], ind_lift2))
+    vnlp = LiftedNLPModel(mpcc.nlp, ind_lift)
+
+    lift1 = (mpcc.nlp.meta.nvar+1):(mpcc.nlp.meta.nvar+nlift1)
+    lift2 = (mpcc.nlp.meta.nvar+nlift1+1):(mpcc.nlp.meta.nvar+nlift1+nlift2)
+
+    ind_vcc1 = mpcc.meta.ind_cc1
+    ind_vcc1[ind_lift1] = lift1
+    ind_vcc2 = mpcc.meta.ind_cc2
+    ind_vcc2[ind_lift2] = lift2
+
+    return MPCCModelVarVar(vnlp, ind_vcc1, ind_vcc2)
 end
-
 # TODO(@anton) Add Core.show overload

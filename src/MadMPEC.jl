@@ -8,10 +8,12 @@ export AbstractMPCCModel,
     MPCCModelVarVar,
     MPCCModelVarCon,
     MPCCModelConCon,
-    MPCCVerticalForm,
+    vertical_form,
     MPCCModelMeta,
     getproprty,
     ScholtesRelaxation,
+    LiftedNLPModel,
+    LiftedNLPModelMeta,
     obj,
     grad,
     grad!,
@@ -79,5 +81,6 @@ include("MappedVector.jl")
 include("MPCCModelMeta.jl")
 include("MPCCModel.jl")
 include("ScholtesRelaxation.jl")
+include("LiftedNLPModel.jl")
 
 end # module MadMPEC

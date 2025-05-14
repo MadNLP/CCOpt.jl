@@ -46,6 +46,6 @@ function Base.getproperty(meta::MPCCModelMeta, sym::Symbol)
     if sym ∈ fieldnames(MPCCModelMeta) # NOTE: This is either elegant or EXTREMELY not, depending on how "static" the field names are
         getfield(meta, sym)
     else
-        getfield(meta.nlp_meta[], sym)
+        getproperty(meta.nlp_meta[], sym)
     end
 end
