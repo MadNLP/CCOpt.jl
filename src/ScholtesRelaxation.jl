@@ -93,11 +93,7 @@ function NLPModels.jac_nln_structure!(
   rows::AbstractVector{Int},
   cols::AbstractVector{Int},
 )
-  jac_nln_structure!(
-    rnlp.mpcc,
-    @view(rows[1:rnlp.mpcc.meta.nln_nnzj]),
-    @view(cols[1:rnlp.mpcc.meta.nln_nnzj])
-  ) # get including complementarities
+  @views jac_nln_structure!(rnlp.mpcc, rows[1:rnlp.mpcc.meta.nln_nnzj], cols[1:rnlp.mpcc.meta.nln_nnzj]) # get including complementarities
 
   for i = 1:rnlp.mpcc.meta.ncc
     rows[i+rnlp.mpcc.meta.nln_nnzj] = i + rnlp.mpcc.meta.ncon
