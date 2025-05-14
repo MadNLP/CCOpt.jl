@@ -9,9 +9,7 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
   if !is_vertical(mpcc)
     # TODO(@anton) Perhaps we should do this automatically in the future or we can support non-vertical form scholtes
     #              though this makes the callbacks a bit more complicated
-    error(
-      "Scholtes Relaxation currently expects a vertical form MPCC, use vertical_form(mpcc) to convert it.",
-    )
+    error("Scholtes Relaxation currently expects a vertical form MPCC, use vertical_form(mpcc) to convert it.")
   end
 
   # Update only what needs to be updated
@@ -33,15 +31,7 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
   #              backcalculate how these need to change necessarily.
   #              However these seem to not be used anywhere in the NLPModels API so I am ignoring them.
 
-  meta = NLPModels.NLPModelMeta(
-    mpcc.nlp.meta,
-    ncon=ncon,
-    lcon=lcon,
-    y0=y0,
-    nnzj=nnzj,
-    nln_nnzj=nln_nnzj,
-    nnzh=nnzh,
-  )
+  meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, ncon=ncon, lcon=lcon, y0=y0, nnzj=nnzj, nln_nnzj=nln_nnzj, nnzh=nnzh)
   𝜎 = zero(T)
   return ScholtesRelaxation(mpcc, meta, Ref(𝜎))
 end
@@ -56,6 +46,9 @@ function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
 end
 
 ######################### NLPModels Callbacks #########################
+NLPModels.obj(rnlp::ScholtesRelaxation, x::AbstractVector) = NLPModels.obj(rnlp.mpcc, x)
+NLPModels.grad!(rnlp::ScholtesRelaxation, x::AbstractVector, gx::AbstractVector) = NLPModels.grad!(rnlp.mpcc, x, gx)
+NLPModels.objgrad!(rnlp::ScholtesRelaxation, x::AbstractVector, g::AbstractVector) = NLPModels.objgrad!(rnlp.mpcc, x, g)
 
 function NLPModels.cons_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
   if get_ncon(rnlp.mpcc.nlp) > 0
@@ -71,28 +64,18 @@ function NLPModels.cons_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::Ab
   if get_ncon(rnlp.mpcc.nlp) > 0
     cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
   end
-  println(cx)
   # TODO(@anton) figure out if the intermediate outputs cause allocations
   cx[(mpcc_nnln+1):(rnlp.meta.nnln)] =
-    (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-    (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+    (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .* (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
   return cx
 end
 
-function NLPModels.jac_lin_structure!(
-  rnlp::ScholtesRelaxation,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function NLPModels.jac_lin_structure!(rnlp::ScholtesRelaxation, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   jac_lin_structure!(rnlp.mpcc, rows, cols) # get including complementarities
   return rows, cols
 end
 
-function NLPModels.jac_nln_structure!(
-  rnlp::ScholtesRelaxation,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function NLPModels.jac_nln_structure!(rnlp::ScholtesRelaxation, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   @views jac_nln_structure!(rnlp.mpcc, rows[1:rnlp.mpcc.meta.nln_nnzj], cols[1:rnlp.mpcc.meta.nln_nnzj]) # get including complementarities
 
   for i = 1:rnlp.mpcc.meta.ncc
@@ -113,60 +96,30 @@ end
 function NLPModels.jac_nln_coord!(rnlp::ScholtesRelaxation, x::AbstractVector, j::AbstractVector)
   jac_nln_coord!(rnlp.mpcc, x, @view(j[1:rnlp.mpcc.meta.nln_nnzj]))
 
-  comp_res_right!(
-    rnlp.mpcc,
-    x,
-    @view(j[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)])
-  )
-  comp_res_left!(
-    rnlp.mpcc,
-    x,
-    @view(
-      j[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]
-    )
-  )
+  comp_res_right!(rnlp.mpcc, x, @view(j[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)]))
+  comp_res_left!(rnlp.mpcc, x, @view(j[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]))
   return j
 end
 
-function NLPModels.jprod_lin!(
-  rnlp::ScholtesRelaxation,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jv::AbstractVector,
-)
+function NLPModels.jprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jv[1:rnlp.meta.nlin] = jac_lin(rnlp, x) * v
   return Jv
 end
 
-function NLPModels.jprod_nln!(
-  rnlp::ScholtesRelaxation,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jv::AbstractVector,
-)
+function NLPModels.jprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jv[1:rnlp.meta.nnln] = jac_nln(rnlp, x) * v
   return Jv
 end
 
-function NLPModels.jtprod_lin!(
-  rnlp::ScholtesRelaxation,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jtv::AbstractVector,
-)
+function NLPModels.jtprod_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jtv[1:rnlp.meta.nvar] = jac_lin(rnlp, x)' * v
   return Jtv
 end
 
-function NLPModels.jtprod_nln!(
-  rnlp::ScholtesRelaxation,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jtv::AbstractVector,
-)
+function NLPModels.jtprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jtv[1:rnlp.meta.nvar] = jac_nln(rnlp, x)' * v
   return Jtv
@@ -177,8 +130,7 @@ function NLPModels.hess_structure!(rnlp::ScholtesRelaxation, rows::Vector{Int}, 
   # TODO(@anton) it seems hard to vectorize in one operation this because there is no efficient unzip in Base:
   #              See https://github.com/JuliaLang/julia/issues/13942 for details
   for i = 1:rnlp.mpcc.meta.ncc
-    cols[i+rnlp.mpcc.meta.nnzh], rows[i+rnlp.mpcc.meta.nnzh] =
-      minmax(rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc2[i])
+    cols[i+rnlp.mpcc.meta.nnzh], rows[i+rnlp.mpcc.meta.nnzh] = minmax(rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc2[i])
   end
   return rows, cols
 end
@@ -189,13 +141,7 @@ function NLPModels.hess_coord!(
   H::AbstractVector{T};
   obj_weight::Real=one(T),
 ) where {T, VT}
-  @views hess_coord!(
-    rnlp.mpcc,
-    x,
-    y[1:rnlp.mpcc.meta.ncon],
-    H[1:rnlp.mpcc.meta.nnzh];
-    obj_weight=obj_weight,
-  )
+  @views hess_coord!(rnlp.mpcc, x, y[1:rnlp.mpcc.meta.ncon], H[1:rnlp.mpcc.meta.nnzh]; obj_weight=obj_weight)
   for i = 1:rnlp.mpcc.meta.ncc
     H[i+rnlp.mpcc.meta.nnzh] = y[i+rnlp.mpcc.meta.ncon]
   end

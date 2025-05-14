@@ -47,8 +47,6 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
   # TODO(@anton) Perhaps warn if lifting linear constraints
   ind_lin_lift = [i for i = 1:nlp.meta.nlin if nlp.meta.lin[i] ∈ ind_lift]
   ind_nln_lift = [i for i = 1:nlp.meta.nnln if nlp.meta.nln[i] ∈ ind_lift]
-  ind_lin_lift_var = [nlp.meta.nvar+i for i in ind_lift if i ∈ nlp.meta.lin]
-  ind_nln_lift_var = [nlp.meta.nvar+i for i in ind_lift if i ∈ nlp.meta.nln]
 
   # number of lifting variables
   nlift = length(ind_lift)
@@ -56,10 +54,13 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
   nln_nlift = length(ind_nln_lift)
   nvar = nlp.meta.nvar + nlift
 
+  ind_lin_lift_var = [nlp.meta.nvar+i for i = 1:nlift if ind_lift[i] ∈ nlp.meta.lin]
+  ind_nln_lift_var = [nlp.meta.nvar+i for i = 1:nlift if ind_lift[1] ∈ nlp.meta.nln]
+
   # add variable bounds for slacks and set initial value to the residual
   lvar = vcat(nlp.meta.lvar, nlp.meta.lcon[ind_lift])
   uvar = vcat(nlp.meta.uvar, nlp.meta.ucon[ind_lift])
-  x0 = vcat(nlp.meta.x0, .-cons(nlp, nlp.meta.x0))
+  x0 = vcat(nlp.meta.x0, .-cons(nlp, nlp.meta.x0)[ind_lift])
 
   # Update the constraints to equality constraints.
   # TODO(@anton) also check if lifting equality constraints for some reason
@@ -86,22 +87,22 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     lin_nnzj=lin_nnzj,
   )
 
-  meta = LiftedNLPModelMeta(
-    parent_meta,
-    ind_lift,
-    ind_lin_lift,
-    ind_nln_lift,
-    ind_lin_lift_var,
-    ind_nln_lift_var,
-    nlift,
-    lin_nlift,
-    nln_nlift,
-  )
+  meta =
+    LiftedNLPModelMeta(parent_meta, ind_lift, ind_lin_lift, ind_nln_lift, ind_lin_lift_var, ind_nln_lift_var, nlift, lin_nlift, nln_nlift)
 
   return LiftedNLPModel(nlp, meta)
 end
 
 ######################### NLPModels API Implementation #########################
+NLPModels.obj(lnlp::LiftedNLPModel, x::AbstractVector) = NLPModels.obj(lnlp.nlp, view(x, 1:lnlp.nlp.meta.nvar))
+function NLPModels.grad!(lnlp::LiftedNLPModel, x::AbstractVector, gx::AbstractVector)
+  @views NLPModels.grad!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], gx[1:lnlp.nlp.meta.nvar])
+  gx[(lnlp.nlp.meta.nvar+1):lnlp.meta.nvar] .= 0
+  return gx
+end
+NLPModels.objgrad!(lnlp::LiftedNLPModel, x::AbstractVector, g::AbstractVector) =
+  NLPModels.objgrad!(lnlp.nlp, view(x, 1:lnlp.nlp.meta.nvar), g)
+
 function NLPModels.cons_lin!(lnlp::LiftedNLPModel, x::AbstractVector, cx::AbstractVector)
   cons_lin!(lnlp.nlp, view(x, 1:lnlp.nlp.meta.nvar), cx)
   cx[lnlp.meta.ind_lin_lift] .-= x[lnlp.meta.ind_lin_lift_var]
@@ -114,11 +115,7 @@ function NLPModels.cons_nln!(lnlp::LiftedNLPModel, x::AbstractVector, cx::Abstra
   return cx
 end
 
-function NLPModels.jac_lin_structure!(
-  lnlp::LiftedNLPModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function NLPModels.jac_lin_structure!(lnlp::LiftedNLPModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   @views jac_lin_structure!(lnlp.nlp, rows[1:lnlp.nlp.meta.nvar], cols[1:lnlp.nlp.meta.nvar]) # get including complementarities
 
   for i = 1:lnlp.meta.lin_nlift
@@ -128,16 +125,8 @@ function NLPModels.jac_lin_structure!(
   return rows, cols
 end
 
-function NLPModels.jac_nln_structure!(
-  lnlp::LiftedNLPModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
-  @views jac_nln_structure!(
-    lnlp.nlp,
-    rows[1:lnlp.nlp.meta.nln_nnzj],
-    cols[1:lnlp.nlp.meta.nln_nnzj],
-  )
+function NLPModels.jac_nln_structure!(lnlp::LiftedNLPModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
+  @views jac_nln_structure!(lnlp.nlp, rows[1:lnlp.nlp.meta.nln_nnzj], cols[1:lnlp.nlp.meta.nln_nnzj])
 
   for i = 1:lnlp.meta.nln_nlift
     rows[i+lnlp.nlp.meta.nln_nnzj] = lnlp.meta.ind_nln_lift[i]
@@ -147,60 +136,40 @@ function NLPModels.jac_nln_structure!(
 end
 
 function NLPModels.jac_lin_coord!(lnlp::LiftedNLPModel, x::AbstractVector, j::AbstractVector)
-  jac_lin_coord!(lnlp.nlp, x, @view(j[1:lnlp.nlp.meta.lin_nnzj]))
-  for i = 1:nlnp.meta.lin_nlift
+  @views jac_lin_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.lin_nnzj])
+  for i = 1:lnlp.meta.lin_nlift
     j[i+lnlp.nlp.meta.lin_nnzj] = -1
   end
   return j
 end
 
 function NLPModels.jac_nln_coord!(lnlp::LiftedNLPModel, x::AbstractVector, j::AbstractVector)
-  jac_nln_coord!(lnlp.nlp, x, @view(j[1:lnlp.nlp.meta.nln_nnzj]))
-  for i = 1:nlnp.meta.nln_nlift
+  @views jac_nln_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nln_nnzj])
+  for i = 1:lnlp.meta.nln_nlift
     j[i+lnlp.nlp.meta.nln_nnzj] = -1
   end
   return j
 end
 
-function NLPModels.jprod_lin!(
-  lnlp::LiftedNLPModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jv::AbstractVector,
-)
+function NLPModels.jprod_lin!(lnlp::LiftedNLPModel, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jv[1:lnlp.meta.nlin] = jac_lin(lnlp, x) * v
   return Jv
 end
 
-function NLPModels.jprod_nln!(
-  lnlp::LiftedNLPModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jv::AbstractVector,
-)
+function NLPModels.jprod_nln!(lnlp::LiftedNLPModel, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jv[1:lnlp.meta.nnln] = jac_nln(lnlp, x) * v
   return Jv
 end
 
-function NLPModels.jtprod_lin!(
-  lnlp::LiftedNLPModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jtv::AbstractVector,
-)
+function NLPModels.jtprod_lin!(lnlp::LiftedNLPModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jtv[1:lnlp.meta.nvar] = jac_lin(lnlp, x)' * v
   return Jtv
 end
 
-function NLPModels.jtprod_nln!(
-  lnlp::LiftedNLPModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jtv::AbstractVector,
-)
+function NLPModels.jtprod_nln!(lnlp::LiftedNLPModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
   # TODO(@anton) do this in a smarter way
   Jtv[1:lnlp.meta.nvar] = jac_nln(lnlp, x)' * v
   return Jtv
@@ -227,5 +196,7 @@ function NLPModels.hprod!(
   Hv::AbstractVector;
   obj_weight::Real=one(T),
 ) where {T, VT}
-  return hprod!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], y, v, Hv; obj_weight=obj_weight)
+  @views hprod!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], y, v[1:lnlp.nlp.meta.nvar], Hv[1:lnlp.nlp.meta.nvar]; obj_weight=obj_weight)
+  Hv[(lnlp.nlp.meta.nvar+1):lnlp.meta.nvar] .= 0
+  return Hv
 end
