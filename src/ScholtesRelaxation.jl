@@ -46,9 +46,15 @@ function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
 end
 
 ######################### NLPModels Callbacks #########################
+<<<<<<< HEAD
 NLPModels.obj(rnlp::ScholtesRelaxation, x::AbstractVector) = NLPModels.obj(rnlp.mpcc, x)
 NLPModels.grad!(rnlp::ScholtesRelaxation, x::AbstractVector, gx::AbstractVector) = NLPModels.grad!(rnlp.mpcc, x, gx)
 NLPModels.objgrad!(rnlp::ScholtesRelaxation, x::AbstractVector, g::AbstractVector) = NLPModels.objgrad!(rnlp.mpcc, x, g)
+=======
+NLPModels.obj(rnlp::ScholtesRelaxation, x::AbstractVector) = NLPModels.obj(rnlp.nlp, x)
+NLPModels.grad!(rnlp::ScholtesRelaxation, x::AbstractVector, gx::AbstractVector) = NLPModels.grad!(rnlp.nlp, x, gx)
+NLPModels.objgrad!(rnlp::ScholtesRelaxation, x::AbstractVector, g::AbstractVector) = NLPModels.objgrad!(rnlp.nlp, x, g)
+>>>>>>> aae521f (fix bugs uncovered during testing)
 
 function NLPModels.cons_lin!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
   if get_ncon(rnlp.mpcc.nlp) > 0
