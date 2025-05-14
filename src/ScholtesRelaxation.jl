@@ -17,13 +17,15 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T,VT}) where {T,VT}
     lcon = append!(mpcc.meta.lcon, -Inf*ones(mpcc.meta.ncc))
     ucon = append!(mpcc.meta.ucon, zeros(mpcc.meta.ncc))
     y0 = append!(mpcc.meta.y0, zeros(mpcc.meta.ncc))
-    # TODO(@anton) this is a lower bound: we can calculate this exactly if we store
-    #              the nnz for the jacobians of G, and H
+    # TODO(@anton) this is a lower bound only accurate for vertical form: we can calculate this exactly if we store
+    #              the nnz for the jacobians of G, and H, which we now do.
     nnzj = mpcc.meta.nnzj + 2*mpcc.meta.ncc
-    nln_nnzj = mpcc.meta.nln_nnzj + 2*mpcc.meta.ncc
+    nln_nnzj = mpcc.meta.nln_nnzj + 2*mpcc.meta.ncc # All the nln values are
 
     # TODO(@anton) this is a bug actually. we need to check the structure of the mpcc (and the underlying nlp) to
     #              figure out if the nnzh is correct as if the off diagonals are not already in the nonzeros.
+    #
+    # TODO(@anton) This may or may not break the assumptions made by show(::NLPModelMeta)
     nnzh = mpcc.meta.nnzh + mpcc.meta.ncc
     # TODO(@anton) We may need to change how nlv(b,o,c) are handled because we actually cannot
     #              backcalculate how these need to change necessarily.
@@ -125,8 +127,27 @@ function NLPModels.jtprod_nln!(rnlp::ScholtesRelaxation, x::AbstractVector, v::A
 end
 
 function NLPModels.hess_structure!(rnlp::ScholtesRelaxation, rows::Vector{Int}, cols::Vector{Int})
-    return hess_structure!(mpcc.nlp, rows, cols)
+    @views hess_structure!(rnlp.mpcc, rows[1:rnlp.mpcc.meta.nnzh], cols[1:rnlp.mpcc.meta.nnzh])
+    # TODO(@anton) it seems hard to vectorize in one operation this because there is no efficient unzip in Base:
+    #              See https://github.com/JuliaLang/julia/issues/13942 for details
+    for i=1:rnlp.mpcc.meta.ncc
+        cols[i+rnlp.mpcc.meta.nnzh], rows[i+rnlp.mpcc.meta.nnzh] = minmax(rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc2[i])
+    end
+    return rows, cols
 end
-function NLPModels.hess_coord!(rnlp::ScholtesRelaxation, x::AbstractVector, y::AbstractVector, Hv::AbstractVector, obj_weight::Real = one(T))
-    return hess_coord!(mpcc.nlp, x, y, Hv, obj_weight)
+function NLPModels.hess_coord!(rnlp::ScholtesRelaxation{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, H::AbstractVector{T}; obj_weight::Real = one(T)) where {T,VT}
+    @views hess_coord!(rnlp.mpcc, x, y[1:rnlp.mpcc.meta.ncon], H[1:rnlp.mpcc.meta.nnzh]; obj_weight=obj_weight)
+    for i=1:rnlp.mpcc.meta.ncc
+        H[i+rnlp.mpcc.meta.nnzh] = y[i+rnlp.mpcc.meta.ncon]
+    end
+    return H
+end
+
+function NLPModels.hprod!(rnlp::ScholtesRelaxation{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, v::AbstractVector{T}, Hv::AbstractVector; obj_weight::Real = one(T)) where {T,VT}
+    @views hprod!(rnlp.mpcc, x, y[1:rnlp.mpcc.meta.ncon], v, Hv; obj_weight=obj_weight)
+    for i=1:rnlp.mpcc.meta.ncc
+        Hv[rnlp.mpcc.meta.ind_cc1[i]] += v[rnlp.mpcc.meta.ind_cc2[i]]*y[i+rnlp.mpcc.meta.ncon]
+        Hv[rnlp.mpcc.meta.ind_cc2[i]] += v[rnlp.mpcc.meta.ind_cc1[i]]*y[i+rnlp.mpcc.meta.ncon]
+    end
+    return Hv
 end

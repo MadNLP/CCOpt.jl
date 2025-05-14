@@ -319,12 +319,18 @@ function NLPModels.jtprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::Ab
 end
 
 function NLPModels.hess_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
+    # TODO(@anton) This currently includes the contribution from the nonlinear complementarity constraint multipliers
+    #              which is not correct, but this is hard to mask out so it is fine for now.
     return hess_structure!(mpcc.nlp, rows, cols)
 end
-function NLPModels.hess_coord!(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, Hv::AbstractVector, obj_weight::Real = one(T)) where {T, VT}
-    return hess_coord!(mpcc.nlp, x, y, Hv, obj_weight)
+function NLPModels.hess_coord!(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, H::AbstractVector; obj_weight::Real = one(T)) where {T, VT}
+    my = MappedVector(y, mpcc.meta.ind_c, mpcc.nlp.meta.ncon)
+    return hess_coord!(mpcc.nlp, x, y, H; obj_weight=obj_weight)
 end
-function NLPModels.hprod!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector) error("not implemented") end
+function NLPModels.hprod!(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector{T}, y::AbstractVector{T}, v::AbstractVector{T}, Hv::AbstractVector; obj_weight::Real = one(T)) where {T, VT}
+    my = MappedVector(y, mpcc.meta.ind_c, mpcc.nlp.meta.ncon)
+    return hprod!(mpcc.nlp, x, my, v, Hv; obj_weight=obj_weight)
+end
 
 function comp_left(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector) where {T, VT}
     ccx = VT(undef, mpcc.meta.ncc)
