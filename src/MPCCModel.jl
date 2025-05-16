@@ -761,6 +761,16 @@ function jac_comp_right_coord!(
     return vals
 end
 
+function comp_residual(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector) where {T, VT}
+  G = VT(undef, mpcc.meta.ncc)
+  H = VT(undef, mpcc.meta.ncc)
+  comp_res_left!(mpcc, x, G)
+  comp_res_right!(mpcc, x, H)
+
+  map!(min, G, G, H)
+  return maximum(G)
+end
+
 ######################### Vertical Form Conversions #########################
 function vertical_form(mpcc::AbstractMPCCModel)
     ind_var1 = [
