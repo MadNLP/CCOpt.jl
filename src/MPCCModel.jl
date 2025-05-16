@@ -4,7 +4,7 @@
   s.t. lbc ≤ c(w) ≤ ubc
        0 ≤ G(w) ⟂ H(w) ≥ 0
 """
-abstract type AbstractMPCCModel{T, VT} <: NLPModels.AbstractNLPModel{T, VT} end
+abstract type AbstractMPCCModel{T, VT} end
 
 # TODO(@anton) For a prototype this is a bit of a hack to account for not having meta and counters
 #              In principle we want to have a MPCCModelMeta and MPCCModelCounters?
@@ -294,10 +294,8 @@ end
 
 ######################### Implementing NLPModels API #########################
 NLPModels.obj(mpcc::AbstractMPCCModel, x::AbstractVector) = NLPModels.obj(mpcc.nlp, x)
-NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector) =
-  NLPModels.grad!(mpcc.nlp, x, gx)
-NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector) =
-  NLPModels.objgrad!(mpcc.nlp, x, g)
+NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector) = NLPModels.grad!(mpcc.nlp, x, gx)
+NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector) = NLPModels.objgrad!(mpcc.nlp, x, g)
 
 function NLPModels.cons_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::AbstractVector)
   mcx = MappedVector(cx, mpcc.meta.c_lin, mpcc.nlp.meta.nlin)
@@ -311,11 +309,7 @@ function NLPModels.cons_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, cx::Abs
   return cx
 end
 
-function NLPModels.jac_lin_structure!(
-  mpcc::AbstractMPCCModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function NLPModels.jac_lin_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   mrows = MappedVector(rows, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
   mcols = MappedVector(cols, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
   jac_lin_structure!(mpcc.nlp, mrows, mcols) # get including complementarities
@@ -326,11 +320,7 @@ function NLPModels.jac_lin_structure!(
   return rows, cols
 end
 
-function NLPModels.jac_nln_structure!(
-  mpcc::AbstractMPCCModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function NLPModels.jac_nln_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   mrows = MappedVector(rows, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
   mcols = MappedVector(cols, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
   jac_nln_structure!(mpcc.nlp, mrows, mcols) # get including complementarities
@@ -352,55 +342,31 @@ function NLPModels.jac_nln_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j:
   return j
 end
 
-function NLPModels.jprod_lin!(
-  mpcc::AbstractMPCCModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jv::AbstractVector,
-)
+function NLPModels.jprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
   # TODO(@anton) do this in a smarter way?
   Jv[1:mpcc.meta.nlin] = jac_lin(mpcc, x) * v
   return Jv
 end
 
-function NLPModels.jprod_nln!(
-  mpcc::AbstractMPCCModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jv::AbstractVector,
-)
+function NLPModels.jprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jv::AbstractVector)
   # TODO(@anton) do this in a smarter way?
   Jv[1:mpcc.meta.nnln] = jac_nln(mpcc, x) * v
   return Jv
 end
 
-function NLPModels.jtprod_lin!(
-  mpcc::AbstractMPCCModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jtv::AbstractVector,
-)
+function NLPModels.jtprod_lin!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
   # TODO(@anton) do this in a smarter way?
   Jtv[1:mpcc.meta.nvar] = jac_lin(mpcc, x)' * v
   return Jtv
 end
 
-function NLPModels.jtprod_nln!(
-  mpcc::AbstractMPCCModel,
-  x::AbstractVector,
-  v::AbstractVector,
-  Jtv::AbstractVector,
-)
+function NLPModels.jtprod_nln!(mpcc::AbstractMPCCModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector)
   # TODO(@anton) do this in a smarter way?
   Jv[1:mpcc.meta.nvar] = jac_nln(mpcc, x)' * v
   return Jtv
 end
 
-function NLPModels.hess_structure!(
-  mpcc::AbstractMPCCModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function NLPModels.hess_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   # TODO(@anton) This currently includes the contribution from the nonlinear complementarity constraint multipliers
   #              which is not correct, but this is hard to mask out so it is fine for now.
   return hess_structure!(mpcc.nlp, rows, cols)
@@ -541,11 +507,7 @@ function jac_comp_left_structure(mpcc::AbstractMPCCModel)
   return jac_comp_left_structure!(mpcc, rows, cols)
 end
 
-function jac_comp_left_structure!(
-  mpcc::AbstractMPCCModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function jac_comp_left_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   # NOTE: Var type nnz triples come at end ALWAYS
   mrows = MappedVector(rows, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
   mcols = MappedVector(cols, mpcc.meta.ind_j_comp_left_triplets, mpcc.nlp.meta.nnzj)
@@ -573,11 +535,7 @@ function jac_comp_right_structure(mpcc::AbstractMPCCModel)
   return jac_comp_right_structure!(mpcc, rows, cols)
 end
 
-function jac_comp_right_structure!(
-  mpcc::AbstractMPCCModel,
-  rows::AbstractVector{Int},
-  cols::AbstractVector{Int},
-)
+function jac_comp_right_structure!(mpcc::AbstractMPCCModel, rows::AbstractVector{Int}, cols::AbstractVector{Int})
   # NOTE: Var type nnz triples come at end ALWAYS
   mrows = MappedVector(rows, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
   mcols = MappedVector(cols, mpcc.meta.ind_j_comp_right_triplets, mpcc.nlp.meta.nnzj)
@@ -659,8 +617,7 @@ function vertical_form(mpcc::AbstractMPCCModel)
   nlift1 = length(ind_lift1)
   nlift2 = length(ind_lift2)
 
-  ind_lift =
-    vcat(map((i) -> mpcc.meta.ind_cc1[i], ind_lift1), map((i) -> mpcc.meta.ind_cc2[i], ind_lift2))
+  ind_lift = vcat(map((i) -> mpcc.meta.ind_cc1[i], ind_lift1), map((i) -> mpcc.meta.ind_cc2[i], ind_lift2))
   vnlp = LiftedNLPModel(mpcc.nlp, ind_lift)
 
   lift1 = (mpcc.nlp.meta.nvar+1):(mpcc.nlp.meta.nvar+nlift1)
