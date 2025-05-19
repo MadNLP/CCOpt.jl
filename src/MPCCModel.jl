@@ -22,6 +22,16 @@ function Base.show(io::IO, mpcc::AbstractMPCCModel)
     return show(io, mpcc.nlp.counters)
 end
 
+struct MPCCModel{T, VT} <: AbstractMPCCModel{T, VT}
+    nlp::NLPModels.AbstractNLPModel{T, VT}
+    meta::MPCCModelMeta{T, VT}
+end
+
+######################### Helper functions for MPCCModel #########################
+function is_vertical(mpcc::MPCCModel)
+    return all(map((x)->isa(x, VarVar), mpcc.meta.cc_types))
+end
+
 ######################### MPCC Types #########################
 # Constructor
 function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::IndexSet)
@@ -56,8 +66,8 @@ function MPCCModelVarVar(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_vcc2::In
     cc_r::IndexSet = []
 
     # Complementarity Constraints
-    ind_cc1 = ind_vcc1;
-    ind_cc2 = ind_vcc2;
+    ind_cc1 = ind_vcc1
+    ind_cc2 = ind_vcc2
     cc_types = fill!(Vector{CCType}(undef, ncc), VarVar())
 
     # nnzj updates:
@@ -279,17 +289,6 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     )
 
     return MPCCModel(nlp, meta)
-end
-
-struct MPCCModel{T, VT} <: AbstractMPCCModel{T, VT}
-    nlp::NLPModels.AbstractNLPModel{T, VT}
-
-    meta::MPCCModelMeta{T, VT}
-end
-
-######################### Helper functions for MPCCModel #########################
-function is_vertical(mpcc::MPCCModel)
-    return all(map((x)->isa(x, VarVar), mpcc.meta.cc_types))
 end
 
 ######################### Implementing NLPModels API #########################
@@ -667,12 +666,6 @@ function jac_comp_right_coord!(
     end
     return vals
 end
-
-######################### MPCCModelVarVar #########################
-######################### MPCCModelVarCon #########################
-######################### MPCCModelConCon #########################
-######################### MPCCModelVerticalForm #########################
-# Note: This requires special handling for all values because you also have lifted variables, which are not represented in nlp.
 
 ######################### Vertical Form Conversions #########################
 function vertical_form(mpcc::AbstractMPCCModel)

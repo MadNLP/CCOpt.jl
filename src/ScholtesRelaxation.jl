@@ -57,9 +57,11 @@ end
 
 ######################### NLPModels Callbacks #########################
 NLPModels.obj(rnlp::ScholtesRelaxation, x::AbstractVector) = NLPModels.obj(rnlp.mpcc, x)
+
 function NLPModels.grad!(rnlp::ScholtesRelaxation, x::AbstractVector, gx::AbstractVector)
     return NLPModels.grad!(rnlp.mpcc, x, gx)
 end
+
 function NLPModels.objgrad!(rnlp::ScholtesRelaxation, x::AbstractVector, g::AbstractVector)
     return NLPModels.objgrad!(rnlp.mpcc, x, g)
 end
@@ -87,7 +89,7 @@ function NLPModels.cons_nln!(
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
     end
     # TODO(@anton) figure out if the intermediate outputs cause allocations
-    cx[(mpcc_nnln+1):(rnlp.meta.nnln)] =
+    cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .=
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
         (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
     return cx
@@ -128,27 +130,28 @@ end
 function NLPModels.jac_lin_coord!(
     rnlp::ScholtesRelaxation,
     x::AbstractVector,
-    j::AbstractVector,
+    jac::AbstractVector,
 )
-    return jac_lin_coord!(rnlp.mpcc, x, j)
+    return jac_lin_coord!(rnlp.mpcc, x, jac)
 end
+
 function NLPModels.jac_nln_coord!(
     rnlp::ScholtesRelaxation,
     x::AbstractVector,
-    j::AbstractVector,
+    jac::AbstractVector,
 )
-    jac_nln_coord!(rnlp.mpcc, x, @view(j[1:rnlp.mpcc.meta.nln_nnzj]))
+    jac_nln_coord!(rnlp.mpcc, x, @view(jac[1:rnlp.mpcc.meta.nln_nnzj]))
 
     comp_res_right!(
         rnlp.mpcc,
         x,
-        @view(j[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)])
+        @view(jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)])
     )
     comp_res_left!(
         rnlp.mpcc,
         x,
         @view(
-            j[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]
+            jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]
         )
     )
     return j
