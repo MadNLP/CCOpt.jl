@@ -1,6 +1,7 @@
 ######################### Types #########################
 mutable struct HomotopySolverStats
   # TODO(@anton) what needs to live here
+  # TODO(@anton) SHould subclass AbstractExecutionStats
 end
 
 mutable struct HomotopySolverOptions{T}
@@ -9,6 +10,8 @@ mutable struct HomotopySolverOptions{T}
   𝛽::T = 1.5
 
   comp_tol::T = 1e-8
+
+  N_homotopy::Int = 9
 
 end
 # TODO(@anton) mutable?
@@ -52,17 +55,21 @@ function solve(mpcc::AbstractMPCCModel, solver::HomotopySolver, stats::HomotopyS
 
   converged = false
   solver.nlp.𝜎[] = solver.𝜎
-
-  while !converged
+  ii = 1
+  while ii ≤ opts.N_homotopy
     stats = solve!(solver, solver.nlp, )
     cc_res = comp_resudual(mpcc, stats.solution; x0=solver.x_k, y0=solver.y_k)
+    solver.x_k = stats.solution
+    solver.y_k = stats.multipliers
 
     if stats.status ∈ { :first_order, :acceptable, :small_step } && cc_res ≤ mpcc.opts.comp_tol
       converged = true
+      break
     end
     solver.𝜎 = min(𝛼*solver.𝜎, solver.𝜎^𝛽)
     solver.nlp.𝜎[] = solver.𝜎
-    solver.x_k = stats.solution
-    solver.y_k = stats.multipliers
+
+    ii += 1
   end
+
 end
