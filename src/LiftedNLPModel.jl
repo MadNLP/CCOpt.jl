@@ -286,8 +286,8 @@ end
 
 function NLPModels.hess_structure!(
     lnlp::LiftedNLPModel,
-    rows::Vector{Int},
-    cols::Vector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     return hess_structure!(lnlp.nlp, rows, cols)
 end

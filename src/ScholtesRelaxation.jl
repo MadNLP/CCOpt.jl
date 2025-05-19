@@ -69,7 +69,7 @@ end
 function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
     mpcc_ncon = rnlp.mpcc.meta.ncon
     if get_ncon(rnlp.mpcc.nlp) > 0
-        cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
+        cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
     return cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
@@ -200,7 +200,9 @@ function NLPModels.jac_nln_coord!(
     comp_res_right!(
         rnlp.mpcc,
         x,
-        @view(jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)])
+        @view(
+            jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)]
+        )
     )
     comp_res_left!(
         rnlp.mpcc,
@@ -258,8 +260,8 @@ end
 
 function NLPModels.hess_structure!(
     rnlp::ScholtesRelaxation,
-    rows::Vector{Integer},
-    cols::Vector{Integer},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     @views hess_structure!(
         rnlp.mpcc,

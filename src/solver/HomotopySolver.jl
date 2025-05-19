@@ -28,6 +28,14 @@ end
     comp_tol::T = 1e-8
 
     N_homotopy::Int = 9
+
+    ipopt_options::Dict{Symbol, Any} = Dict(
+        :print_level=>0,
+        :sb=>"yes",
+        :mu_strategy=>"adaptive",
+        :mu_oracle=>"quality-function",
+        :bound_relax_factor=>0.0,
+    )
 end
 
 # TODO(@anton) mutable?
@@ -41,6 +49,7 @@ mutable struct HomotopySolver{M, T, VT} <: AbstractMPCCSolver{M, T, VT}
 
     x_k::VT
     y_k::VT
+    f_k::T
 
     𝜎::T
 end
@@ -57,7 +66,7 @@ function HomotopySolver(mpcc::AbstractMPCCModel, opts::HomotopySolverOptions)
 
     𝜎 = opts.𝜎₀
 
-    return HomotopySolver(mpcc, nlp, solver, opts, stats, x_k, y_k, 𝜎)
+    return HomotopySolver(mpcc, nlp, solver, opts, stats, x_k, y_k, 0.0, 𝜎)
 end
 ######################### Main loop #########################
 function solve!(
@@ -89,23 +98,34 @@ function solve!(
     solver.nlp.𝜎[] = solver.𝜎
     ii = 1
     while ii ≤ opts.N_homotopy
-        nlp_stats =
-            NLPModelsIpopt.solve!(solver.solver, solver.nlp; x0=solver.x_k, y0=solver.y_k)
-        cc_res = comp_resudual(mpcc, nlp_stats.solution)
+        nlp_stats = NLPModelsIpopt.solve!(
+            solver.solver,
+            solver.nlp;
+            x0=solver.x_k,
+            y0=solver.y_k,
+            opts.ipopt_options...,
+        )
+        cc_res = comp_residual(mpcc, nlp_stats.solution)
         solver.x_k = nlp_stats.solution
         solver.y_k = nlp_stats.multipliers
+        solver.f_k = nlp_stats.objective
 
         if nlp_stats.status ∈ [:first_order, :acceptable, :small_step] &&
-           cc_res ≤ mpcc.opts.comp_tol
+           cc_res ≤ solver.opts.comp_tol
             converged = true
             break
         end
-        solver.𝜎 = min(𝛼*solver.𝜎, solver.𝜎^𝛽)
+        solver.𝜎 = min(opts.𝛼*solver.𝜎, solver.𝜎^opts.𝛽)
         solver.nlp.𝜎[] = solver.𝜎
 
         ii += 1
     end
     if converged
         stats.status = :stationary
+        stats.solution = solver.x_k
+        stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
+        stats.objective = solver.f_k
+    else
     end
+    return stats
 end
