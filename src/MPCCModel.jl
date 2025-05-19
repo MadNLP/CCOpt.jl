@@ -127,7 +127,7 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     # compute jacobian structure indexset
     rows, cols = NLPModels.jac_structure(nlp)
     ind_j_triplets = findall(x->x ∈ ind_c, rows)
-    if hasmethod(jac_lin_structure!, typeof(nlp), IndexSet, IndexSet)
+    if hasmethod(jac_lin_structure!, (typeof(nlp), IndexSet, IndexSet))
         lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
         nln_rows, nln_cols = NLPModels.jac_nln_structure(nlp)
         for i in 1:nlp.meta.nlin
@@ -761,14 +761,14 @@ function jac_comp_right_coord!(
     return vals
 end
 
-function comp_residual(mpcc::AbstractMPCCModel{T,VT}, x::AbstractVector) where {T, VT}
-  G = VT(undef, mpcc.meta.ncc)
-  H = VT(undef, mpcc.meta.ncc)
-  comp_res_left!(mpcc, x, G)
-  comp_res_right!(mpcc, x, H)
+function comp_residual(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    G = VT(undef, mpcc.meta.ncc)
+    H = VT(undef, mpcc.meta.ncc)
+    comp_res_left!(mpcc, x, G)
+    comp_res_right!(mpcc, x, H)
 
-  map!(min, G, G, H)
-  return maximum(G)
+    map!(min, G, G, H)
+    return maximum(G)
 end
 
 ######################### Vertical Form Conversions #########################
