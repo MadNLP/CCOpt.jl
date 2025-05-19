@@ -154,7 +154,7 @@ function NLPModels.jac_nln_coord!(
             jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]
         )
     )
-    return j
+    return jac
 end
 
 function NLPModels.jprod_lin!(

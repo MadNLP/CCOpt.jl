@@ -20,5 +20,5 @@ function SimpleMPCCModel(T::Type)
   nlp_vv = ADNLPModels.ADNLPModel(f, T[1.0, 1.0], lvar_vv, uvar_vv)
 
   # Test MPCCVarVar
-  return MPCCModelVarVar(nlp_vv, ind_vcc1, ind_vcc2)
+  return MadMPEC.MPCCModelVarVar(nlp_vv, ind_vcc1, ind_vcc2)
 end
