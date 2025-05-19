@@ -26,7 +26,7 @@ struct MPCCModelMeta{T, VT, MT <: AbstractNLPModelMeta{T, VT}} <:
     ind_cc2::IndexSet
     cc_types::Vector{CCType} # VarCon, VarVar, ConCon
 
-    # Index Sets of noncomplemntarity variables and constraints
+    # Index Sets of noncomplementarity variables and constraints
     ind_x::IndexSet
     ind_c::IndexSet
 

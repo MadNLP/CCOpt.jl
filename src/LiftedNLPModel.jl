@@ -64,9 +64,9 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
 
     # Update the constraints to equality constraints.
     # TODO(@anton) also check if lifting equality constraints for some reason
-    lcon = nlp.meta.lcon
+    lcon = copy(nlp.meta.lcon)
     lcon[ind_lift] .= 0
-    ucon = nlp.meta.ucon
+    ucon = copy(nlp.meta.ucon)
     ucon[ind_lift] .= 0
 
     # Nonzeros for lifting variables in the jacobian
@@ -194,7 +194,7 @@ function NLPModels.jprod_lin!(
     Jv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jv[1:lnlp.meta.nlin] = jac_lin(lnlp, x) * v
+    Jv[1:lnlp.meta.nlin] .= jac_lin(lnlp, x) * v
     return Jv
 end
 
@@ -205,7 +205,7 @@ function NLPModels.jprod_nln!(
     Jv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jv[1:lnlp.meta.nnln] = jac_nln(lnlp, x) * v
+    Jv[1:lnlp.meta.nnln] .= jac_nln(lnlp, x) * v
     return Jv
 end
 
@@ -238,6 +238,7 @@ function NLPModels.hess_structure!(
 )
     return hess_structure!(lnlp.nlp, rows, cols)
 end
+
 function NLPModels.hess_coord!(
     lnlp::LiftedNLPModel{T, VT},
     x::AbstractVector{T},
