@@ -379,8 +379,8 @@ end
 
 function NLPModels.jac_lin_structure!(
     mpcc::AbstractMPCCModel,
-    rows::AbstractVector{Int},
-    cols::AbstractVector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     mrows = MappedVector(rows, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
     mcols = MappedVector(cols, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
@@ -394,8 +394,8 @@ end
 
 function NLPModels.jac_nln_structure!(
     mpcc::AbstractMPCCModel,
-    rows::AbstractVector{Int},
-    cols::AbstractVector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     mrows = MappedVector(rows, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
     mcols = MappedVector(cols, mpcc.meta.ind_j_lin_triplets, mpcc.nlp.meta.lin_nnzj)
@@ -777,13 +777,13 @@ function vertical_form(mpcc::AbstractMPCCModel)
         mpcc.meta.ind_cc1[i] for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)
     ]
 
-    ind_lift1 = [i for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)]
-    ind_lift2 =
+    ind_lift1::IndexSet = [i for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)]
+    ind_lift2::IndexSet =
         [i for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], Union{VarCon, ConCon})]
     nlift1 = length(ind_lift1)
     nlift2 = length(ind_lift2)
 
-    ind_lift = vcat(
+    ind_lift::IndexSet = vcat(
         map((i) -> mpcc.meta.ind_cc1[i], ind_lift1),
         map((i) -> mpcc.meta.ind_cc2[i], ind_lift2),
     )

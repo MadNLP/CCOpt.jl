@@ -1,3 +1,5 @@
+using NLPModelsIpopt # TODO(@anton) remove this
+
 ######################### Types #########################
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
@@ -9,8 +11,17 @@ mutable struct HomotopySolverStats{T, VT}
     multipliers::VT
 end
 
-mutable struct HomotopySolverOptions{T}
-    𝜎₀::T = 1
+function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
+    return HomotopySolverStats(
+        :unsolved,
+        VT(undef, mpcc.meta.nvar),
+        zero(T),
+        VT(undef, mpcc.meta.ncon),
+    )
+end
+
+@kwdef mutable struct HomotopySolverOptions{T}
+    𝜎₀::T = 1.0
     𝛼::T = 0.1
     𝛽::T = 1.5
 
@@ -18,11 +29,12 @@ mutable struct HomotopySolverOptions{T}
 
     N_homotopy::Int = 9
 end
+
 # TODO(@anton) mutable?
-mutable struct HomotopySolver{M} <: AbstractMPCCSolver{M <: AbstactMPCCModel{T, VT}}
+mutable struct HomotopySolver{M, T, VT} <: AbstractMPCCSolver{M, T, VT}
     mpcc::M
     nlp::ScholtesRelaxation{T, VT}
-    solver::IpoptSolver
+    solver::NLPModelsIpopt.IpoptSolver
 
     opts::HomotopySolverOptions
     stats::HomotopySolverStats
@@ -35,27 +47,26 @@ end
 
 function HomotopySolver(mpcc::AbstractMPCCModel, opts::HomotopySolverOptions)
     nlp = ScholtesRelaxation(mpcc)
-    stats = HomotopySolverStats
 
     solver = IpoptSolver(nlp)
+
+    stats = HomotopySolverStats(mpcc)
 
     x_k = nlp.meta.x0
     y_k = nlp.meta.y0
 
     𝜎 = opts.𝜎₀
 
-    return HomotopySolver(mpcc, nlp, opts, stats, x_k, y_k, 𝜎)
+    return HomotopySolver(mpcc, nlp, solver, opts, stats, x_k, y_k, 𝜎)
 end
 ######################### Main loop #########################
 function solve!(
-    solver::HomotopySolver{M <: AbstactMPCCModel{T, VT}};
+    solver::HomotopySolver{M, T, VT};
     x=nothing,
     y=nothing,
     kwargs...,
-) where {T, VT}
-    # TODO(@anton) Add default stats constructor for an mpcc
-    stats = HomotopySolverStats(:nothing, VT(), T(), VT())
-    return solve!(solver.mpcc, solver, stats; x=x, y=y, kwargs...)
+) where {M, T, VT}
+    return solve!(solver.mpcc, solver, solver.stats; x=x, y=y, kwargs...)
 end
 
 function solve!(
@@ -73,16 +84,18 @@ function solve!(
         solver.y_k .= y
     end
 
+    opts = solver.opts
     converged = false
     solver.nlp.𝜎[] = solver.𝜎
     ii = 1
     while ii ≤ opts.N_homotopy
-        nlp_stats = solve!(solver, solver.nlp; x0=solver.x_k, y0=solver.y_k)
+        nlp_stats =
+            NLPModelsIpopt.solve!(solver.solver, solver.nlp; x0=solver.x_k, y0=solver.y_k)
         cc_res = comp_resudual(mpcc, nlp_stats.solution)
         solver.x_k = nlp_stats.solution
         solver.y_k = nlp_stats.multipliers
 
-        if nlp_stats.status ∈ {:first_order, :acceptable, :small_step} &&
+        if nlp_stats.status ∈ [:first_order, :acceptable, :small_step] &&
            cc_res ≤ mpcc.opts.comp_tol
             converged = true
             break
