@@ -115,7 +115,7 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
     ind_c = setdiff(1:nlp.meta.ncon, union(ind_ccc1, ind_ccc2))
 
     # compute jacobian structure indexset
-    rows, cols = NLPModels.jac_strcture(nlp)
+    rows, cols = NLPModels.jac_structure(nlp)
     ind_j_triplets = findall(x->x ∈ ind_c, rows)
     if hasmethod(jac_lin_structure!, typeof(nlp), IndexSet, IndexSet)
         lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
@@ -225,7 +225,7 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     ind_c = setdiff(1:nlp.meta.ncon, ind_ccc2)
 
     # compute jacobian structure indexset
-    rows, cols = NLPModels.jac_strcture(nlp)
+    rows, cols = NLPModels.jac_structure(nlp)
     ind_j_triplets = findall(x->x ∈ ind_c, rows)
     if hasmethod(jac_lin_structure!, typeof(nlp), IndexSet, IndexSet)
         lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
