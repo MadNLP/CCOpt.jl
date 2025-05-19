@@ -31,6 +31,7 @@ struct MPCCModelMeta{T, VT, MT <: AbstractNLPModelMeta{T, VT}} <:
     ind_c::IndexSet
 
     # Index set of the jacobian triplets to keep.
+    ind_j_triplets::IndexSet
     ind_j_lin_triplets::IndexSet
     ind_j_nln_triplets::IndexSet
     ind_j_comp_left_triplets::IndexSet
