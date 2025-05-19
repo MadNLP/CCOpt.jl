@@ -144,20 +144,20 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
         ind_j_nln_row_map =
             Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
     else
-        warning("NLPModel with which this MPCC is created doesn't support linear API")
-        ind_j_lin_triplets = []
+        @warn "NLPModel with which this MPCC is created doesn't support linear API"
+        ind_j_lin_triplets::IndexSet = []
         ind_j_nln_triplets = ind_j_triplets
-        lin = []::IndexSet
+        lin::IndexSet = []
         nln = nlp.meta.nln
         nlin = nlp.meta.nlin
         nnln = nlp.meta.nnln
-        c_lin = []::IndexSet
-        cc_lin = []::IndexSet
+        c_lin::IndexSet = []
+        cc_lin::IndexSet = []
         c_nln = [i for i in 1:nnln if nlp.meta.nln[i] ∈ ind_c]
         cc_nln = [i for i in 1:nnln if nlp.meta.nln[i] ∉ ind_c]
 
         ind_j_lin_row_map = Dict{Int, Int}()
-        ind_j_nln_row_map =
+        ind_j_nln_row_map::Dict{Int, Int} =
             Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
     end
     ind_j_comp_left_triplets = findall(x->x∈ind_ccc1, rows);
@@ -227,7 +227,7 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
     # compute jacobian structure indexset
     rows, cols = NLPModels.jac_structure(nlp)
     ind_j_triplets = findall(x->x ∈ ind_c, rows)
-    if hasmethod(jac_lin_structure!, typeof(nlp), IndexSet, IndexSet)
+    if hasmethod(jac_lin_structure!, (typeof(nlp), IndexSet, IndexSet))
         lin_rows, lin_cols = NLPModels.jac_lin_structure(nlp)
         nln_rows, nln_cols = NLPModels.jac_nln_structure(nlp)
         # Convert to true row numbers
@@ -256,20 +256,20 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
         ind_j_nln_row_map =
             Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
     else
-        warning("NLPModel with which this MPCC is created doesn't support linear API")
-        ind_j_lin_triplets = []
+        @warn "NLPModel with which this MPCC is created doesn't support linear API"
+        ind_j_lin_triplets::IndexSet = []
         ind_j_nln_triplets = ind_j_triplets
-        lin = []::IndexSet
+        lin::IndexSet = []
         nln = nlp.meta.nln
         nlin = nlp.meta.nlin
         nnln = nlp.meta.nnln
-        c_lin = []::IndexSet
-        cc_lin = []::IndexSet
+        c_lin::IndexSet = []
+        cc_lin::IndexSet = []
         c_nln = [i for i in 1:nnln if nlp.meta.nln[i] ∈ ind_c]
         cc_nln = [i for i in 1:nnln if nlp.meta.nln[i] ∉ ind_c]
 
         ind_j_lin_row_map = Dict{Int, Int}()
-        ind_j_nln_row_map =
+        ind_j_nln_row_map::Dict{Int, Int} =
             Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
     end
     ind_j_comp_left_triplets::IndexSet = [];
@@ -313,6 +313,7 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
         cc_types,
         ind_x,
         ind_c,
+        ind_j_triplets,
         ind_j_lin_triplets,
         ind_j_nln_triplets,
         ind_j_comp_left_triplets,
