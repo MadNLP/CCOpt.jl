@@ -47,6 +47,16 @@ function HomotopySolver(mpcc::AbstractMPCCModel, opts::HomotopySolverOptions)
     return HomotopySolver(mpcc, nlp, opts, stats, x_k, y_k, 𝜎)
 end
 ######################### Main loop #########################
+function solve!(
+    solver::HomotopySolver{M <: AbstactMPCCModel{T, VT}};
+    x=nothing,
+    y=nothing,
+    kwargs...,
+) where {T, VT}
+    # TODO(@anton) Add default stats constructor for an mpcc
+    stats = HomotopySolverStats(:nothing, VT(), T(), VT())
+    return solve!(solver.mpcc, solver, stats; x=x, y=y, kwargs...)
+end
 
 function solve!(
     mpcc::AbstractMPCCModel,
