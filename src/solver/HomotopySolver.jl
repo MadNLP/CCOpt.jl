@@ -1,5 +1,3 @@
-using NLPModelsIpopt # TODO(@anton) remove this
-
 ######################### Types #########################
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
@@ -39,10 +37,10 @@ end
 end
 
 # TODO(@anton) mutable?
-mutable struct HomotopySolver{M, T, VT} <: AbstractMPCCSolver{M, T, VT}
+mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     mpcc::M
     nlp::ScholtesRelaxation{T, VT}
-    solver::NLPModelsIpopt.IpoptSolver
+    solver::S
 
     opts::HomotopySolverOptions
     stats::HomotopySolverStats
@@ -54,10 +52,10 @@ mutable struct HomotopySolver{M, T, VT} <: AbstractMPCCSolver{M, T, VT}
     𝜎::T
 end
 
-function HomotopySolver(mpcc::AbstractMPCCModel, opts::HomotopySolverOptions)
+function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOptions)
     nlp = ScholtesRelaxation(mpcc)
 
-    solver = IpoptSolver(nlp)
+    solver = S(nlp)
 
     stats = HomotopySolverStats(mpcc)
 
@@ -98,7 +96,7 @@ function solve!(
     solver.nlp.𝜎[] = solver.𝜎
     ii = 1
     while ii ≤ opts.N_homotopy
-        nlp_stats = NLPModelsIpopt.solve!(
+        nlp_stats = SolverCore.solve!(
             solver.solver,
             solver.nlp;
             x0=solver.x_k,

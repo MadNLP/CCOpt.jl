@@ -1,5 +1,5 @@
 module MadMPEC
-using NLPModels
+using NLPModels, SolverCore
 
 include("Types.jl")
 include("MappedVector.jl")
