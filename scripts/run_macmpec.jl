@@ -40,8 +40,13 @@ function run_benchmark(
 end
 
 opts_ipopt = MadMPEC.HomotopySolverOptions()
+opts_ipopt.print_level = 4
+opts_ipopt.nlp_solver_options[:print_level] = 5
 opts_madnlp = MadMPEC.HomotopySolverOptions()
-opts_madnlp.nlp_solver_options = Dict()
+opts_madnlp.nlp_solver_options =
+    Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.DEBUG)
+#opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
-stats = run_benchmark(probs[1:10], opts_madnlp, MadNLP.MadNLPSolver)
-#stats = run_benchmark(probs[1:10], opts_ipopt, NLPModelsIpopt.IpoptSolver)
+stats_madnlp = run_benchmark(probs, opts_madnlp, MadNLP.MadNLPSolver)
+names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
+stats_ipopt = run_benchmark(probs, opts_ipopt, NLPModelsIpopt.IpoptSolver)

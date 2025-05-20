@@ -154,7 +154,8 @@ function MPCCModelConCon(nlp::AbstractNLPModel, ind_ccc1::IndexSet, ind_ccc2::In
         ind_j_nln_row_map =
             Dict((i, i-count([x < i for x in cc_nln])) for i in 1:nlp.meta.nnln)
     else
-        @warn "NLPModel with which this MPCC is created doesn't support linear API"
+        # TODO(@anton) this is too loud for now
+        # @warn "NLPModel with which this MPCC is created doesn't support linear API"
         ind_j_lin_triplets::IndexSet = []
         ind_j_nln_triplets = ind_j_triplets
         lin::IndexSet = []
@@ -266,7 +267,8 @@ function MPCCModelVarCon(nlp::AbstractNLPModel, ind_vcc1::IndexSet, ind_ccc2::In
         ind_j_nln_row_map =
             Dict((i, i-count([x < i for x in cc_nln])) for i in 1:nlp.meta.nnln)
     else
-        @warn "NLPModel with which this MPCC is created doesn't support linear API"
+        # TODO(@anton) this is too loud for now
+        #@warn "NLPModel with which this MPCC is created doesn't support linear API"
         ind_j_lin_triplets::IndexSet = []
         ind_j_nln_triplets = ind_j_triplets
         lin::IndexSet = []
