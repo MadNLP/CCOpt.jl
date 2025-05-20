@@ -30,7 +30,7 @@ end
     # TODO(@anton) Do we want an Int here? A symbol (e.g. `:info`, `:warn`, `:debug`, etc.)?
     print_level::Int = 0
 
-    ipopt_options::Dict{Symbol, Any} = Dict(
+    nlp_solver_options::Dict{Symbol, Any} = Dict(
         :print_level=>0,
         :sb=>"yes",
         :mu_strategy=>"adaptive",
@@ -98,7 +98,7 @@ function solve!(
 
     # TODO(@anton) Long term we may want a pre-process step for the options
     if iszero(opts.print_level)
-        opts.ipopt_options[:print_level] = 0
+        opts.nlp_solver_options[:print_level] = 0
     end
 
     converged = false
@@ -110,7 +110,7 @@ function solve!(
             solver.nlp;
             x0=solver.x_k,
             y0=solver.y_k,
-            opts.ipopt_options...,
+            opts.nlp_solver_options...,
         )
         cc_res = comp_residual(mpcc, nlp_stats.solution)
         solver.x_k = nlp_stats.solution
