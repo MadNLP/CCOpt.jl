@@ -10,7 +10,7 @@ struct LiftedNLPModelMeta{T, VT} <: AbstractNLPModelMeta{T, VT}
     ind_lift::IndexSet
     ind_lin_lift::IndexSet
     ind_nln_lift::IndexSet
-    ind_lift_var
+    ind_lift_var::IndexSet
     ind_lin_lift_var::IndexSet
     ind_nln_lift_var::IndexSet
     nlift::Int
@@ -188,9 +188,7 @@ end
 
 function NLPModels.jac_coord!(lnlp::LiftedNLPModel, x::AbstractVector, j::AbstractVector)
     @views jac_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nnzj])
-    for i in 1:lnlp.meta.nlift
-        j[i+lnlp.nlp.meta.nnzj] = -1
-    end
+    j[(lnlp.meta.nlift+1):(lnlp.meta.nlift+lnlp.nlp.meta.nnzj)] = -1
     return j
 end
 
@@ -200,9 +198,7 @@ function NLPModels.jac_lin_coord!(
     j::AbstractVector,
 )
     @views jac_lin_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.lin_nnzj])
-    for i in 1:lnlp.meta.lin_nlift
-        j[i+lnlp.nlp.meta.lin_nnzj] = -1
-    end
+    j[(lnlp.nlp.meta.lin_nnzj+1):(lnlp.nlp.meta.lin_nnzj+lnlp.meta.lin_nlift)] = -1
     return j
 end
 
@@ -212,9 +208,7 @@ function NLPModels.jac_nln_coord!(
     j::AbstractVector,
 )
     @views jac_nln_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nln_nnzj])
-    for i in 1:lnlp.meta.nln_nlift
-        j[i+lnlp.nlp.meta.nln_nnzj] = -1
-    end
+    j[(lnlp.meta.nln_nlift+1):(lnlp.meta.nln_nlift+lnlp.nlp.meta.nln_nnzj)] = -1
     return j
 end
 

@@ -21,11 +21,14 @@ end
 @kwdef mutable struct HomotopySolverOptions{T}
     𝜎₀::T = 1.0
     𝛼::T = 0.1
-    𝛽::T = 1.5
+    𝛽::T = 1.0
 
     comp_tol::T = 1e-8
 
     N_homotopy::Int = 9
+
+    # TODO(@anton) Do we want an Int here? A symbol (e.g. `:info`, `:warn`, `:debug`, etc.)?
+    print_level::Int = 0
 
     ipopt_options::Dict{Symbol, Any} = Dict(
         :print_level=>0,
@@ -92,6 +95,12 @@ function solve!(
     end
 
     opts = solver.opts
+
+    # TODO(@anton) Long term we may want a pre-process step for the options
+    if iszero(opts.print_level)
+        opts.ipopt_options[:print_level] = 0
+    end
+
     converged = false
     solver.nlp.𝜎[] = solver.𝜎
     ii = 1

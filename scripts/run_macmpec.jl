@@ -1,7 +1,7 @@
 include("from_ampl.jl")
 using NLPModelsIpopt
 
-function solve_macmpec_ampl_problem(nl::AbstractString, opts::MadMPEC.HomotopySolverOptions)
+function solve_ampl_problem(nl::AbstractString, opts::MadMPEC.HomotopySolverOptions)
     model = AmplNLReader.AmplModel(nl)
     mpcc = MadMPEC.vertical_form(mpcc_from_ampl(model))
 
@@ -10,12 +10,12 @@ function solve_macmpec_ampl_problem(nl::AbstractString, opts::MadMPEC.HomotopySo
     return MadMPEC.solve!(solver)
 end
 
-function solve_macmpec(datapath::AbstractString, opts::MadMPEC.HomotopySolverOptions)
-    probs = readdir(abspath(datapath), join=true)
+function run_ampl_benchmark(nlpath::AbstractString, opts::MadMPEC.HomotopySolverOptions)
+    probs = readdir(abspath(nlpath), join=true)
     stats_vec = Vector{MadMPEC.HomotopySolverStats}(undef, length(probs))
     for i in 1:length(probs)
         try
-            stats_vec[i] = solve_macmpec_ampl_problem(probs[i], opts)
+            stats_vec[i] = solve_ampl_problem(probs[i], opts)
         catch e
             println("Something went wrong with ", probs[i])
         else

@@ -71,9 +71,10 @@ function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::Abstra
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
-    return cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
+    cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
         (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+    return cx
 end
 
 function NLPModels.cons_lin!(
