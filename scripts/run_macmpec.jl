@@ -1,27 +1,47 @@
 include("from_ampl.jl")
 using NLPModelsIpopt
+using MadNLP
 
-function solve_ampl_problem(nl::AbstractString, opts::MadMPEC.HomotopySolverOptions)
-    model = AmplNLReader.AmplModel(nl)
-    mpcc = MadMPEC.vertical_form(mpcc_from_ampl(model))
-
-    solver = MadMPEC.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)
+function solve_benchmark_problem(
+    mpcc::MadMPEC.AbstractMPCCModel,
+    opts::MadMPEC.HomotopySolverOptions,
+    solver::Type,
+)
+    solver = MadMPEC.HomotopySolver(mpcc, solver, opts)
 
     return MadMPEC.solve!(solver)
 end
 
-function run_ampl_benchmark(nlpath::AbstractString, opts::MadMPEC.HomotopySolverOptions)
+function load_ampl_benchmark(nlpath::AbstractString)
     probs = readdir(abspath(nlpath), join=true)
-    stats_vec = Vector{MadMPEC.HomotopySolverStats}(undef, length(probs))
+    mpccs::Vector{MadMPEC.AbstractMPCCModel} = []
+    names = []
     for i in 1:length(probs)
-        try
-            stats_vec[i] = solve_ampl_problem(probs[i], opts)
-        catch e
-            println("Something went wrong with ", probs[i])
-        else
-            println(stats_vec[i])
-        end
+        model = AmplNLReader.AmplModel(probs[i])
+        mpcc = MadMPEC.vertical_form(mpcc_from_ampl(model))
+        push!(mpccs, mpcc)
+        push!(names, basename(probs[i]))
+    end
+    return names, mpccs
+end
+
+function run_benchmark(
+    probs::Vector{MadMPEC.AbstractMPCCModel},
+    opts::MadMPEC.HomotopySolverOptions,
+    solver::Type,
+)
+    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    for i in 1:length(probs)
+        push!(stats_vec, solve_benchmark_problem(probs[i], opts, solver))
     end
 
-    return probs, stats_vec
+    return stats_vec
 end
+
+opts_ipopt = MadMPEC.HomotopySolverOptions()
+opts_madnlp = MadMPEC.HomotopySolverOptions()
+opts_madnlp.nlp_solver_options = Dict()
+names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
+stats = run_benchmark(probs[1:10], opts_madnlp, MadNLP.MadNLPSolver)
+#stats = run_benchmark(probs[1:10], opts_ipopt, NLPModelsIpopt.IpoptSolver)
