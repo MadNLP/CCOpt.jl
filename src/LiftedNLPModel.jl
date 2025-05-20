@@ -55,7 +55,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     nln_nlift = length(ind_nln_lift)
     nvar = nlp.meta.nvar + nlift
 
-    ind_lift_var = collect(nlp.meta.nvar+1):(nlp.meta.nvar+nlift)
+    ind_lift_var = collect((nlp.meta.nvar+1):(nlp.meta.nvar+nlift))
     ind_lin_lift_var = [nlp.meta.nvar+i for i in 1:nlift if ind_lift[i] ∈ nlp.meta.lin]
     ind_nln_lift_var = [nlp.meta.nvar+i for i in 1:nlift if ind_lift[1] ∈ nlp.meta.nln]
 
@@ -188,7 +188,7 @@ end
 
 function NLPModels.jac_coord!(lnlp::LiftedNLPModel, x::AbstractVector, j::AbstractVector)
     @views jac_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nnzj])
-    j[(lnlp.meta.nlift+1):(lnlp.meta.nlift+lnlp.nlp.meta.nnzj)] = -1
+    j[(lnlp.nlp.meta.nnzj+1):(lnlp.nlp.meta.nnzj+lnlp.meta.nlift)] .= -1
     return j
 end
 
@@ -198,7 +198,7 @@ function NLPModels.jac_lin_coord!(
     j::AbstractVector,
 )
     @views jac_lin_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.lin_nnzj])
-    j[(lnlp.nlp.meta.lin_nnzj+1):(lnlp.nlp.meta.lin_nnzj+lnlp.meta.lin_nlift)] = -1
+    j[(lnlp.nlp.meta.lin_nnzj+1):(lnlp.nlp.meta.lin_nnzj+lnlp.meta.lin_nlift)] .= -1
     return j
 end
 
@@ -208,7 +208,7 @@ function NLPModels.jac_nln_coord!(
     j::AbstractVector,
 )
     @views jac_nln_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nln_nnzj])
-    j[(lnlp.meta.nln_nlift+1):(lnlp.meta.nln_nlift+lnlp.nlp.meta.nln_nnzj)] = -1
+    j[(lnlp.nlp.meta.nln_nnzj+1):(lnlp.nlp.meta.nln_nnzj+lnlp.meta.nln_nlift)] .= -1
     return j
 end
 
