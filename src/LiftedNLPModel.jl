@@ -55,7 +55,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     nln_nlift = length(ind_nln_lift)
     nvar = nlp.meta.nvar + nlift
 
-    ind_lift_var = (nlp.meta.nvar+1):(nlp.meta.nvar+nlift)
+    ind_lift_var = collect(nlp.meta.nvar+1):(nlp.meta.nvar+nlift)
     ind_lin_lift_var = [nlp.meta.nvar+i for i in 1:nlift if ind_lift[i] ∈ nlp.meta.lin]
     ind_nln_lift_var = [nlp.meta.nvar+i for i in 1:nlift if ind_lift[1] ∈ nlp.meta.nln]
 
