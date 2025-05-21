@@ -45,6 +45,8 @@ end
     # TODO(@anton) Do we want an Int here? A symbol (e.g. `:info`, `:warn`, `:debug`, etc.)?
     print_level::Int = 0
 
+    warm_start_bound_push::Union{Float64, Nothing} = nothing
+
     nlp_solver_options::Dict{Symbol, Any} = Dict(
         :print_level=>0,
         :sb=>"yes",
@@ -97,6 +99,11 @@ function solve_rnlp(
             solver.solver,
             solver.nlp;
             warm_start_init_point="yes",
+            warm_start_bound_push=something(
+                solver.opts.warm_start_bound_push,
+                get(solver.opts.nlp_solver_options, :warm_start_bound_push, nothing),
+                0.001,
+            ),
             solver.opts.nlp_solver_options...,
         )
         # Additional tuning
@@ -117,7 +124,15 @@ function solve_rnlp(
     n::Int,
 ) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
     if n > 1
-        return SolverCore.solve!(solver.solver; solver.opts.nlp_solver_options...)
+        return SolverCore.solve!(
+            solver.solver;
+            bound_push=something(
+                solver.opts.warm_start_bound_push,
+                get(solver.opts.nlp_solver_options, :bound_push, nothing),
+                1e-2,
+            ),
+            solver.opts.nlp_solver_options...,
+        )
         # Additional tuning
         # TODO(@anton) do more testing
         # mu_init=1e-4,

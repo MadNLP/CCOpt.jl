@@ -131,12 +131,12 @@ function test_ipopt_mu_update(; range=:)
     opts_ipopt_monotone.nlp_solver_options[:max_iter] = 3000
     opts_ipopt_monotone.nlp_solver_options[:mu_strategy] = "monotone"
 
-    opts_ipopt_adaptive_quality = MadMPEC.HomotopySolverOptions()
-    opts_ipopt_adaptive_quality.print_level = 5
-    opts_ipopt_adaptive_quality.nlp_solver_options[:print_level] = 5
-    opts_ipopt_adaptive_quality.nlp_solver_options[:max_iter] = 3000
-    opts_ipopt_adaptive_quality.nlp_solver_options[:mu_strategy] = "adaptive"
-    opts_ipopt_adaptive_quality.nlp_solver_options[:mu_oracle] = "quality-function"
+    opts_ipopt1 = MadMPEC.HomotopySolverOptions()
+    opts_ipopt1.print_level = 5
+    opts_ipopt1.nlp_solver_options[:print_level] = 5
+    opts_ipopt1.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt1.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt1.nlp_solver_options[:mu_oracle] = "quality-function"
 
     opts_ipopt_adaptive_probing = MadMPEC.HomotopySolverOptions()
     opts_ipopt_adaptive_probing.print_level = 5
@@ -159,11 +159,11 @@ function test_ipopt_mu_update(; range=:)
         opts_ipopt_monotone,
         (NLPModelsIpopt.IpoptSolver,),
     )
-    ipopt_adaptive_quality = (
+    ipopt1 = (
         "Ipopt adaptive quality function",
         solve_benchmark_problem_homotopy,
         save_ipopt_df,
-        opts_ipopt_adaptive_quality,
+        opts_ipopt1,
         (NLPModelsIpopt.IpoptSolver,),
     )
     ipopt_adaptive_probing = (
@@ -183,7 +183,34 @@ function test_ipopt_mu_update(; range=:)
 
     solnames, names, stats = run_macmpec(
         ipopt_monotone,
-        ipopt_adaptive_quality,
+        ipopt1,
+        ipopt_adaptive_probing,
+        ipopt_adaptive_loqo;
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_homtotopy_bound_push(; range=:)
+    opts_ipopt1 = MadMPEC.HomotopySolverOptions()
+    opts_ipopt1.print_level = 5
+    opts_ipopt1.nlp_solver_options[:print_level] = 5
+    opts_ipopt1.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt1.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt1.nlp_solver_options[:mu_oracle] = "quality-function"
+
+    ipopt1 = (
+        "Ipopt bp default",
+        solve_benchmark_problem_homotopy,
+        save_ipopt_df,
+        opts_ipopt1,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    solnames, names, stats = run_macmpec(
+        ipopt_monotone,
+        ipopt1,
         ipopt_adaptive_probing,
         ipopt_adaptive_loqo;
         range=range,
