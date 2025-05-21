@@ -4,7 +4,6 @@ using MadNLP, NLPModelsIpopt
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
     # TODO(@anton) Should subclass AbstractExecutionStats probably
-    # TODO(@anton) Should have a dictionary of statuses
     status::MPCCSolverStatus
     solution::VT
     objective::T
