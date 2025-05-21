@@ -44,3 +44,4 @@ benchmark/*.pdf
 
 # Benchmark data
 data/
+*.csv

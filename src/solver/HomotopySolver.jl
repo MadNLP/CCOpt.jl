@@ -12,6 +12,10 @@ mutable struct HomotopySolverStats{T, VT}
     inf_cc::T
 
     wall_time::Float64
+    eval_function_time::Float64
+    linear_solver_time::Float64
+    iter::Int
+
     nlp_stats::Vector{Any}
 end
 
@@ -23,6 +27,9 @@ function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         VT(undef, mpcc.meta.ncon),
         zero(T),
         0.0,
+        0.0,
+        0.0,
+        0,
         [],
     )
 end
@@ -162,6 +169,23 @@ function reset_nlp_solver!(
     return solver.solver.cnt.restoration_fail_count = 0
 end
 
+function update_times!(
+    solver::HomotopySolver{M, S, T, VT},
+    nlp_stats::AbstractExecutionStats,
+) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
+    # TODO(@anton) ipopt interface doesn't give detailed times
+    return solver.stats.iter += nlp_stats.iter
+end
+
+function update_times!(
+    solver::HomotopySolver{M, S, T, VT},
+    nlp_stats::MadNLP.MadNLPExecutionStats,
+) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
+    solver.stats.eval_function_time = nlp_stats.counters.eval_function_time
+    solver.stats.linear_solver_time = nlp_stats.counters.linear_solver_time
+    return solver.stats.iter += nlp_stats.iter
+end
+
 ######################### Main loop #########################
 function solve!(
     solver::HomotopySolver{M, T, VT};
@@ -210,6 +234,7 @@ function solve!(
 
         copyto!(NLPModels.get_x0(solver.nlp), solver.x_k)
         copyto!(NLPModels.get_y0(solver.nlp), solver.y_k)
+        update_times!(solver, nlp_stats)
 
         if nlp_solve_acceptable(nlp_stats) && solver.inf_cc ≤ solver.opts.comp_tol
             converged = true

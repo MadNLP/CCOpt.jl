@@ -15,7 +15,7 @@ end
 function load_ampl_benchmark(nlpath::AbstractString)
     probs = readdir(abspath(nlpath), join=true)
     mpccs::Vector{MadMPEC.AbstractMPCCModel} = []
-    names = []
+    names = Vector{String}()
     for i in 1:length(probs)
         model = AmplNLReader.AmplModel(probs[i])
         mpcc = MadMPEC.vertical_form(mpcc_from_ampl(model))
@@ -42,9 +42,10 @@ end
 opts_ipopt = MadMPEC.HomotopySolverOptions()
 opts_ipopt.print_level = 4
 opts_ipopt.nlp_solver_options[:print_level] = 5
+opts_ipopt.nlp_solver_options[:max_iter] = 500
 opts_madnlp = MadMPEC.HomotopySolverOptions()
 opts_madnlp.nlp_solver_options =
-    Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.DEBUG)
+    Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.DEBUG, :max_iter=>500)
 #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
 stats_madnlp = run_benchmark(probs, opts_madnlp, MadNLP.MadNLPSolver)
