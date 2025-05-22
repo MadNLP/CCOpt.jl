@@ -5,7 +5,7 @@ using MadNCL
 include("from_ampl.jl")
 include("save_macmpec.jl")
 
-function solve_benchmark_problem_homotopy(
+function solve_benchmark_problem(
     mpcc::MadMPEC.AbstractMPCCModel,
     opts::MadMPEC.HomotopySolverOptions,
     solver::Type,
@@ -15,10 +15,7 @@ function solve_benchmark_problem_homotopy(
     return MadMPEC.solve!(solver)
 end
 
-function solve_benchmark_problem_ncl(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadNCL.NCLOptions,
-)
+function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.NCLOptions)
     nlp = MadMPEC.ScholtesRelaxation(mpcc)
 
     try
@@ -78,14 +75,14 @@ function run_macmpec(args...; plot=false, range=:)
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
         # TODO(@anton) Figure out why this is necessary. Something in mpccmodel is _too_ mutable
-        names, probs =
-            load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] =
             dffun(names[range], stats[solname], replace(solname, " "=>"_")*".csv")
     end
-
+    if plot
+        perf_plot("Performance Plot", solnames, stats)
+    end
     return solnames, names, stats
 end
 
@@ -103,20 +100,19 @@ function test_macmpec(; range=:)
 
     default_ipopt = (
         "nosnoc Ipopt",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt,
         (NLPModelsIpopt.IpoptSolver,),
     )
     default_madnlp = (
         "default madNLP",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_madnlp_df,
         opts_madnlp,
         (MadNLP.MadNLPSolver,),
     )
-    default_madncl =
-        ("default madNCL", solve_benchmark_problem_ncl, save_ncl_df, opts_ncl, ())
+    default_madncl = ("default madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
 
     solnames, names, stats =
         run_macmpec(default_ipopt, default_madnlp, default_madncl; range=range)
@@ -154,28 +150,28 @@ function test_ipopt_mu_update(; range=:)
 
     ipopt_monotone = (
         "Ipopt monotone",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt_monotone,
         (NLPModelsIpopt.IpoptSolver,),
     )
     ipopt1 = (
         "Ipopt adaptive quality function",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt1,
         (NLPModelsIpopt.IpoptSolver,),
     )
     ipopt_adaptive_probing = (
         "Ipopt adaptive probing",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt_adaptive_probing,
         (NLPModelsIpopt.IpoptSolver,),
     )
     ipopt_adaptive_loqo = (
         "Ipopt adaptive loqo",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt_adaptive_loqo,
         (NLPModelsIpopt.IpoptSolver,),
@@ -200,7 +196,7 @@ function test_homtotopy_bound_push(; range=:)
 
     ipopt1 = (
         "Ipopt bp default",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt1,
         (NLPModelsIpopt.IpoptSolver,),
@@ -213,7 +209,7 @@ function test_homtotopy_bound_push(; range=:)
 
     ipopt2 = (
         "Ipopt bp 1e-5",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt2,
         (NLPModelsIpopt.IpoptSolver,),
@@ -226,7 +222,7 @@ function test_homtotopy_bound_push(; range=:)
 
     ipopt3 = (
         "Ipopt bp 1e-9",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt3,
         (NLPModelsIpopt.IpoptSolver,),
@@ -239,7 +235,7 @@ function test_homtotopy_bound_push(; range=:)
 
     madnlp1 = (
         "madNLP bp default",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_madnlp_df,
         opts_madnlp1,
         (MadNLP.MadNLPSolver,),
@@ -252,7 +248,7 @@ function test_homtotopy_bound_push(; range=:)
 
     madnlp2 = (
         "madNLP bp 1e-5",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_madnlp_df,
         opts_madnlp2,
         (MadNLP.MadNLPSolver,),
@@ -265,7 +261,7 @@ function test_homtotopy_bound_push(; range=:)
 
     madnlp3 = (
         "madNLP bp 1e-9",
-        solve_benchmark_problem_homotopy,
+        solve_benchmark_problem,
         save_madnlp_df,
         opts_madnlp3,
         (MadNLP.MadNLPSolver,),
