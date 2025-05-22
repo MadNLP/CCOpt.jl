@@ -79,6 +79,26 @@ mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     𝜎::T
 end
 
+"""
+    HomotopSolver
+
+Implementation of a Scholtes relaxation homotopy solver for MPCCs. It reformulates
+
+  min f(x)
+  s.t lc ≤ c(x) ≤ uc
+      lx ≤ x₀   ≤ ux
+      0  ≤ x₁ ⟂ x₂ ≥ 0
+
+into the NLP
+  min f(x)
+  s.t lc ≤ c(x) ≤ uc
+      lx ≤ x₀   ≤ ux
+      0 ≤ x₁
+      0 ≤ x₂
+      0 ≥ x₁⊙x₂ - 𝜎
+
+And solve a sequence of these NLPs with 𝜎→0.
+"""
 function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOptions)
     nlp = ScholtesRelaxation(mpcc)
 
