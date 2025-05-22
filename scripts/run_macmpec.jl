@@ -195,6 +195,7 @@ end
 function test_homtotopy_bound_push(; range=:)
     opts_ipopt1 = MadMPEC.HomotopySolverOptions()
     opts_ipopt1.print_level = 5
+    opts_ipopt1.nlp_solver_options[:print_level] = 5
     opts_ipopt1.nlp_solver_options[:max_iter] = 3000
 
     ipopt1 = (
@@ -207,6 +208,7 @@ function test_homtotopy_bound_push(; range=:)
 
     opts_ipopt2 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-5)
     opts_ipopt2.print_level = 5
+    opts_ipopt2.nlp_solver_options[:print_level] = 5
     opts_ipopt2.nlp_solver_options[:max_iter] = 3000
 
     ipopt2 = (
@@ -219,6 +221,7 @@ function test_homtotopy_bound_push(; range=:)
 
     opts_ipopt3 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-9)
     opts_ipopt3.print_level = 5
+    opts_ipopt3.nlp_solver_options[:print_level] = 5
     opts_ipopt3.nlp_solver_options[:max_iter] = 3000
 
     ipopt3 = (
@@ -232,7 +235,7 @@ function test_homtotopy_bound_push(; range=:)
     opts_madnlp1 = MadMPEC.HomotopySolverOptions()
     opts_madnlp1.print_level = 5
     opts_madnlp1.nlp_solver_options =
-        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.Error, :max_iter=>3000)
+        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.ERROR, :max_iter=>3000)
 
     madnlp1 = (
         "madNLP bp default",
@@ -245,7 +248,7 @@ function test_homtotopy_bound_push(; range=:)
     opts_madnlp2 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-5)
     opts_madnlp2.print_level = 5
     opts_madnlp2.nlp_solver_options =
-        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.Error, :max_iter=>3000)
+        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.ERROR, :max_iter=>3000)
 
     madnlp2 = (
         "madNLP bp 1e-5",
@@ -258,7 +261,7 @@ function test_homtotopy_bound_push(; range=:)
     opts_madnlp3 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-9)
     opts_madnlp3.print_level = 5
     opts_madnlp3.nlp_solver_options =
-        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.Error, :max_iter=>3000)
+        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.ERROR, :max_iter=>3000)
 
     madnlp3 = (
         "madNLP bp 1e-9",
