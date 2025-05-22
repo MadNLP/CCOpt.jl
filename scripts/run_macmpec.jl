@@ -127,12 +127,12 @@ function test_ipopt_mu_update(; range=:)
     opts_ipopt_monotone.nlp_solver_options[:max_iter] = 3000
     opts_ipopt_monotone.nlp_solver_options[:mu_strategy] = "monotone"
 
-    opts_ipopt1 = MadMPEC.HomotopySolverOptions()
-    opts_ipopt1.print_level = 5
-    opts_ipopt1.nlp_solver_options[:print_level] = 5
-    opts_ipopt1.nlp_solver_options[:max_iter] = 3000
-    opts_ipopt1.nlp_solver_options[:mu_strategy] = "adaptive"
-    opts_ipopt1.nlp_solver_options[:mu_oracle] = "quality-function"
+    opts_ipopt_adaptive_quality = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_adaptive_quality.print_level = 5
+    opts_ipopt_adaptive_quality.nlp_solver_options[:print_level] = 5
+    opts_ipopt_adaptive_quality.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt_adaptive_quality.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt_adaptive_quality.nlp_solver_options[:mu_oracle] = "quality-function"
 
     opts_ipopt_adaptive_probing = MadMPEC.HomotopySolverOptions()
     opts_ipopt_adaptive_probing.print_level = 5
@@ -155,11 +155,11 @@ function test_ipopt_mu_update(; range=:)
         opts_ipopt_monotone,
         (NLPModelsIpopt.IpoptSolver,),
     )
-    ipopt1 = (
+    ipopt_adaptive_quality = (
         "Ipopt adaptive quality function",
         solve_benchmark_problem,
         save_ipopt_df,
-        opts_ipopt1,
+        opts_ipopt_adaptive_quality,
         (NLPModelsIpopt.IpoptSolver,),
     )
     ipopt_adaptive_probing = (
@@ -269,6 +269,79 @@ function test_homtotopy_bound_push(; range=:)
 
     solnames, names, stats =
         run_macmpec(ipopt1, ipopt2, ipopt3, madnlp1, madnlp2, madnlp3; range=range)
+
+    return solnames, names, stats
+end
+
+function test_ipopt_norm_type(; range=:)
+    opts_ipopt_1_norm = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_1_norm.print_level = MadNLP.INFO
+    opts_ipopt_1_norm.nlp_solver_options[:print_level] = 0
+    opts_ipopt_1_norm.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt_1_norm.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt_1_norm.nlp_solver_options[:mu_oracle] = "quality-function"
+    opts_ipopt_1_norm.nlp_solver_options[:quality_function_norm_type] = "1-norm"
+
+    opts_ipopt_2_norm_squared = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_2_norm_squared.print_level = MadNLP.INFO
+    opts_ipopt_2_norm_squared.nlp_solver_options[:print_level] = 0
+    opts_ipopt_2_norm_squared.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt_2_norm_squared.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt_2_norm_squared.nlp_solver_options[:mu_oracle] = "quality-function"
+    opts_ipopt_2_norm_squared.nlp_solver_options[:quality_function_norm_type] = "2-norm-squared"
+
+    opts_ipopt_max_norm = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_max_norm.print_level = MadNLP.INFO
+    opts_ipopt_max_norm.nlp_solver_options[:print_level] = 0
+    opts_ipopt_max_norm.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt_max_norm.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt_max_norm.nlp_solver_options[:mu_oracle] = "quality-function"
+    opts_ipopt_max_norm.nlp_solver_options[:quality_function_norm_type] = "max-norm"
+
+    opts_ipopt_2_norm = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_2_norm.print_level = MadNLP.INFO
+    opts_ipopt_2_norm.nlp_solver_options[:print_level] = 0
+    opts_ipopt_2_norm.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt_2_norm.nlp_solver_options[:mu_strategy] = "adaptive"
+    opts_ipopt_2_norm.nlp_solver_options[:mu_oracle] = "quality-function"
+    opts_ipopt_2_norm.nlp_solver_options[:quality_function_norm_type] = "2-norm"
+
+    ipopt_1_norm = (
+        "Ipopt 1-norm",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt_1_norm,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    ipopt_2_norm_squared = (
+        "Ipopt 2-norm-squared",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt_2_norm_squared,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    ipopt_max_norm = (
+        "Ipopt max-norm",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt_max_norm,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    ipopt_2_norm = (
+        "Ipopt 2-norm",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt_2_norm,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    solnames, names, stats = run_macmpec(
+        ipopt_1_norm,
+        ipopt_2_norm_squared,
+        ipopt_max_norm,
+        ipopt_2_norm;
+        range=range,
+    )
 
     return solnames, names, stats
 end

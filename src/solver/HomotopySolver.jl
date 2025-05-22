@@ -227,15 +227,23 @@ end
 
 function print_headers(solver::HomotopySolver{M, S, T, VT}) where {M, S, T, VT}
     # TODO(@anton) also log nlpsolver output
-    header =
-        SolverCore.log_header([:iter, :objective, :inf_cc, :nlp_iters], [Int, T, T, Int])
+    header = SolverCore.log_header(
+        [:iter, :solver_status, :objective, :inf_cc, :nlp_iters],
+        [Int, Symbol, T, T, Int],
+    )
     MadNLP.@info(solver.logger, "MadMPEC Homotopy Solver")
     MadNLP.@info(solver.logger, header)
 end
 
 function print_outer_iter(solver::HomotopySolver)
     row = SolverCore.log_row(
-        Any[solver.k, solver.f_k, solver.inf_cc, solver.stats.nlp_stats[end].iter],
+        Any[
+            solver.k,
+            Symbol(solver.stats.nlp_stats[end].status),
+            solver.f_k,
+            solver.inf_cc,
+            solver.stats.nlp_stats[end].iter,
+        ],
     )
     MadNLP.@info(solver.logger, row)
 end
