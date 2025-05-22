@@ -16,9 +16,9 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
 
     # Update only what needs to be updated
     ncon = mpcc.meta.ncon + mpcc.meta.ncc
-    lcon = append!(mpcc.meta.lcon, -Inf*ones(mpcc.meta.ncc))
-    ucon = append!(mpcc.meta.ucon, zeros(mpcc.meta.ncc))
-    y0 = append!(mpcc.meta.y0, zeros(mpcc.meta.ncc))
+    lcon = vcat(mpcc.meta.lcon, -Inf*ones(mpcc.meta.ncc))
+    ucon = vcat(mpcc.meta.ucon, zeros(mpcc.meta.ncc))
+    y0 = vcat(mpcc.meta.y0, zeros(mpcc.meta.ncc))
     # TODO(@anton) this is a lower bound only accurate for vertical form: we can calculate this exactly if we store
     #              the nnz for the jacobians of G, and H, which we now do.
     nnzj = mpcc.meta.nnzj + 2*mpcc.meta.ncc
@@ -37,6 +37,7 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         mpcc.nlp.meta,
         ncon=ncon,
         lcon=lcon,
+        ucon=ucon,
         y0=y0,
         nnzj=nnzj,
         nln_nnzj=nln_nnzj,

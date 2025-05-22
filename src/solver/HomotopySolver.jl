@@ -4,18 +4,18 @@ using MadNLP, NLPModelsIpopt
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
     # TODO(@anton) Should subclass AbstractExecutionStats probably
-    status::MPCCSolverStatus
-    solution::VT
-    objective::T
-    multipliers::VT
-    inf_cc::T
+    status::MPCCSolverStatus # Return status from the HomotopySolver
+    solution::VT             # solution for primal variables x
+    objective::T             # objective achieved
+    multipliers::VT          # multipliers for nonlinear constraints (including relaxed complementarities)
+    inf_cc::T                # Complementarity infeasibility calculated as max(x₁⊙x₂)
 
-    wall_time::Float64
-    eval_function_time::Float64
-    linear_solver_time::Float64
-    iter::Int
+    wall_time::Float64          # Total wall time take by solver
+    eval_function_time::Float64 # Total time spent in function eval (only for MadNLP)
+    linear_solver_time::Float64 # Total time spent in linear solver (only for MadNLP)
+    iter::Int                   # Total number of nlp solver iterations
 
-    nlp_stats::Vector{Any}
+    nlp_stats::Vector{Any}      # Vector of nlp solver stats.
 end
 
 function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -34,17 +34,18 @@ function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
 end
 
 @kwdef mutable struct HomotopySolverOptions{T}
-    𝜎₀::T = 1.0
-    𝛼::T = 0.1
-    𝛽::T = 1.0
+    𝜎₀::T = 1.0 # Initial value of complementarity relaxation
+    𝛼::T = 0.1  # Linear component of relaxation tightening law
+    𝛽::T = 1.0  # Superlinear component of relaxation tightening law
 
-    comp_tol::T = 1e-8
+    comp_tol::T = 1e-8 # Target complementarity tolerence in terms of max(x₁⊙x₂)
 
-    N_homotopy::Int = 10
+    N_homotopy::Int = 10 # Max Number of outer iterations
 
     # TODO(@anton) Do we want an Int here? A symbol (e.g. `:info`, `:warn`, `:debug`, etc.)?
     print_level::Int = 0
 
+    # Decreased bound push for followup iterations
     warm_start_bound_push::Union{Float64, Nothing} = nothing
 
     nlp_solver_options::Dict{Symbol, Any} = Dict(
@@ -56,7 +57,6 @@ end
     )
 end
 
-# TODO(@anton) mutable?
 mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     mpcc::M
     nlp::ScholtesRelaxation{T, VT}
@@ -265,11 +265,13 @@ function solve!(
         stats.status = NLP_STATIONARY
         stats.solution = solver.x_k
         stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
+        stats.inf_cc = solver.inf_cc
         stats.objective = solver.f_k
     else
         stats.status = MAXIMUM_ITERATIONS_EXCEEDED
         stats.solution = solver.x_k
         stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
+        stats.inf_cc = solver.inf_cc
         stats.objective = solver.f_k
     end
     stats.wall_time = time() - solver.start_time;
