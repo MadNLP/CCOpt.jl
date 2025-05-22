@@ -195,10 +195,7 @@ end
 function test_homtotopy_bound_push(; range=:)
     opts_ipopt1 = MadMPEC.HomotopySolverOptions()
     opts_ipopt1.print_level = 5
-    opts_ipopt1.nlp_solver_options[:print_level] = 5
     opts_ipopt1.nlp_solver_options[:max_iter] = 3000
-    opts_ipopt1.nlp_solver_options[:mu_strategy] = "adaptive"
-    opts_ipopt1.nlp_solver_options[:mu_oracle] = "quality-function"
 
     ipopt1 = (
         "Ipopt bp default",
@@ -208,13 +205,71 @@ function test_homtotopy_bound_push(; range=:)
         (NLPModelsIpopt.IpoptSolver,),
     )
 
-    solnames, names, stats = run_macmpec(
-        ipopt_monotone,
-        ipopt1,
-        ipopt_adaptive_probing,
-        ipopt_adaptive_loqo;
-        range=range,
+    opts_ipopt2 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-5)
+    opts_ipopt2.print_level = 5
+    opts_ipopt2.nlp_solver_options[:max_iter] = 3000
+
+    ipopt2 = (
+        "Ipopt bp 1e-5",
+        solve_benchmark_problem_homotopy,
+        save_ipopt_df,
+        opts_ipopt2,
+        (NLPModelsIpopt.IpoptSolver,),
     )
+
+    opts_ipopt3 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-9)
+    opts_ipopt3.print_level = 5
+    opts_ipopt3.nlp_solver_options[:max_iter] = 3000
+
+    ipopt3 = (
+        "Ipopt bp 1e-9",
+        solve_benchmark_problem_homotopy,
+        save_ipopt_df,
+        opts_ipopt3,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    opts_madnlp1 = MadMPEC.HomotopySolverOptions()
+    opts_madnlp1.print_level = 5
+    opts_madnlp1.nlp_solver_options =
+        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.Error, :max_iter=>3000)
+
+    madnlp1 = (
+        "madNLP bp default",
+        solve_benchmark_problem_homotopy,
+        save_madnlp_df,
+        opts_madnlp1,
+        (MadNLP.MadNLPSolver,),
+    )
+
+    opts_madnlp2 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-5)
+    opts_madnlp2.print_level = 5
+    opts_madnlp2.nlp_solver_options =
+        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.Error, :max_iter=>3000)
+
+    madnlp2 = (
+        "madNLP bp 1e-5",
+        solve_benchmark_problem_homotopy,
+        save_madnlp_df,
+        opts_madnlp2,
+        (MadNLP.MadNLPSolver,),
+    )
+
+    opts_madnlp3 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-9)
+    opts_madnlp3.print_level = 5
+    opts_madnlp3.nlp_solver_options =
+        Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.Error, :max_iter=>3000)
+
+    madnlp3 = (
+        "madNLP bp 1e-9",
+        solve_benchmark_problem_homotopy,
+        save_madnlp_df,
+        opts_madnlp3,
+        (MadNLP.MadNLPSolver,),
+    )
+
+    solnames, names, stats =
+        run_macmpec(ipopt1, ipopt2, ipopt3, madnlp1, madnlp2, madnlp3; range=range)
 
     return solnames, names, stats
 end
