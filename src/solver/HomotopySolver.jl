@@ -43,7 +43,9 @@ end
     N_homotopy::Int = 10 # Max Number of outer iterations
 
     # TODO(@anton) Do we want an Int here? A symbol (e.g. `:info`, `:warn`, `:debug`, etc.)?
-    print_level::Int = 0
+    print_level::MadNLP.LogLevels = MadNLP.INFO
+    file_print_level::MadNLP.LogLevels = MadNLP.INFO
+    output_file::String = ""
 
     # Decreased bound push for followup iterations
     warm_start_bound_push::Union{Float64, Nothing} = nothing
@@ -64,9 +66,11 @@ mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
 
     opts::HomotopySolverOptions
     stats::HomotopySolverStats
+    logger::MadNLP.MadNLPLogger
 
     start_time::Float64
 
+    k::Int
     x_k::VT
     y_k::VT
     f_k::T
@@ -82,12 +86,32 @@ function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOp
 
     stats = HomotopySolverStats(mpcc)
 
+    logger = MadNLP.MadNLPLogger(
+        print_level=opts.print_level,
+        file_print_level=opts.file_print_level,
+        file=opts.output_file == "" ? nothing : open(opts.output_file, "w+"),
+    )
+
     x_k = nlp.meta.x0
     y_k = nlp.meta.y0
 
     𝜎 = opts.𝜎₀
 
-    return HomotopySolver(mpcc, nlp, solver, opts, stats, 0.0, x_k, y_k, 0.0, 0.0, 𝜎)
+    return HomotopySolver(
+        mpcc,
+        nlp,
+        solver,
+        opts,
+        stats,
+        logger,
+        0.0,
+        0,
+        x_k,
+        y_k,
+        0.0,
+        0.0,
+        𝜎,
+    )
 end
 
 ######################### Helpers #########################
@@ -201,6 +225,21 @@ function update_times!(
     return solver.stats.iter += nlp_stats.iter
 end
 
+function print_headers(solver::HomotopySolver{M, S, T, VT}) where {M, S, T, VT}
+    # TODO(@anton) also log nlpsolver output
+    header =
+        SolverCore.log_header([:iter, :objective, :inf_cc, :nlp_iters], [Int, T, T, Int])
+    MadNLP.@info(solver.logger, "MadMPEC Homotopy Solver")
+    MadNLP.@info(solver.logger, header)
+end
+
+function print_outer_iter(solver::HomotopySolver)
+    row = SolverCore.log_row(
+        Any[solver.k, solver.f_k, solver.inf_cc, solver.stats.nlp_stats[end].iter],
+    )
+    MadNLP.@info(solver.logger, row)
+end
+
 ######################### Main loop #########################
 function solve!(
     solver::HomotopySolver{M, T, VT};
@@ -231,21 +270,24 @@ function solve!(
     opts = solver.opts
 
     # TODO(@anton) Long term we may want a pre-process step for the options
-    if iszero(opts.print_level)
+    if opts.print_level == MadNLP.ERROR
         set_silent!(solver)
     end
 
+    print_headers(solver)
     converged = false
     timeout = false
     solver.nlp.𝜎[] = solver.𝜎
     ii = 1
     while ii ≤ opts.N_homotopy
+        solver.k = ii
         nlp_stats = solve_rnlp(solver, ii)
         push!(stats.nlp_stats, nlp_stats)
         solver.inf_cc = comp_residual_product(mpcc, nlp_stats.solution)
         solver.x_k = nlp_stats.solution
         solver.y_k = nlp_stats.multipliers
         solver.f_k = nlp_stats.objective
+        print_outer_iter(solver)
 
         copyto!(NLPModels.get_x0(solver.nlp), solver.x_k)
         copyto!(NLPModels.get_y0(solver.nlp), solver.y_k)
