@@ -255,6 +255,7 @@ function solve!(
             break
         end
 
+        # 𝛽 > 1 decreases 𝜎 superlinearly when close to convergence
         solver.𝜎 = min(opts.𝛼*solver.𝜎, solver.𝜎^opts.𝛽)
         solver.nlp.𝜎[] = solver.𝜎
         ii += 1
