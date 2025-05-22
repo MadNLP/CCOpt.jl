@@ -79,6 +79,7 @@ function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOp
     nlp = ScholtesRelaxation(mpcc)
 
     solver = S(nlp)
+
     stats = HomotopySolverStats(mpcc)
 
     x_k = nlp.meta.x0
