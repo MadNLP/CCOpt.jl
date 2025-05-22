@@ -1,0 +1,4 @@
+[deps]
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+MadMPEC = "6689419a-93c1-455a-8ac6-77991ec4f86b"
+NLPModelsJuMP = "792afdf1-32c1-5681-94e0-d7bf7a5df49e"
