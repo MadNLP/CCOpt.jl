@@ -16,6 +16,9 @@ function Base.getproperty(mpcc::AbstractMPCCModel, sym::Symbol)
     end
 end
 
+# Taken from NLPModels
+show_header(io::IO, mpcc::AbstractMPCCModel) = println(io, typeof(mpcc))
+
 function Base.show(io::IO, mpcc::AbstractMPCCModel)
     show_header(io, mpcc)
     show(io, mpcc.nlp.meta)
