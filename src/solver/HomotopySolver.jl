@@ -42,6 +42,8 @@ end
 
     N_homotopy::Int = 10 # Max Number of outer iterations
 
+    max_inner_iter::Int = 9000
+
     # TODO(@anton) Do we want an Int here? A symbol (e.g. `:info`, `:warn`, `:debug`, etc.)?
     print_level::MadNLP.LogLevels = MadNLP.INFO
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
@@ -59,6 +61,26 @@ end
     )
 end
 
+"""
+    HomotopySolver
+
+Implementation of a Scholtes relaxation homotopy solver for MPCCs. It reformulates
+
+  min f(x)
+  s.t lc ≤ c(x) ≤ uc
+      lx ≤ x₀   ≤ ux
+      0  ≤ x₁ ⟂ x₂ ≥ 0
+
+into the NLP
+  min f(x)
+  s.t lc ≤ c(x) ≤ uc
+      lx ≤ x₀   ≤ ux
+      0 ≤ x₁
+      0 ≤ x₂
+      0 ≥ x₁⊙x₂ - 𝜎
+
+And solve a sequence of these NLPs with 𝜎→0.
+"""
 mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     mpcc::M
     nlp::ScholtesRelaxation{T, VT}
@@ -79,26 +101,6 @@ mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     𝜎::T
 end
 
-"""
-    HomotopSolver
-
-Implementation of a Scholtes relaxation homotopy solver for MPCCs. It reformulates
-
-  min f(x)
-  s.t lc ≤ c(x) ≤ uc
-      lx ≤ x₀   ≤ ux
-      0  ≤ x₁ ⟂ x₂ ≥ 0
-
-into the NLP
-  min f(x)
-  s.t lc ≤ c(x) ≤ uc
-      lx ≤ x₀   ≤ ux
-      0 ≤ x₁
-      0 ≤ x₂
-      0 ≥ x₁⊙x₂ - 𝜎
-
-And solve a sequence of these NLPs with 𝜎→0.
-"""
 function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOptions)
     nlp = ScholtesRelaxation(mpcc)
 
@@ -139,52 +141,49 @@ function solve_rnlp(
     solver::HomotopySolver{M, S, T, VT},
     n::Int,
 ) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
+    # TODO(@anton) copying here seems expensiveish, perhaps store a "working settings" copy.
+    nlp_opts_i = copy(solver.opts.nlp_solver_options)
+
+    # Preprocess nlp_opts
     if n > 1
-        return SolverCore.solve!(
-            solver.solver,
-            solver.nlp;
-            warm_start_init_point="yes",
-            warm_start_bound_push=something(
-                solver.opts.warm_start_bound_push,
-                get(solver.opts.nlp_solver_options, :warm_start_bound_push, nothing),
-                0.001,
-            ),
-            solver.opts.nlp_solver_options...,
-        )
-        # Additional tuning
-        # TODO(@anton) do more testing
-        #mu_init=1e-4,
-        #warm_start_bound_push=1e-8,
-    else
-        return SolverCore.solve!(
-            solver.solver,
-            solver.nlp;
-            solver.opts.nlp_solver_options...,
+        nlp_opts_i[:warm_start_init_point] = "yes"
+        nlp_opts_i[:warm_start_bound_push] = something(
+            solver.opts.warm_start_bound_push,
+            get(nlp_opts_i, :warm_start_bound_push, nothing),
+            0.001,
         )
     end
+    max_iter = min(
+        something(get(nlp_opts_i, :max_iter, nothing), typemax(Int)),
+        solver.opts.max_inner_iter-solver.stats.iter,
+    )
+    nlp_opts_i[:max_iter] = max_iter
+
+    return SolverCore.solve!(solver.solver, solver.nlp; nlp_opts_i...)
 end
 
 function solve_rnlp(
     solver::HomotopySolver{M, S, T, VT},
     n::Int,
 ) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
+    # TODO(@anton) copying here seems expensiveish, perhaps store a "working settings" copy.
+    nlp_opts_i = copy(solver.opts.nlp_solver_options)
+
+    # Preprocess nlp_opts
     if n > 1
-        return SolverCore.solve!(
-            solver.solver;
-            bound_push=something(
-                solver.opts.warm_start_bound_push,
-                get(solver.opts.nlp_solver_options, :bound_push, nothing),
-                1e-2,
-            ),
-            solver.opts.nlp_solver_options...,
+        nlp_opts_i[:bound_push] = something(
+            solver.opts.warm_start_bound_push,
+            get(nlp_opts_i, :bound_push, nothing),
+            1e-2,
         )
-        # Additional tuning
-        # TODO(@anton) do more testing
-        # mu_init=1e-4,
-        # bound_push=1e-8,
-    else
-        return SolverCore.solve!(solver.solver; solver.opts.nlp_solver_options...)
     end
+    max_iter = min(
+        something(get(nlp_opts_i, :max_iter, nothing), typemax(Int)),
+        solver.opts.max_inner_iter-solver.stats.iter,
+    )
+    nlp_opts_i[:max_iter] = max_iter
+
+    return SolverCore.solve!(solver.solver; nlp_opts_i...)
 end
 
 function set_silent!(
@@ -299,12 +298,13 @@ function solve!(
 
     # TODO(@anton) Long term we may want a pre-process step for the options
     if opts.print_level == MadNLP.ERROR
-        set_silent!(solver)
+        set_silent!(solver) # TODO(@anton) This is one of the options that madNLP doesn't respect on resolve :(
     end
 
     print_headers(solver)
     converged = false
     timeout = false
+    max_inner_iter_reached = false
     solver.nlp.𝜎[] = solver.𝜎
     ii = 1
     while ii ≤ opts.N_homotopy
@@ -323,6 +323,11 @@ function solve!(
 
         if nlp_solve_acceptable(nlp_stats) && solver.inf_cc ≤ solver.opts.comp_tol
             converged = true
+            break
+        end
+
+        if stats.iter == solver.opts.max_inner_iter
+            max_inner_iter_reached = true
             break
         end
 
