@@ -242,7 +242,9 @@ const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
     MadNLP.REGULAR => UNKNOWN,
     MadNLP.RESTORE => UNKNOWN,
     MadNLP.ROBUST => UNKNOWN,
-    MadNLP.LINESEARCH_SUCCEEDED => UNKNOWN,
+    # TODO(@anton) it seems depending on a bleeding edge of a package for CI is difficult?
+    #              Commenting out as missing will lead to UNKNOWN as well
+    # MadNLP.LINESEARCH_SUCCEEDED => UNKNOWN,
     MadNLP.RESTORATION_FAILED => INFEASIBLE_PROBLEM_DETECTED,
     MadNLP.INVALID_NUMBER_DETECTED => INTERNAL_ERROR,
     MadNLP.ERROR_IN_STEP_COMPUTATION => INTERNAL_ERROR,
