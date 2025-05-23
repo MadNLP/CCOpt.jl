@@ -210,6 +210,60 @@ function nlp_solve_acceptable(nlp_stats::MadNLP.MadNLPExecutionStats)
     ]
 end
 
+# TODO(@anton) I think we _really_ should look into standardizing on Solver core
+#              in MadNLP but this would require buyin from more of the MadNLP dev team
+const SOLVER_CORE_TO_MPCC_SOLVER_STATUS = Dict(
+    :exception => INTERNAL_ERROR,
+    :first_order => NLP_STATIONARY,
+    :acceptable => NLP_STATIONARY,
+    :infeasible => INFEASIBLE_PROBLEM_DETECTED,
+    :max_eval => MAXIMUM_ITERATIONS_EXCEEDED,
+    :max_iter => MAXIMUM_ITERATIONS_EXCEEDED,
+    :max_time => MAXIMUM_WALLTIME_EXCEEDED,
+    :neg_pred => INTERNAL_ERROR,
+    :not_desc => INTERNAL_ERROR,
+    :small_residual => INTERNAL_ERROR,
+    :small_step => NLP_STATIONARY,
+    :stalled => INTERNAL_ERROR,
+    :unbounded => DIVERGING_ITERATES,
+    :unknown => UNKNOWN,
+    :user => USER_REQUESTED_STOP,
+)
+
+const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
+    MadNLP.SOLVE_SUCCEEDED => NLP_STATIONARY,
+    MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL => NLP_STATIONARY,
+    MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL => NLP_STATIONARY,
+    MadNLP.DIVERGING_ITERATES => DIVERGING_ITERATES,
+    MadNLP.INFEASIBLE_PROBLEM_DETECTED => INFEASIBLE_PROBLEM_DETECTED,
+    MadNLP.MAXIMUM_ITERATIONS_EXCEEDED => MAXIMUM_ITERATIONS_EXCEEDED,
+    MadNLP.MAXIMUM_WALLTIME_EXCEEDED => MAXIMUM_WALLTIME_EXCEEDED,
+    MadNLP.INITIAL => UNKNOWN,
+    MadNLP.REGULAR => UNKNOWN,
+    MadNLP.RESTORE => UNKNOWN,
+    MadNLP.ROBUST => UNKNOWN,
+    MadNLP.LINESEARCH_SUCCEEDED => UNKNOWN,
+    MadNLP.RESTORATION_FAILED => INFEASIBLE_PROBLEM_DETECTED,
+    MadNLP.INVALID_NUMBER_DETECTED => INTERNAL_ERROR,
+    MadNLP.ERROR_IN_STEP_COMPUTATION => INTERNAL_ERROR,
+    MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM => INTERNAL_ERROR,
+    MadNLP.USER_REQUESTED_STOP => USER_REQUESTED_STOP,
+    MadNLP.INTERNAL_ERROR => INTERNAL_ERROR,
+    MadNLP.INVALID_NUMBER_OBJECTIVE => INTERNAL_ERROR,
+    MadNLP.INVALID_NUMBER_GRADIENT => INTERNAL_ERROR,
+    MadNLP.INVALID_NUMBER_CONSTRAINTS => INTERNAL_ERROR,
+    MadNLP.INVALID_NUMBER_JACOBIAN => INTERNAL_ERROR,
+    MadNLP.INVALID_NUMBER_HESSIAN_LAGRANGIAN => INTERNAL_ERROR,
+)
+
+function convert_nlp_solve_failure(nlp_stats::AbstractExecutionStats)
+    return get(SOLVER_CORE_TO_MPCC_SOLVER_STATUS, nlp_stats.status, UNKNOWN)
+end
+
+function convert_nlp_solve_failure(nlp_stats::MadNLP.MadNLPExecutionStats)
+    return get(MADNLP_TO_MPCC_SOLVER_STATUS, nlp_stats.status, UNKNOWN)
+end
+
 function reset_nlp_solver!(
     solver::HomotopySolver{M, S, T, VT},
 ) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
@@ -339,17 +393,15 @@ function solve!(
     end
     if converged
         stats.status = NLP_STATIONARY
-        stats.solution = solver.x_k
-        stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
-        stats.inf_cc = solver.inf_cc
-        stats.objective = solver.f_k
-    else
+    elseif ii > opts.N_homotopy
         stats.status = MAXIMUM_ITERATIONS_EXCEEDED
-        stats.solution = solver.x_k
-        stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
-        stats.inf_cc = solver.inf_cc
-        stats.objective = solver.f_k
+    else
+        stats.status = convert_nlp_solve_failure(stats.nlp_stats[end])
     end
+    stats.solution = solver.x_k
+    stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
+    stats.inf_cc = solver.inf_cc
+    stats.objective = solver.f_k
     stats.wall_time = time() - solver.start_time;
     return stats
 end
