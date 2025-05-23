@@ -6,6 +6,17 @@ function get_eta(solver::MadNLPSolver)
         return 0
     end
 end
+"""
+MadNLPSolver{Float64,
+             Vector{Float64},
+             Vector{Int64},
+             MadNLP.SparseKKTSystem{Float64, Vector{Float64}, SparseArrays.SparseMatrixCSC{Float64, Int32}, MadNLP.ExactHessian{Float64, Vector{Float64}}, UmfpackSolver{Float64}, Vector{Int64}, Vector{Int32}},
+             MadMPEC.ScholtesRelaxation{Float64, Vector{Float64}},
+             MadNLP.SparseCallback{Float64, Vector{Float64}, Vector{Int64}, MadMPEC.ScholtesRelaxation{Float64, Vector{Float64}}, MadNLP.MakeParameter{Vector{Float64}, Vector{Int64}}, MadNLP.EnforceEquality},
+             MadNLP.RichardsonIterator{Float64, MadNLP.SparseKKTSystem{Float64, Vector{Float64}, SparseArrays.SparseMatrixCSC{Float64, Int32}, MadNLP.ExactHessian{Float64, Vector{Float64}}, UmfpackSolver{Float64}, Vector{Int64}, Vector{Int32}}},
+             MadNLP.InertiaFree{Float64, Vector{Float64}, MadNLP.UnreducedKKTVector{Float64, Vector{Float64}, Vector{Int64}}},
+             MadNLP.UnreducedKKTVector{Float64, Vector{Float64}, Vector{Int64}}}
+"""
 
 function MadNLP.regular!(
     solver::MadNLPSolver{
@@ -19,17 +30,12 @@ function MadNLP.regular!(
         IC,
         KKTVec,
     },
-) where {
-    T,
-    VT <: AbstractVector{T},
-    VI <: AbstractVector{Int},
-    KKTSystem <: MadNLP.AbstractKKTSystem{T},
-    CB <: MadNLP.AbstractCallback{T},
-    Iterator <: MadNLP.AbstractIterator{T},
-    IC <: MadNLP.AbstractInertiaCorrector,
-    KKTVec <: MadNLP.AbstractKKTVector{T, VT},
-}
+) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
     while true
+        println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         if (solver.cnt.k!=0 && !solver.opt.jacobian_constant)
             eval_jac_wrapper!(solver, solver.kkt, solver.x)
         end
@@ -102,13 +108,14 @@ function MadNLP.regular!(
             )
             solver.tau = get_tau(solver.mu, solver.opt.tau_min)
             solver.mu = mu_new
+            MadNLP.@trace(solver.logger, "Updating Scholtes relaxation parameter.")
             solver.model.sigma[] = mu_new
             empty!(solver.filter)
             push!(solver.filter, (solver.theta_max, -Inf))
         end
 
         # TODO(@anton) update the scholtes relaxation parameter here!
-        MadNLP.@trace(solver.logger, "Updating Scholtes relaxation parameter.")
+        MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta(solver)
 
         # compute the newton step
