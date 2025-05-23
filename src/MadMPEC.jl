@@ -1,5 +1,6 @@
 module MadMPEC
 using NLPModels, SolverCore
+import MadNLP
 
 include("Types.jl")
 include("MappedVector.jl")
@@ -10,5 +11,6 @@ include("LiftedNLPModel.jl")
 include("solver/types.jl")
 include("solver/AbstractMPCCSolver.jl")
 include("solver/HomotopySolver.jl")
+include("ipoptc/regular_patch.jl")
 
 end # module MadMPEC
