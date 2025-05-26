@@ -5,15 +5,15 @@
 
 struct MappedVector{T, VT <: AbstractVector{T}} <: AbstractVector{T}
     par_vec::Base.RefValue{VT}
-    ind_set::AbstractDict{Int, Int}
+    ind_set::AbstractDict{<:Integer, <:Integer}
     len::Int
 end
 
 function MappedVector(
     par_vec::AbstractVector{T},
-    inds::AbstractVector{Int},
-    n::Int,
-) where {T}
+    inds::AbstractVector{<:Integer},
+    n::I,
+) where {T, I <: Integer}
     # TODO(@anton) ideally this does not allocate any new memory.
     return MappedVector(Ref(par_vec), Dict([(ind, i) for (i, ind) in enumerate(inds)]), n)
 end
@@ -42,7 +42,7 @@ Base.ndims(A::MappedVector{T, VT}) where {T, VT} = 1
 
 #function checkindex(A)
 
-function Base.getindex(A::MappedVector{T, VT}, i::Int) where {T, VT}
+function Base.getindex(A::MappedVector{T, VT}, i::I) where {T, VT, I <: Integer}
     if haskey(A.ind_set, i)
         return A.par_vec[][A.ind_set[i]]
     else
@@ -50,15 +50,15 @@ function Base.getindex(A::MappedVector{T, VT}, i::Int) where {T, VT}
     end
 end
 
-function Base.getindex(A::MappedVector{T, VT}, i::AbstractRange{Int}) where {T, VT}
+function Base.getindex(A::MappedVector{T, VT}, i::AbstractRange{<:Integer}) where {T, VT}
     return [haskey(A.ind_set, ii) ? A.par_vec[][A.ind_set[ii]] : zero(T) for ii in i]
 end
 
-function Base.getindex(A::MappedVector{T, VT}, i::AbstractVector{Int}) where {T, VT}
+function Base.getindex(A::MappedVector{T, VT}, i::AbstractVector{<:Integer}) where {T, VT}
     return [haskey(A.ind_set, ii) ? A.par_vec[][A.ind_set[ii]] : zero(T) for ii in i]
 end
 
-function Base.setindex!(A::MappedVector{T, VT}, x::T, i::Int) where {T, VT}
+function Base.setindex!(A::MappedVector{T, VT}, x, i::I) where {T, VT, I <: Integer}
     if haskey(A.ind_set, i)
         par_vec = A.par_vec[][A.ind_set[i]] = x
     end
@@ -79,7 +79,7 @@ end
 function Base.setindex!(
     A::MappedVector{T, VT},
     x::AbstractVector{T},
-    i::AbstractRange{Int},
+    i::AbstractRange{<:Integer},
 ) where {T, VT}
     # TODO(@anton) check how efficient this is
     return A.par_vec[][[A.ind_set(ii) for ii in i if haskey(A.ind_set, ii)]] = x[[ii for ii in i if haskey(A.indset, ii)]]
@@ -88,7 +88,7 @@ end
 function Base.setindex!(
     A::MappedVector{T, VT},
     x::AbstractVector{T},
-    i::AbstractVector{Int},
+    i::AbstractVector{<:Integer},
 ) where {T, VT}
     return A.par_vec[][[A.ind_set(ii) for ii in i if haskey(A.ind_set, ii)]] = x[[ii for ii in i if haskey(A.indset, ii)]]
 end

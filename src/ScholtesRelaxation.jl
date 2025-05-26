@@ -16,9 +16,9 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
 
     # Update only what needs to be updated
     ncon = mpcc.meta.ncon + mpcc.meta.ncc
-    lcon = append!(mpcc.meta.lcon, -Inf*ones(mpcc.meta.ncc))
-    ucon = append!(mpcc.meta.ucon, zeros(mpcc.meta.ncc))
-    y0 = append!(mpcc.meta.y0, zeros(mpcc.meta.ncc))
+    lcon = vcat(mpcc.meta.lcon, -typemax(T)*ones(T, mpcc.meta.ncc))
+    ucon = vcat(mpcc.meta.ucon, zeros(T, mpcc.meta.ncc))
+    y0 = vcat(mpcc.meta.y0, zeros(T, mpcc.meta.ncc))
     # TODO(@anton) this is a lower bound only accurate for vertical form: we can calculate this exactly if we store
     #              the nnz for the jacobians of G, and H, which we now do.
     nnzj = mpcc.meta.nnzj + 2*mpcc.meta.ncc
@@ -37,6 +37,7 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         mpcc.nlp.meta,
         ncon=ncon,
         lcon=lcon,
+        ucon=ucon,
         y0=y0,
         nnzj=nnzj,
         nln_nnzj=nln_nnzj,
@@ -64,6 +65,17 @@ end
 
 function NLPModels.objgrad!(rnlp::ScholtesRelaxation, x::AbstractVector, g::AbstractVector)
     return NLPModels.objgrad!(rnlp.mpcc, x, g)
+end
+
+function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
+    mpcc_ncon = rnlp.mpcc.meta.ncon
+    if get_ncon(rnlp.mpcc.nlp) > 0
+        cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
+    end
+    cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
+        (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+    return cx
 end
 
 function NLPModels.cons_lin!(
@@ -95,10 +107,33 @@ function NLPModels.cons_nln!(
     return cx
 end
 
+function NLPModels.jac_structure!(
+    rnlp::ScholtesRelaxation,
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
+)
+    @views jac_structure!(
+        rnlp.mpcc,
+        rows[1:rnlp.mpcc.meta.nnzj],
+        cols[1:rnlp.mpcc.meta.nnzj],
+    ) # get including complementarities
+
+    for i in 1:rnlp.mpcc.meta.ncc
+        rows[i+rnlp.mpcc.meta.nnzj] = i + rnlp.mpcc.meta.ncon
+        cols[i+rnlp.mpcc.meta.nnzj] = rnlp.mpcc.meta.ind_cc1[i]
+    end
+    for i in 1:rnlp.mpcc.meta.ncc
+        rows[i+rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc] = i + rnlp.mpcc.meta.ncon
+        cols[i+rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc] = rnlp.mpcc.meta.ind_cc2[i]
+    end
+
+    return rows, cols
+end
+
 function NLPModels.jac_lin_structure!(
     rnlp::ScholtesRelaxation,
-    rows::AbstractVector{Int},
-    cols::AbstractVector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     jac_lin_structure!(rnlp.mpcc, rows, cols) # get including complementarities
     return rows, cols
@@ -106,8 +141,8 @@ end
 
 function NLPModels.jac_nln_structure!(
     rnlp::ScholtesRelaxation,
-    rows::AbstractVector{Int},
-    cols::AbstractVector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     @views jac_nln_structure!(
         rnlp.mpcc,
@@ -116,15 +151,37 @@ function NLPModels.jac_nln_structure!(
     ) # get including complementarities
 
     for i in 1:rnlp.mpcc.meta.ncc
-        rows[i+rnlp.mpcc.meta.nln_nnzj] = i + rnlp.mpcc.meta.ncon
+        rows[i+rnlp.mpcc.meta.nln_nnzj] = i + rnlp.mpcc.meta.nnln
         cols[i+rnlp.mpcc.meta.nln_nnzj] = rnlp.mpcc.meta.ind_cc1[i]
     end
     for i in 1:rnlp.mpcc.meta.ncc
-        rows[i+rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc] = i + rnlp.mpcc.meta.ncon
+        rows[i+rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc] = i + rnlp.mpcc.meta.nnln
         cols[i+rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc] = rnlp.mpcc.meta.ind_cc2[i]
     end
 
     return rows, cols
+end
+
+function NLPModels.jac_coord!(
+    rnlp::ScholtesRelaxation,
+    x::AbstractVector,
+    j::AbstractVector,
+)
+    jac_coord!(rnlp.mpcc, x, @view(j[1:rnlp.mpcc.meta.nnzj]))
+
+    comp_res_right!(
+        rnlp.mpcc,
+        x,
+        @view(j[(rnlp.mpcc.meta.nnzj+1):(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc)])
+    )
+    comp_res_left!(
+        rnlp.mpcc,
+        x,
+        @view(
+            j[(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nnzj+2*rnlp.mpcc.meta.ncc)]
+        )
+    )
+    return j
 end
 
 function NLPModels.jac_lin_coord!(
@@ -145,7 +202,9 @@ function NLPModels.jac_nln_coord!(
     comp_res_right!(
         rnlp.mpcc,
         x,
-        @view(jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)])
+        @view(
+            jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)]
+        )
     )
     comp_res_left!(
         rnlp.mpcc,
@@ -203,8 +262,8 @@ end
 
 function NLPModels.hess_structure!(
     rnlp::ScholtesRelaxation,
-    rows::Vector{Int},
-    cols::Vector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     @views hess_structure!(
         rnlp.mpcc,

@@ -10,6 +10,7 @@ struct LiftedNLPModelMeta{T, VT} <: AbstractNLPModelMeta{T, VT}
     ind_lift::IndexSet
     ind_lin_lift::IndexSet
     ind_nln_lift::IndexSet
+    ind_lift_var::IndexSet
     ind_lin_lift_var::IndexSet
     ind_nln_lift_var::IndexSet
     nlift::Int
@@ -54,6 +55,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     nln_nlift = length(ind_nln_lift)
     nvar = nlp.meta.nvar + nlift
 
+    ind_lift_var = collect((nlp.meta.nvar+1):(nlp.meta.nvar+nlift))
     ind_lin_lift_var = [nlp.meta.nvar+i for i in 1:nlift if ind_lift[i] ∈ nlp.meta.lin]
     ind_nln_lift_var = [nlp.meta.nvar+i for i in 1:nlift if ind_lift[1] ∈ nlp.meta.nln]
 
@@ -92,6 +94,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
         ind_lift,
         ind_lin_lift,
         ind_nln_lift,
+        ind_lift_var,
         ind_lin_lift_var,
         ind_nln_lift_var,
         nlift,
@@ -115,6 +118,12 @@ function NLPModels.objgrad!(lnlp::LiftedNLPModel, x::AbstractVector, g::Abstract
     return NLPModels.objgrad!(lnlp.nlp, view(x, 1:lnlp.nlp.meta.nvar), g)
 end
 
+function NLPModels.cons!(lnlp::LiftedNLPModel, x::AbstractVector, cx::AbstractVector)
+    cons!(lnlp.nlp, view(x, 1:lnlp.nlp.meta.nvar), cx)
+    cx[lnlp.meta.ind_lift] .-= x[lnlp.meta.ind_lift_var]
+    return cx
+end
+
 function NLPModels.cons_lin!(lnlp::LiftedNLPModel, x::AbstractVector, cx::AbstractVector)
     cons_lin!(lnlp.nlp, view(x, 1:lnlp.nlp.meta.nvar), cx)
     cx[lnlp.meta.ind_lin_lift] .-= x[lnlp.meta.ind_lin_lift_var]
@@ -127,15 +136,29 @@ function NLPModels.cons_nln!(lnlp::LiftedNLPModel, x::AbstractVector, cx::Abstra
     return cx
 end
 
+function NLPModels.jac_structure!(
+    lnlp::LiftedNLPModel,
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
+)
+    @views jac_structure!(lnlp.nlp, rows[1:lnlp.nlp.meta.nnzj], cols[1:lnlp.nlp.meta.nnzj]) # get including complementarities
+
+    for i in 1:lnlp.meta.nlift
+        rows[i+lnlp.nlp.meta.nnzj] = lnlp.meta.ind_lift[i]
+        cols[i+lnlp.nlp.meta.nnzj] = lnlp.meta.ind_lift_var[i]
+    end
+    return rows, cols
+end
+
 function NLPModels.jac_lin_structure!(
     lnlp::LiftedNLPModel,
-    rows::AbstractVector{Int},
-    cols::AbstractVector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     @views jac_lin_structure!(
         lnlp.nlp,
-        rows[1:lnlp.nlp.meta.nvar],
-        cols[1:lnlp.nlp.meta.nvar],
+        rows[1:lnlp.nlp.meta.lin_nnzj],
+        cols[1:lnlp.nlp.meta.lin_nnzj],
     ) # get including complementarities
 
     for i in 1:lnlp.meta.lin_nlift
@@ -147,8 +170,8 @@ end
 
 function NLPModels.jac_nln_structure!(
     lnlp::LiftedNLPModel,
-    rows::AbstractVector{Int},
-    cols::AbstractVector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     @views jac_nln_structure!(
         lnlp.nlp,
@@ -163,15 +186,19 @@ function NLPModels.jac_nln_structure!(
     return rows, cols
 end
 
+function NLPModels.jac_coord!(lnlp::LiftedNLPModel, x::AbstractVector, j::AbstractVector)
+    @views jac_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nnzj])
+    j[(lnlp.nlp.meta.nnzj+1):(lnlp.nlp.meta.nnzj+lnlp.meta.nlift)] .= -1
+    return j
+end
+
 function NLPModels.jac_lin_coord!(
     lnlp::LiftedNLPModel,
     x::AbstractVector,
     j::AbstractVector,
 )
     @views jac_lin_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.lin_nnzj])
-    for i in 1:lnlp.meta.lin_nlift
-        j[i+lnlp.nlp.meta.lin_nnzj] = -1
-    end
+    j[(lnlp.nlp.meta.lin_nnzj+1):(lnlp.nlp.meta.lin_nnzj+lnlp.meta.lin_nlift)] .= -1
     return j
 end
 
@@ -181,10 +208,19 @@ function NLPModels.jac_nln_coord!(
     j::AbstractVector,
 )
     @views jac_nln_coord!(lnlp.nlp, x[1:lnlp.nlp.meta.nvar], j[1:lnlp.nlp.meta.nln_nnzj])
-    for i in 1:lnlp.meta.nln_nlift
-        j[i+lnlp.nlp.meta.nln_nnzj] = -1
-    end
+    j[(lnlp.nlp.meta.nln_nnzj+1):(lnlp.nlp.meta.nln_nnzj+lnlp.meta.nln_nlift)] .= -1
     return j
+end
+
+function NLPModels.jprod!(
+    lnlp::LiftedNLPModel,
+    x::AbstractVector,
+    v::AbstractVector,
+    Jv::AbstractVector,
+)
+    # TODO(@anton) do this in a smarter way
+    Jv[1:lnlp.meta.ncon] .= jac(lnlp, x) * v
+    return Jv
 end
 
 function NLPModels.jprod_lin!(
@@ -207,6 +243,17 @@ function NLPModels.jprod_nln!(
     # TODO(@anton) do this in a smarter way
     Jv[1:lnlp.meta.nnln] .= jac_nln(lnlp, x) * v
     return Jv
+end
+
+function NLPModels.jtprod!(
+    lnlp::LiftedNLPModel,
+    x::AbstractVector,
+    v::AbstractVector,
+    Jtv::AbstractVector,
+)
+    # TODO(@anton) do this in a smarter way
+    Jtv[1:lnlp.meta.nvar] = jac(lnlp, x)' * v
+    return Jtv
 end
 
 function NLPModels.jtprod_lin!(
@@ -233,8 +280,8 @@ end
 
 function NLPModels.hess_structure!(
     lnlp::LiftedNLPModel,
-    rows::Vector{Int},
-    cols::Vector{Int},
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     return hess_structure!(lnlp.nlp, rows, cols)
 end
