@@ -85,6 +85,14 @@ function MadNLP.regular!(
                 solver.opt.mu_superlinear_decrease_power,
                 solver.opt.tol,
             )
+            solver.inf_pr = MadNLP.get_inf_pr(solver.c)
+            solver.inf_du = MadNLP.get_inf_du(
+                MadNLP.full(solver.f),
+                MadNLP.full(solver.zl),
+                MadNLP.full(solver.zu),
+                solver.jacl,
+                sd,
+            )
             inf_compl_mu = MadNLP.get_inf_compl(
                 solver.x_lr,
                 solver.xl_r,
@@ -98,7 +106,7 @@ function MadNLP.regular!(
             solver.tau = MadNLP.get_tau(solver.mu, solver.opt.tau_min)
             solver.mu = mu_new
             solver.nlp.𝜎[] = mu_new
-            MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter. $(mu_new)")
+            MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
             empty!(solver.filter)
             push!(solver.filter, (solver.theta_max, -Inf))
         end
