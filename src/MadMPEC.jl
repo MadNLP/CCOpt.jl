@@ -1,6 +1,6 @@
 module MadMPEC
 using NLPModels, SolverCore
-import MadNLP: regular!
+import MadNLP
 
 include("Types.jl")
 include("MappedVector.jl")
