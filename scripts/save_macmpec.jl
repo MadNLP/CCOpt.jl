@@ -5,6 +5,7 @@ using Plots, BenchmarkProfiles
 function save_madnlp_df(
     names::Vector{<:AbstractString},
     stats_madnlp::Vector{MadMPEC.HomotopySolverStats{T, VT}},
+    probs::Vector{MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     df_madnlp = DataFrame(
@@ -27,6 +28,7 @@ end
 function save_ipopt_df(
     names::Vector{<:AbstractString},
     stats_ipopt::Vector{MadMPEC.HomotopySolverStats{T, VT}},
+    probs::Vector{MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     df_ipopt = DataFrame(
@@ -47,8 +49,14 @@ end
 function save_ncl_df(
     names::Vector{<:AbstractString},
     stats_ncl::Vector{Union{MadNCL.NCLStats{T}, Nothing}},
+    probs::Vector{MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T}
+    inf_cc =
+        inf_cc=[
+            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            (mpcc, s) in zip(probs, stats_ncl)
+        ]
     df_ncl = DataFrame(
         name=names,
         success=[
@@ -56,10 +64,11 @@ function save_ncl_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] for s in stats_ncl
+            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
+        inf_cc=inf_cc,
         wall_time=[!isnothing(s) ? s.counters.total_time : Inf for s in stats_ncl],
         iter=[!isnothing(s) ? s.counters.k : -1 for s in stats_ncl],
         outer_iter=[!isnothing(s) ? s.iter : -1 for s in stats_ncl],

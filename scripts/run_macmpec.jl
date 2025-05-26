@@ -19,12 +19,13 @@ function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.N
     nlp = MadMPEC.ScholtesRelaxation(mpcc)
 
     try
-        return MadNCL.madncl(
+        stats = MadNCL.madncl(
             nlp,
             ncl_options=opts,
             print_level=MadNLP.ERROR,
             linear_solver=Ma27Solver,
         )
+        return stats
     catch
         return nothing
     end
@@ -83,7 +84,7 @@ function run_macmpec(args...; plot=false, range=:)
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] =
-            dffun(names[range], stats[solname], replace(solname, " "=>"_")*".csv")
+            dffun(names[range], stats[solname], probs, replace(solname, " "=>"_")*".csv")
     end
     if plot
         perf_plot("Performance Plot", solnames, stats)
