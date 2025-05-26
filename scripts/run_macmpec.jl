@@ -1,5 +1,5 @@
 using NLPModelsIpopt
-using MadNLP
+using MadNLP, MadNLPHSL
 using MadNCL
 
 include("from_ampl.jl")
@@ -19,7 +19,12 @@ function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.N
     nlp = MadMPEC.ScholtesRelaxation(mpcc)
 
     try
-        return MadNCL.madncl(nlp, ncl_options=opts, print_level=MadNLP.ERROR)
+        return MadNCL.madncl(
+            nlp,
+            ncl_options=opts,
+            print_level=MadNLP.ERROR,
+            linear_solver=Ma27Solver,
+        )
     catch
         return nothing
     end
@@ -342,6 +347,46 @@ function test_ipopt_norm_type(; range=:)
         ipopt_2_norm;
         range=range,
     )
+
+    return solnames, names, stats
+end
+
+function test_macmpec_hsl(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.INFO
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp.print_level = MadNLP.INFO
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_ncl = MadNCL.NCLOptions();
+    #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
+
+    default_ipopt = (
+        "ma27 Ipopt",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    default_madnlp = (
+        "ma27 madNLP",
+        solve_benchmark_problem,
+        save_madnlp_df,
+        opts_madnlp,
+        (MadNLP.MadNLPSolver,),
+    )
+    default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
+
+    solnames, names, stats =
+        run_macmpec(default_ipopt, default_madnlp, default_madncl; range=range)
 
     return solnames, names, stats
 end
