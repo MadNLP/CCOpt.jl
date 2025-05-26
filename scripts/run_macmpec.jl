@@ -194,7 +194,7 @@ function test_ipopt_mu_update(; range=:)
     return solnames, names, stats
 end
 
-function test_homtotopy_bound_push(; range=:)
+function test_homotopy_bound_push(; range=:)
     opts_ipopt1 = MadMPEC.HomotopySolverOptions()
     opts_ipopt1.print_level = 5
     opts_ipopt1.nlp_solver_options[:print_level] = 5
