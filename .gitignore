@@ -41,3 +41,7 @@ benchmark/*.pdf
 
 # Emacs tilde-files
 *~
+
+# Benchmark data
+data/
+*.csv
