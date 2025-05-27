@@ -169,7 +169,6 @@ function homotopy!(
     },
 ) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
     while true
-        println(MadNLP.full(solver.x)[1:get_nvar(solver.nlp)])
         if (solver.cnt.k!=0 && !solver.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(solver, solver.kkt, solver.x)
         end
