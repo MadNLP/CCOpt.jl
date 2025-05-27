@@ -56,7 +56,7 @@ function load_ampl_benchmark(nlpath::AbstractString)
 end
 
 function run_benchmark(
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
     solfun,
     opts::T,
     solargs...,
@@ -86,7 +86,7 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
     solfun,
     opts::T,
     solargs...,

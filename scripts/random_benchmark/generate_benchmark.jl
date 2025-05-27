@@ -413,7 +413,7 @@ function generate_benchmark(n_probs)
     mpccs = Vector{MadMPEC.MPCCModel}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter
-    rng = MersenneTwister(1)
+    rng = MersenneTwister(3)
     ns = sample(rng, 10:300, n_probs; replace=false)
     ns_ineq = Vector{Int}()
     for n in ns
