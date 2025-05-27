@@ -81,7 +81,7 @@ function solve_homotopy!(
     end
 
     if !isempty(kwargs)
-        @warn(solver.logger, "The options set during resolve may not have an effect")
+        MadNLP.@warn(solver.logger, "The options set during resolve may not have an effect")
         set_options!(solver.opt, kwargs)
     end
 
@@ -93,8 +93,12 @@ function solve_homotopy!(
             )
             MadNLP.print_init(solver)
             solver.status = MadNLP.initialize!(solver)
+            # Also reset sigma
+            solver.nlp.𝜎[] = solver.mu
         else # resolving the problem
             solver.status = MadNLP.reinitialize!(solver)
+            # Also reset sigma
+            solver.nlp.𝜎[] = solver.mu
         end
 
         while solver.status >= MadNLP.REGULAR
@@ -122,11 +126,11 @@ function solve_homotopy!(
         elseif e isa MadNLP.LinearSolverException
             solver.status=MadNLP.ERROR_IN_STEP_COMPUTATION;
             solver.opt.rethrow_error && rethrow(e)
-        elseif e isa InterruptException
+        elseif e isa MadNLP.InterruptException
             solver.status=MadNLP.USER_REQUESTED_STOP
             solver.opt.rethrow_error && rethrow(e)
         else
-            solver.status=INTERNAL_ERROR
+            solver.status=MadNLP.INTERNAL_ERROR
             solver.opt.rethrow_error && rethrow(e)
         end
     finally
@@ -134,13 +138,14 @@ function solve_homotopy!(
         if !(solver.status < MadNLP.SOLVE_SUCCEEDED)
             MadNLP.print_summary(solver)
         end
+
         MadNLP.@notice(
             solver.logger,
             "EXIT: $(MadNLP.get_status_output(solver.status, solver.opt))"
         )
         solver.opt.disable_garbage_collector && (
             GC.enable(true);
-            @warn(solver.logger, "Julia garbage collector is turned back on")
+            MadNLP.@warn(solver.logger, "Julia garbage collector is turned back on")
         )
         MadNLP.finalize(solver.logger)
 
@@ -164,6 +169,7 @@ function homotopy!(
     },
 ) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
     while true
+        println(MadNLP.full(solver.x)[1:get_nvar(solver.nlp)])
         if (solver.cnt.k!=0 && !solver.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(solver, solver.kkt, solver.x)
         end
