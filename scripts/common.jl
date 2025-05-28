@@ -1,6 +1,17 @@
 using CSV
 using DataFrames
 using Plots, BenchmarkProfiles
+using AmplNLReader, MadMPEC
+
+function mpcc_from_ampl(ampl::AmplNLReader.AmplModel)
+    # First we find the nonzero elements in the cvar vector:
+    # cvar = 0 → normal nonlinear constraint
+    # cvar ≠ 0 → complementarity with the cvar-th variable
+    ind_ccc2 = findall(!iszero, ampl.meta.cvar)
+    # Then we store the corresponding variables
+    ind_vcc1 = ampl.meta.cvar[ind_ccc2]
+    return MadMPEC.MPCCModelVarCon(ampl, ind_vcc1, ind_ccc2)
+end
 
 function save_madnlp_df(
     names::Vector{<:AbstractString},
@@ -125,4 +136,85 @@ function perf_plot(
         ii += 1
     end
     return performance_profile(PlotsBackend(), costs, names, title=title)
+end
+
+function solve_benchmark_problem(
+    mpcc::MadMPEC.AbstractMPCCModel,
+    opts::MadMPEC.HomotopySolverOptions,
+    solver::Type,
+)
+    solver = MadMPEC.HomotopySolver(mpcc, solver, opts)
+
+    return MadMPEC.solve!(solver)
+end
+
+function solve_benchmark_problem_madnlp_c(
+    mpcc::MadMPEC.AbstractMPCCModel,
+    opts::Dict{Symbol, Any},
+)
+    scholtes = MadMPEC.ScholtesRelaxation(mpcc)
+    solver = MadNLP.MadNLPSolver(scholtes; opts...)
+    stats = MadMPEC.solve_homotopy!(solver)
+    return stats
+end
+
+function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.NCLOptions)
+    nlp = MadMPEC.ScholtesRelaxation(mpcc)
+
+    try
+        stats = MadNCL.madncl(
+            nlp,
+            ncl_options=opts,
+            print_level=MadNLP.ERROR,
+            linear_solver=Ma27Solver,
+        )
+        return stats
+    catch
+        return nothing
+    end
+end
+
+function run_benchmark(
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: Dict}
+    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    for i in 1:length(probs)
+        push!(stats_vec, solfun(probs[i], opts, solargs...))
+    end
+
+    return stats_vec
+end
+
+function run_benchmark(
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadMPEC.HomotopySolverOptions}
+    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    for i in 1:length(probs)
+        push!(stats_vec, solfun(probs[i], opts, solargs...))
+    end
+
+    return stats_vec
+end
+
+function run_benchmark(
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadNCL.NCLOptions}
+    stats_vec = Vector{Union{Nothing, MadNCL.NCLStats{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    for i in 1:length(probs)
+        push!(stats_vec, solfun(probs[i], opts, solargs...))
+    end
+
+    return stats_vec
 end

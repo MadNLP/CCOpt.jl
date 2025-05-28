@@ -2,45 +2,7 @@ using NLPModelsIpopt
 using MadNLP, MadNLPHSL
 using MadNCL
 
-include("from_ampl.jl")
-include("save_macmpec.jl")
-
-function solve_benchmark_problem(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadMPEC.HomotopySolverOptions,
-    solver::Type,
-)
-    solver = MadMPEC.HomotopySolver(mpcc, solver, opts)
-
-    return MadMPEC.solve!(solver)
-end
-
-function solve_benchmark_problem_madnlp_c(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::Dict{Symbol, Any},
-)
-    scholtes = MadMPEC.ScholtesRelaxation(mpcc)
-    solver = MadNLP.MadNLPSolver(scholtes; opts...)
-    stats = MadMPEC.solve_homotopy!(solver)
-    return stats
-end
-
-function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.NCLOptions)
-    nlp = MadMPEC.ScholtesRelaxation(mpcc)
-
-    try
-        stats = MadNCL.madncl(
-            nlp,
-            ncl_options=opts,
-            print_level=MadNLP.ERROR,
-            linear_solver=Ma27Solver,
-            bound_relax_factor=1e-12,
-        )
-        return stats
-    catch
-        return nothing
-    end
-end
+include("../common.jl")
 
 function load_ampl_benchmark(nlpath::AbstractString)
     probs = readdir(abspath(nlpath), join=true)
@@ -53,51 +15,6 @@ function load_ampl_benchmark(nlpath::AbstractString)
         push!(names, basename(probs[i]))
     end
     return names, mpccs
-end
-
-function run_benchmark(
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
-    solfun,
-    opts::T,
-    solargs...,
-) where {T <: Dict}
-    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
-    sizehint!(stats_vec, length(probs))
-    for i in 1:length(probs)
-        push!(stats_vec, solfun(probs[i], opts, solargs...))
-    end
-
-    return stats_vec
-end
-
-function run_benchmark(
-    probs::Vector{MadMPEC.AbstractMPCCModel},
-    solfun,
-    opts::T,
-    solargs...,
-) where {T <: MadMPEC.HomotopySolverOptions}
-    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
-    sizehint!(stats_vec, length(probs))
-    for i in 1:length(probs)
-        push!(stats_vec, solfun(probs[i], opts, solargs...))
-    end
-
-    return stats_vec
-end
-
-function run_benchmark(
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
-    solfun,
-    opts::T,
-    solargs...,
-) where {T <: MadNCL.NCLOptions}
-    stats_vec = Vector{Union{Nothing, MadNCL.NCLStats{Float64}}}()
-    sizehint!(stats_vec, length(probs))
-    for i in 1:length(probs)
-        push!(stats_vec, solfun(probs[i], opts, solargs...))
-    end
-
-    return stats_vec
 end
 
 function run_macmpec(args...; plot=false, range=:)
