@@ -2,6 +2,9 @@ using CSV
 using DataFrames
 using Plots, BenchmarkProfiles
 using AmplNLReader, MadMPEC
+using NLPModelsIpopt
+using MadNLP, MadNLPHSL
+using MadNCL
 
 function mpcc_from_ampl(ampl::AmplNLReader.AmplModel)
     # First we find the nonzero elements in the cvar vector:
@@ -16,7 +19,7 @@ end
 function save_madnlp_df(
     names::Vector{<:AbstractString},
     stats_madnlp::Vector{MadMPEC.HomotopySolverStats{T, VT}},
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     df_madnlp = DataFrame(
@@ -72,7 +75,7 @@ end
 function save_ipopt_df(
     names::Vector{<:AbstractString},
     stats_ipopt::Vector{MadMPEC.HomotopySolverStats{T, VT}},
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     df_ipopt = DataFrame(
@@ -93,7 +96,7 @@ end
 function save_ncl_df(
     names::Vector{<:AbstractString},
     stats_ncl::Vector{Union{MadNCL.NCLStats{T}, Nothing}},
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T}
     inf_cc =
@@ -158,16 +161,18 @@ function solve_benchmark_problem_madnlp_c(
     return stats
 end
 
-function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.NCLOptions)
+function solve_benchmark_problem(
+    mpcc::MadMPEC.AbstractMPCCModel,
+    opts::MadNCL.NCLOptions,
+    sol_args...,
+)
     nlp = MadMPEC.ScholtesRelaxation(mpcc)
 
     try
-        stats = MadNCL.madncl(
-            nlp,
-            ncl_options=opts,
-            print_level=MadNLP.ERROR,
-            linear_solver=Ma27Solver,
-        )
+        stats = MadNCL.madncl(nlp, ncl_options=opts; sol_args...)
+        # print_level=MadNLP.ERROR,
+        # linear_solver=Ma27Solver,
+
         return stats
     catch
         return nothing

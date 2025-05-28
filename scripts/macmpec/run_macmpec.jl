@@ -1,7 +1,3 @@
-using NLPModelsIpopt
-using MadNLP, MadNLPHSL
-using MadNCL
-
 include("../common.jl")
 
 function load_ampl_benchmark(nlpath::AbstractString)
@@ -18,12 +14,10 @@ function load_ampl_benchmark(nlpath::AbstractString)
 end
 
 function run_macmpec(args...; plot=false, range=:)
-    # Take a list of named tuples:
     stats = Dict{String, Any}()
     names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
-        # TODO(@anton) Figure out why this is necessary. Something in mpccmodel is _too_ mutable
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] =
@@ -45,7 +39,6 @@ function test_macmpec(; range=:)
         Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.DEBUG, :max_iter=>500)
 
     opts_ncl = MadNCL.NCLOptions();
-    #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
     default_ipopt = (
         "nosnoc Ipopt",
@@ -327,7 +320,13 @@ function test_macmpec_hsl(; range=:)
         opts_madnlp,
         (MadNLP.MadNLPSolver,),
     )
-    default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
+    default_madncl = (
+        "ma27 madNCL",
+        solve_benchmark_problem,
+        save_ncl_df,
+        opts_ncl,
+        ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver)),
+    )
 
     solnames, names, stats =
         run_macmpec(default_ipopt, default_madnlp, default_madncl; range=range)

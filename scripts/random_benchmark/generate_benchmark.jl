@@ -404,8 +404,9 @@ function generate_mpcc_ad(
     )
 
     mpcc = MadMPEC.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
+    name = "$(nl_obj)_$(n0)_$(n1)_$(n_ineq)"
 
-    return MadMPEC.vertical_form(mpcc)
+    return name, MadMPEC.vertical_form(mpcc)
 end
 
 function generate_mpcc_jump(
@@ -639,11 +640,14 @@ function generate_mpcc_jump(
     nlp_vc = MathOptNLPModel(model)
     mpcc = MadMPEC.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
 
-    return MadMPEC.vertical_form(mpcc)
+    name = "$(nl_obj)_$(n0)_$(n1)_$(n_ineq)"
+
+    return name, MadMPEC.vertical_form(mpcc)
 end
 
 function generate_benchmark_ad(n_probs)
     mpccs = Vector{MadMPEC.MPCCModel}()
+    names = Vector{String}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter
     rng = MersenneTwister(3)
@@ -655,14 +659,17 @@ function generate_benchmark_ad(n_probs)
     for nl_fun in nl_funs
         for (n, n_ineq) in zip(ns, ns_ineq)
             println("n = $(n), n_ineq = $(n_ineq), nl_fun = $(nl_fun)")
-            push!(mpccs, generate_mpcc_ad(n, n, n_ineq, nl_fun))
+            name, mpcc = generate_mpcc_ad(n, n, n_ineq, nl_fun)
+            push!(mpccs, mpcc)
+            push!(names, name)
         end
     end
-    return mpccs
+    return names, mpccs
 end
 
 function generate_benchmark_jump(n_probs)
     mpccs = Vector{MadMPEC.MPCCModel}()
+    names = Vector{String}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter
     rng = MersenneTwister(3)
@@ -674,8 +681,10 @@ function generate_benchmark_jump(n_probs)
     for nl_fun in nl_funs
         for (n, n_ineq) in zip(ns, ns_ineq)
             println("n = $(n), n_ineq = $(n_ineq), nl_fun = $(nl_fun)")
-            push!(mpccs, generate_mpcc_jump(n, n, n_ineq, nl_fun))
+            name, mpcc = generate_mpcc_jump(n, n, n_ineq, nl_fun)
+            push!(mpccs, mpcc)
+            push!(names, name)
         end
     end
-    return mpccs
+    return names, mpccs
 end
