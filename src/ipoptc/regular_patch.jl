@@ -168,14 +168,20 @@ function homotopy!(
         KKTVec,
     },
 ) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
+    c_mpcc = VT(undef, length(solver.c))
     while true
+        # Set 𝜎 to zero for constraint infeasibility calculations
         if (solver.cnt.k!=0 && !solver.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(solver, solver.kkt, solver.x)
         end
+        𝜎 = solver.nlp.𝜎[]
+        solver.nlp.𝜎[] = 0
+        MadNLP.eval_cons_wrapper!(solver, c_mpcc, solver.x)
+        solver.nlp.𝜎[] = 𝜎
         MadNLP.jtprod!(solver.jacl, solver.kkt, solver.y)
         sd = MadNLP.get_sd(solver.y, solver.zl_r, solver.zu_r, T(solver.opt.s_max))
         sc = MadNLP.get_sc(solver.zl_r, solver.zu_r, T(solver.opt.s_max))
-        solver.inf_pr = MadNLP.get_inf_pr(solver.c)
+        solver.inf_pr = MadNLP.get_inf_pr(c_mpcc)
         solver.inf_du = MadNLP.get_inf_du(
             MadNLP.full(solver.f),
             MadNLP.full(solver.zl),
@@ -205,7 +211,6 @@ function homotopy!(
         )
 
         MadNLP.print_iter(solver)
-
         # evaluate termination criteria
         MadNLP.@trace(solver.logger, "Evaluating termination criteria.")
         max(solver.inf_pr, solver.inf_du, solver.inf_compl) <= solver.opt.tol &&
@@ -221,9 +226,11 @@ function homotopy!(
         time()-solver.cnt.start_time>=solver.opt.max_wall_time &&
             return MadNLP.MAXIMUM_WALLTIME_EXCEEDED
 
+        # Now go back to using relaxed inf_pr
+        solver.inf_pr = MadNLP.get_inf_pr(solver.c)
         # update the barrier parameter
         MadNLP.@trace(solver.logger, "Updating the barrier parameter.")
-        while solver.mu != max(solver.opt.mu_min, solver.opt.tol/10) &&
+        while solver.mu > max(solver.opt.mu_min, solver.opt.tol/10) &&
             max(solver.inf_pr, solver.inf_du, inf_compl_mu) <=
             solver.opt.barrier_tol_factor*solver.mu
             mu_new = MadNLP.get_mu(
@@ -255,6 +262,9 @@ function homotopy!(
             solver.mu = mu_new
             solver.nlp.𝜎[] = mu_new
             MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
+            if mu_new < 1e-9
+                break
+            end
             empty!(solver.filter)
             push!(solver.filter, (solver.theta_max, -Inf))
         end

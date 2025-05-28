@@ -34,6 +34,7 @@ function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.N
             ncl_options=opts,
             print_level=MadNLP.ERROR,
             linear_solver=Ma27Solver,
+            bound_relax_factor=1e-12,
         )
         return stats
     catch
@@ -464,9 +465,13 @@ function test_vs_madnlp_c(; range=:)
         opts_madnlp_c,
         (),
     )
-    # solnames, names, stats =
-    #     run_macmpec(default_madnlp_c, default_ipopt, default_madnlp, default_madncl; range=range)
-    solnames, names, stats = run_macmpec(default_madncl; range=range)
+    solnames, names, stats = run_macmpec(
+        default_madnlp_c,
+        default_ipopt,
+        default_madnlp,
+        default_madncl;
+        range=range,
+    )
 
     return solnames, names, stats
 end
