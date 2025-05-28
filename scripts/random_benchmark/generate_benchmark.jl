@@ -684,6 +684,7 @@ function generate_benchmark_jump(n_probs)
             name, mpcc = generate_mpcc_jump(n, n, n_ineq, nl_fun)
             push!(mpccs, mpcc)
             push!(names, name)
+            GC.gc(true) # Try Hard GC
         end
     end
     return names, mpccs
