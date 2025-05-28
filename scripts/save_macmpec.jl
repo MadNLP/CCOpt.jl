@@ -25,6 +25,39 @@ function save_madnlp_df(
     return df_madnlp
 end
 
+function save_madnlp_c_df(
+    names::Vector{<:AbstractString},
+    stats_madnlp_c::Vector{MadNLP.MadNLPExecutionStats{T, VT}},
+    probs::Vector{MadMPEC.AbstractMPCCModel},
+    name::AbstractString,
+) where {T, VT}
+    inf_cc =
+        inf_cc=[
+            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            (mpcc, s) in zip(probs, stats_madnlp_c)
+        ]
+    df_madnlp_c = DataFrame(
+        name=names,
+        success=[
+            s.status in [
+                MadNLP.SOLVE_SUCCEEDED,
+                MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
+                MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
+            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+        ],
+        status=[s.status for s in stats_madnlp_c],
+        objective=[s.objective for s in stats_madnlp_c],
+        inf_cc=inf_cc,
+        wall_time=[s.counters.total_time for s in stats_madnlp_c],
+        iter=[s.counters.k for s in stats_madnlp_c],
+        eval_function_time=[s.counters.eval_function_time for s in stats_madnlp_c],
+        linear_solver_time=[s.counters.linear_solver_time for s in stats_madnlp_c],
+    )
+    CSV.write(name, df_madnlp_c)
+
+    return df_madnlp_c
+end
+
 function save_ipopt_df(
     names::Vector{<:AbstractString},
     stats_ipopt::Vector{MadMPEC.HomotopySolverStats{T, VT}},
@@ -54,7 +87,7 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
             (mpcc, s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
