@@ -14,7 +14,7 @@ function sprand(
     n::Integer,
     density::AbstractFloat,
 )
-    return sprand(m, n, density, n -> rand(rng, dist, n))
+    return sprand(rng, m, n, density, (rng, n) -> rand(rng, dist, n))
 end
 
 const nl_funs = [
@@ -688,4 +688,66 @@ function generate_benchmark_jump(n_probs)
         end
     end
     return names, mpccs
+end
+
+struct RandomMPCCBenchmark
+    ns::Vector{Int}
+    ns_ineq::Vector{Int}
+    nl_funs::Vector{String}
+    rng_seed::Int
+    states::Vector{Random.DSFMT.DSFMT_state}
+    len::Int
+
+    function RandomMPCCBenchmark(n_probs::Int, nl_funs::Vector{String}, rng_seed::Int)
+        rng = MersenneTwister(rng_seed)
+        ns = sample(rng, 10:300, n_probs; replace=false)
+        ns_ineq = Vector{Int}()
+        for n in ns
+            push!(ns_ineq, Int(round(rand(rng, Uniform(0.1*n, 2*n)))))
+        end
+
+        len = length(nl_funs)*n_probs
+        states = Vector{Random.DSFMT.DSFMT_state}(undef, len)
+        states[1] = copy(rng.state)
+        return new(ns, ns_ineq, nl_funs, rng_seed, states, len)
+    end
+end
+
+function Base.iterate(bench::RandomMPCCBenchmark)
+    rng = MersenneTwister(bench.rng_seed, copy(bench.states[1]))
+    #println("$(1), $(rand(rng))")
+    mpcc = generate_mpcc_jump(
+        bench.ns[1],
+        bench.ns[1],
+        bench.ns_ineq[1],
+        bench.nl_funs[1];
+        rng=rng,
+    )
+    bench.states[2] = copy(rng.state)
+    #println("$(1) end, $(rand(rng))")
+    return mpcc, 2
+end
+
+ind2subv(shape, indices) = Tuple.(CartesianIndices(shape)[indices])
+
+function Base.iterate(bench::RandomMPCCBenchmark, state::Int)
+    if state <= bench.len
+        rng = MersenneTwister(bench.rng_seed, copy(bench.states[state]))
+        #println("$(state), $(rand(rng))")
+        ind_n, ind_nl_fun = ind2subv((length(bench.ns), length(bench.nl_funs)), state)
+        mpcc = generate_mpcc_jump(
+            bench.ns[ind_n],
+            bench.ns[ind_n],
+            bench.ns_ineq[ind_n],
+            bench.nl_funs[ind_nl_fun];
+            rng=rng,
+        )
+        if state + 1 <= bench.len
+            bench.states[state+1] = copy(rng.state)
+        end
+        #println("$(state) end, $(rand(rng))")
+        return mpcc, state+1
+    else
+        return nothing
+    end
 end
