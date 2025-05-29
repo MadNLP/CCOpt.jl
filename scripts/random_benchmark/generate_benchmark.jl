@@ -751,3 +751,5 @@ function Base.iterate(bench::RandomMPCCBenchmark, state::Int)
         return nothing
     end
 end
+
+Base.length(bench::RandomMPCCBenchmark) = bench.len

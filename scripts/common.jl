@@ -19,7 +19,30 @@ end
 function save_madnlp_df(
     names::Vector{<:AbstractString},
     stats_madnlp::Vector{MadMPEC.HomotopySolverStats{T, VT}},
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Any,
+    name::AbstractString,
+) where {T, VT}
+    df_madnlp = DataFrame(
+        name=names,
+        success=[s.status == MadMPEC.NLP_STATIONARY for s in stats_madnlp],
+        status=[s.status for s in stats_madnlp],
+        objective=[s.objective for s in stats_madnlp],
+        inf_cc=[s.inf_cc for s in stats_madnlp],
+        wall_time=[s.wall_time for s in stats_madnlp],
+        iter=[s.iter for s in stats_madnlp],
+        eval_function_time=[s.eval_function_time for s in stats_madnlp],
+        linear_solver_time=[s.linear_solver_time for s in stats_madnlp],
+        homotopy_iter=[length(s.nlp_stats) for s in stats_madnlp],
+    )
+    CSV.write(name, df_madnlp)
+
+    return df_madnlp
+end
+
+function save_madnlp_df(
+    names::Vector{<:AbstractString},
+    stats_madnlp::Vector{MadMPEC.HomotopySolverStats{T, VT}},
+    probs::Any,
     name::AbstractString,
 ) where {T, VT}
     df_madnlp = DataFrame(
@@ -75,7 +98,7 @@ end
 function save_ipopt_df(
     names::Vector{<:AbstractString},
     stats_ipopt::Vector{MadMPEC.HomotopySolverStats{T, VT}},
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Any,
     name::AbstractString,
 ) where {T, VT}
     df_ipopt = DataFrame(
@@ -103,6 +126,38 @@ function save_ncl_df(
         inf_cc=[
             !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
             (mpcc, s) in zip(probs, stats_ncl)
+        ]
+    df_ncl = DataFrame(
+        name=names,
+        success=[
+            (!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR) in [
+                MadNLP.SOLVE_SUCCEEDED,
+                MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
+                MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
+            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+        ],
+        status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
+        objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
+        inf_cc=inf_cc,
+        wall_time=[!isnothing(s) ? s.counters.total_time : Inf for s in stats_ncl],
+        iter=[!isnothing(s) ? s.counters.k : -1 for s in stats_ncl],
+        outer_iter=[!isnothing(s) ? s.iter : -1 for s in stats_ncl],
+    )
+    CSV.write(name, df_ncl)
+
+    return df_ncl
+end
+
+function save_ncl_df(
+    names::Vector{<:AbstractString},
+    stats_ncl::Vector{Union{MadNCL.NCLStats{T}, Nothing}},
+    probs::Any,
+    name::AbstractString,
+) where {T}
+    inf_cc =
+        inf_cc=[
+            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,

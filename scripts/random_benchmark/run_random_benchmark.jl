@@ -1,15 +1,33 @@
 include("../common.jl")
 include("generate_benchmark.jl")
 
-function run_random_benchmark(args...; plot=false, range=:, n_probs=7)
+function run_benchmark(
+    probs::RandomMPCCBenchmark,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadMPEC.HomotopySolverOptions}
+    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    names = Vector{String}()
+    for (name, prob) in probs
+        push!(stats_vec, solfun(prob, opts, solargs...))
+        push!(names, name)
+        println(name)
+    end
+
+    return names, stats_vec
+end
+
+function run_random_benchmark(args...; plot=false, n_probs=7)
     stats = Dict{String, Any}()
-    names, probs = generate_benchmark_jump(n_probs)
+    probs = RandomMPCCBenchmark(n_probs, nl_funs, 3)
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
-        stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
+        names, stats[solname] = run_benchmark(probs, solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] =
-            dffun(names[range], stats[solname], probs, replace(solname, " "=>"_")*".csv")
+            dffun(names, stats[solname], probs, replace(solname, " "=>"_")*".csv")
     end
     if plot
         perf_plot("Performance Plot", solnames, stats)
@@ -17,7 +35,7 @@ function run_random_benchmark(args...; plot=false, range=:, n_probs=7)
     return solnames, names, stats
 end
 
-function test_random_benchmark(; range=:, n_probs=7)
+function test_random_benchmark(; n_probs=7)
     opts_ipopt = MadMPEC.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
@@ -56,13 +74,15 @@ function test_random_benchmark(; range=:, n_probs=7)
         ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver)),
     )
 
-    solnames, names, stats = run_random_benchmark(
-        default_madncl,
-        default_madnlp,
-        default_ipopt;
-        range=range,
-        n_probs=n_probs,
-    )
+    # solnames, names, stats = run_random_benchmark(
+    #     default_madncl,
+    #     default_madnlp,
+    #     default_ipopt;
+    #     range=range,
+    #     n_probs=n_probs,
+    # )
+
+    solnames, names, stats = run_random_benchmark(default_ipopt; n_probs=n_probs)
 
     return solnames, names, stats
 end
