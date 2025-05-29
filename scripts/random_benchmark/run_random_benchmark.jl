@@ -74,15 +74,13 @@ function test_random_benchmark(; n_probs=7)
         ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver)),
     )
 
-    # solnames, names, stats = run_random_benchmark(
-    #     default_madncl,
-    #     default_madnlp,
-    #     default_ipopt;
-    #     range=range,
-    #     n_probs=n_probs,
-    # )
-
-    solnames, names, stats = run_random_benchmark(default_ipopt; n_probs=n_probs)
+    solnames, names, stats = run_random_benchmark(
+        default_madncl,
+        default_madnlp,
+        default_ipopt;
+        range=range,
+        n_probs=n_probs,
+    )
 
     return solnames, names, stats
 end
