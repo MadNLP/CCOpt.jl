@@ -419,7 +419,7 @@ function generate_mpcc_jump(
     s_ineq=0.5,
     s=0.5,
     𝛼=10,
-    random_matrix_density=false,
+    random_matrix_density=true,
     rng=Random.default_rng(),
 )
     n_obj = n0 + n1
@@ -444,6 +444,7 @@ function generate_mpcc_jump(
     if random_matrix_density
         s = rand(rng, Uniform(0.1, 0.3))
     end
+    println(s)
 
     # Generate initial guess
     x0 = rand(rng, N_x0, n0)

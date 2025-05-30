@@ -19,6 +19,42 @@ function run_benchmark(
     return names, stats_vec
 end
 
+function run_benchmark(
+    probs::RandomMPCCBenchmark,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: Dict}
+    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    names = Vector{String}()
+    for (name, prob) in probs
+        push!(stats_vec, solfun(prob, opts, solargs...))
+        push!(names, name)
+        println(name)
+    end
+
+    return names, stats_vec
+end
+
+function run_benchmark(
+    probs::RandomMPCCBenchmark,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadNCL.NCLOptions}
+    stats_vec = Vector{Union{Nothing, MadNCL.NCLStats{Float64}}}()
+    sizehint!(stats_vec, length(probs))
+    names = Vector{String}()
+    for (name, prob) in probs
+        push!(stats_vec, solfun(prob, opts, solargs...))
+        push!(names, name)
+        println(name)
+    end
+
+    return stats_vec
+end
+
 function run_random_benchmark(args...; plot=false, n_probs=7)
     stats = Dict{String, Any}()
     probs = RandomMPCCBenchmark(n_probs, nl_funs, 3)
@@ -52,6 +88,21 @@ function test_random_benchmark(; n_probs=7)
 
     opts_ncl = MadNCL.NCLOptions();
 
+    opts_madnlp_c =
+        solver_options = Dict(
+            :bound_relax_factor=>1e-12,
+            :print_level=>MadNLP.INFO,
+            :max_iter=>3000,
+            :linear_solver=>Ma27Solver,
+        )
+
+    default_madnlp_c = (
+        "random ma27 madNLP-C",
+        solve_benchmark_problem_madnlp_c,
+        save_madnlp_c_df,
+        opts_madnlp_c,
+        (),
+    )
     default_ipopt = (
         "random ma27 Ipopt",
         solve_benchmark_problem,
@@ -75,10 +126,10 @@ function test_random_benchmark(; n_probs=7)
     )
 
     solnames, names, stats = run_random_benchmark(
+        default_madnlp_c,
         default_madncl,
         default_madnlp,
         default_ipopt;
-        range=range,
         n_probs=n_probs,
     )
 
