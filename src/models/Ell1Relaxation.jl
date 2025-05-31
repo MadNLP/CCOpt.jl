@@ -51,7 +51,13 @@ function Base.getproperty(rnlp::Ell1Relaxation, sym::Symbol)
 end
 
 ######################### NLPModels Callbacks #########################
-NLPModels.obj(rnlp::Ell1Relaxation, x::AbstractVector) = NLPModels.obj(rnlp.mpcc, x)
+function NLPModels.obj(rnlp::Ell1Relaxation, x::AbstractVector)
+    obj = NLPModels.obj(rnlp.mpcc, x)
+    for i in 1:rnlp.mpcc.meta.ncc
+        obj += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc1[i]] * x[rnlp.mpcc.meta.ind_cc2[i]]
+    end
+    return obj
+end
 
 # TODO update grad
 function NLPModels.grad!(rnlp::Ell1Relaxation, x::AbstractVector, gx::AbstractVector)
@@ -60,10 +66,9 @@ function NLPModels.grad!(rnlp::Ell1Relaxation, x::AbstractVector, gx::AbstractVe
         gx[rnlp.mpcc.meta.ind_cc1[i]] += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc2[i]]
         gx[rnlp.mpcc.meta.ind_cc2[i]] += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc1[i]]
     end
-    return
+    return gx
 end
 
-# TODO update grad
 function NLPModels.objgrad!(rnlp::Ell1Relaxation, x::AbstractVector, gx::AbstractVector)
     obj = NLPModels.objgrad!(rnlp.mpcc, x, gx)
     for i in 1:rnlp.mpcc.meta.ncc
