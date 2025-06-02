@@ -14,59 +14,26 @@ end
 
 function solve_homotopy!(
     nlp::MadMPEC.ScholtesRelaxation,
-    solver::MadNLP.MadNLPSolver{
-        T,
-        VT,
-        VI,
-        KKTSystem,
-        MadMPEC.ScholtesRelaxation{T, VT},
-        CB,
-        Iterator,
-        IC,
-        KKTVec,
-    };
+    solver::MadNLP.MadNLPSolver;
     kwargs...,
-) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
+)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver); kwargs...)
 end
 
-function solve_homotopy!(
-    solver::MadNLP.MadNLPSolver{
-        T,
-        VT,
-        VI,
-        KKTSystem,
-        MadMPEC.ScholtesRelaxation{T, VT},
-        CB,
-        Iterator,
-        IC,
-        KKTVec,
-    };
-    kwargs...,
-) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
+function solve_homotopy!(solver::MadNLP.MadNLPSolver; kwargs...)
     return solve_homotopy!(solver.nlp, solver; kwargs...)
 end
 
 function solve_homotopy!(
     nlp::MadMPEC.ScholtesRelaxation,
-    solver::MadNLP.MadNLPSolver{
-        T,
-        VT,
-        VI,
-        KKTSystem,
-        MadMPEC.ScholtesRelaxation{T, VT},
-        CB,
-        Iterator,
-        IC,
-        KKTVec,
-    },
+    solver::MadNLP.MadNLPSolver,
     stats::MadNLP.MadNLPExecutionStats;
     x=nothing,
     y=nothing,
     zl=nothing,
     zu=nothing,
     kwargs...,
-) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
+)
     if x != nothing
         MadNLP.full(solver.x)[1:get_nvar(nlp)] .= x
     end
@@ -275,7 +242,7 @@ function homotopy!(
 
         # compute the newton step
         MadNLP.@trace(solver.logger, "Computing the newton step.")
-        if (solver.cnt.k!=0 && !solver.opt.hessian_constant)
+        if (solver.cnt.k!=0)
             MadNLP.eval_lag_hess_wrapper!(solver, solver.kkt, solver.x, solver.y)
         end
 
