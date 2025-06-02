@@ -30,7 +30,7 @@ const nl_funs = [
     "Raydan2",
     "Diagonal3",
     "Diagonal4",
-    "Diagonal5",
+    # "Diagonal5", Broken due to logarithm
     "Extended_Triagonal",
     "Three_Exponential_Terms",
     "Generalized_PSC1",
@@ -446,7 +446,6 @@ function generate_mpcc_jump(
     if random_matrix_density
         s = rand(rng, Uniform(0.1, 0.3))
     end
-    println(s)
 
     # Generate initial guess
     x0 = rand(rng, N_x0, n0)
@@ -705,10 +704,17 @@ struct RandomMPCCBenchmark
     rng_seed::Int
     states::Vector{Random.DSFMT.DSFMT_state}
     len::Int
+    kwargs::Dict{Symbol, Any}
 
-    function RandomMPCCBenchmark(n_probs::Int, nl_funs::Vector{String}, rng_seed::Int)
+    function RandomMPCCBenchmark(
+        n_probs::Int,
+        nl_funs::Vector{String},
+        rng_seed::Int;
+        max_size=300,
+        kwargs...,
+    )
         rng = MersenneTwister(rng_seed)
-        ns = sample(rng, 10:300, n_probs; replace=false)
+        ns = sample(rng, 10:max_size, n_probs; replace=false)
         ns_ineq = Vector{Int}()
         for n in ns
             push!(ns_ineq, Int(round(rand(rng, Uniform(0.1*n, 2*n)))))
@@ -717,7 +723,15 @@ struct RandomMPCCBenchmark
         len = length(nl_funs)*n_probs
         states = Vector{Random.DSFMT.DSFMT_state}(undef, len)
         states[1] = copy(rng.state)
-        return new(ns, ns_ineq, nl_funs, rng_seed, states, len)
+        return new(
+            ns,
+            ns_ineq,
+            nl_funs,
+            rng_seed,
+            states,
+            len,
+            Dict{Symbol, Any}(kwargs...),
+        )
     end
 end
 

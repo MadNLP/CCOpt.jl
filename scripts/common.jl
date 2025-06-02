@@ -189,7 +189,7 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
             ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
