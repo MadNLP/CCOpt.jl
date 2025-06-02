@@ -18,6 +18,8 @@ function sprand(
 end
 
 const nl_funs = [
+    "Quadratic_psd",
+    "Quadratic_ind",
     "Fletcher",
     "Himmelblau",
     "McCormick",
@@ -472,7 +474,7 @@ function generate_mpcc_jump(
         end
     elseif nl_obj == "Himmelblau"
         for i in 1:Int(floor(n_obj/2))
-            obj += (w[2*i-1]-w[2*i]-11)^2+(w[2*i-1]+w[2*i]^2-7)^2
+            obj += (w[2*i-1]^2-w[2*i]-11)^2+(w[2*i-1]+w[2*i]^2-7)^2
         end
     elseif nl_obj == "McCormick"
         for i in 1:(n_obj-1)
@@ -516,7 +518,7 @@ function generate_mpcc_jump(
         end
     elseif nl_obj == "Extended_Triagonal"
         for i in 1:Int(floor(n_obj/2))
-            obj += (w[2*i-1]+w[2*i]-3)^2+(w[2*i-1]-w[2*i]-3)^4
+            obj += (w[2*i-1]+w[2*i]-3)^2+(w[2*i-1]-w[2*i]+1)^4
         end
     elseif nl_obj == "Three_Exponential_Terms"
         for i in 1:Int(floor(n_obj/2))
@@ -546,6 +548,7 @@ function generate_mpcc_jump(
             obj += (-4*w[i]+3)^2+(w[i]^2+2*w[i+1]^2+3*w[i+2]^2+4*w[i+3]^2+5*w[i+4]^2)
         end
     elseif nl_obj == "Tridia"
+        obj += 2*(w[1] - 1)^2
         for i in 2:n_obj
             obj += i*(2*w[i]-w[i-1])^2
         end
@@ -558,16 +561,20 @@ function generate_mpcc_jump(
             obj += (w[i]-2)^4+(w[i]*w[i+1]-2*w[i+1])^2+(w[i+1]+1)^2
         end
     elseif nl_obj == "Indef"
+        for i in 1:n_obj
+            obj += w[i]
+        end
         for i in 2:(n_obj-1)
-            obj += 0.5*cos(2*w[i]-w[end]-w[1])
+            obj += 0.5*cos(2*w[i]-w[n_obj]-w[1])
         end
     elseif nl_obj == "Cube"
+        obj += (w[1] - 1)^2
         for i in 2:n_obj
             obj += 100*(w[i]-w[i-1]^3)^2
         end
     elseif nl_obj == "Bdexp"
         for i in 1:(n_obj-2)
-            obj += (w[i]-w[i+1])*exp(-w[i+2]*(w[i]+w[i+1]))
+            obj += (w[i]+w[i+1])*exp(-w[i+2]*(w[i]+w[i+1]))
         end
     elseif nl_obj == "Genhumps"
         for i in 1:(n_obj-1)

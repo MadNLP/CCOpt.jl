@@ -52,7 +52,7 @@ function run_benchmark(
         println(name)
     end
 
-    return stats_vec
+    return names, stats_vec
 end
 
 function run_random_benchmark(args...; plot=false, n_probs=7)
@@ -125,13 +125,16 @@ function test_random_benchmark(; n_probs=7)
         ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver)),
     )
 
-    solnames, names, stats = run_random_benchmark(
-        default_madnlp_c,
-        default_madncl,
-        default_madnlp,
-        default_ipopt;
-        n_probs=n_probs,
-    )
+    # solnames, names, stats = run_random_benchmark(
+    #     default_madnlp_c,
+    #     default_madncl,
+    #     default_madnlp,
+    #     default_ipopt;
+    #     n_probs=n_probs,
+    # )
+
+    solnames, names, stats =
+        run_random_benchmark(default_madnlp, default_ipopt; n_probs=n_probs)
 
     return solnames, names, stats
 end
