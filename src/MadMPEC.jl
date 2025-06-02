@@ -11,6 +11,6 @@ include("LiftedNLPModel.jl")
 include("solver/types.jl")
 include("solver/AbstractMPCCSolver.jl")
 include("solver/HomotopySolver.jl")
-include("ipoptc/regular_patch.jl")
+include("madnlpc/madnlpc.jl")
 
 end # module MadMPEC
