@@ -270,13 +270,12 @@ function test_random_benchmark(; n_probs=7, max_size=300, multiproc=false)
 
     opts_ncl = MadNCL.NCLOptions();
 
-    opts_madnlp_c =
-        solver_options = Dict(
-            :bound_relax_factor=>1e-12,
-            :print_level=>MadNLP.ERROR,
-            :max_iter=>3000,
-            :linear_solver=>Ma27Solver,
-        )
+    opts_madnlp_c = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
 
     default_madnlp_c = (
         "random ma27 madNLP-C",
