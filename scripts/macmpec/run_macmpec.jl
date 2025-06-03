@@ -1,46 +1,4 @@
-using NLPModelsIpopt
-using MadNLP, MadNLPHSL
-using MadNCL
-
-include("from_ampl.jl")
-include("save_macmpec.jl")
-
-function solve_benchmark_problem(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadMPEC.HomotopySolverOptions,
-    solver::Type,
-)
-    solver = MadMPEC.HomotopySolver(mpcc, solver, opts)
-
-    return MadMPEC.solve!(solver)
-end
-
-function solve_benchmark_problem_madnlp_c(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::Dict{Symbol, Any},
-)
-    scholtes = MadMPEC.ScholtesRelaxation(mpcc)
-    solver = MadNLP.MadNLPSolver(scholtes; opts...)
-    stats = MadMPEC.solve_homotopy!(solver)
-    return stats
-end
-
-function solve_benchmark_problem(mpcc::MadMPEC.AbstractMPCCModel, opts::MadNCL.NCLOptions)
-    nlp = MadMPEC.ScholtesRelaxation(mpcc)
-
-    try
-        stats = MadNCL.madncl(
-            nlp,
-            ncl_options=opts,
-            print_level=MadNLP.ERROR,
-            linear_solver=Ma27Solver,
-            bound_relax_factor=1e-12,
-        )
-        return stats
-    catch
-        return nothing
-    end
-end
+include("../common.jl")
 
 function load_ampl_benchmark(nlpath::AbstractString)
     probs = readdir(abspath(nlpath), join=true)
@@ -55,58 +13,11 @@ function load_ampl_benchmark(nlpath::AbstractString)
     return names, mpccs
 end
 
-function run_benchmark(
-    probs::Vector{MadMPEC.AbstractMPCCModel},
-    solfun,
-    opts::T,
-    solargs...,
-) where {T <: Dict}
-    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
-    sizehint!(stats_vec, length(probs))
-    for i in 1:length(probs)
-        push!(stats_vec, solfun(probs[i], opts, solargs...))
-    end
-
-    return stats_vec
-end
-
-function run_benchmark(
-    probs::Vector{MadMPEC.AbstractMPCCModel},
-    solfun,
-    opts::T,
-    solargs...,
-) where {T <: MadMPEC.HomotopySolverOptions}
-    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
-    sizehint!(stats_vec, length(probs))
-    for i in 1:length(probs)
-        push!(stats_vec, solfun(probs[i], opts, solargs...))
-    end
-
-    return stats_vec
-end
-
-function run_benchmark(
-    probs::Vector{MadMPEC.AbstractMPCCModel},
-    solfun,
-    opts::T,
-    solargs...,
-) where {T <: MadNCL.NCLOptions}
-    stats_vec = Vector{Union{Nothing, MadNCL.NCLStats{Float64}}}()
-    sizehint!(stats_vec, length(probs))
-    for i in 1:length(probs)
-        push!(stats_vec, solfun(probs[i], opts, solargs...))
-    end
-
-    return stats_vec
-end
-
 function run_macmpec(args...; plot=false, range=:)
-    # Take a list of named tuples:
     stats = Dict{String, Any}()
     names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
-        # TODO(@anton) Figure out why this is necessary. Something in mpccmodel is _too_ mutable
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] =
@@ -128,7 +39,6 @@ function test_macmpec(; range=:)
         Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.DEBUG, :max_iter=>500)
 
     opts_ncl = MadNCL.NCLOptions();
-    #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
     default_ipopt = (
         "nosnoc Ipopt",
@@ -410,7 +320,13 @@ function test_macmpec_hsl(; range=:)
         opts_madnlp,
         (MadNLP.MadNLPSolver,),
     )
-    default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
+    default_madncl = (
+        "ma27 madNCL",
+        solve_benchmark_problem,
+        save_ncl_df,
+        opts_ncl,
+        ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver)),
+    )
 
     solnames, names, stats =
         run_macmpec(default_ipopt, default_madnlp, default_madncl; range=range)

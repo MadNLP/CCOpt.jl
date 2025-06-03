@@ -45,3 +45,5 @@ benchmark/*.pdf
 # Benchmark data
 data/
 *.csv
+*.jld
+*.jld2
