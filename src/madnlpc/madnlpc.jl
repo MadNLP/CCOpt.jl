@@ -7,6 +7,16 @@ function get_eta(solver::MadNLPSolver)
     end
 end
 
+function vincente_wright_regularization(solver::MadNLPSolver{T, VT}, eta::T) where {T, VT}
+    ncc = solver.nlp.mpcc.meta.ncc # Get number of complementarity constraints
+
+    # Regularize relaxation slacks
+    MadNLP.slack(solver.x)[(end-ncc):end] = max.(MadNLP.slack(solver.x)[(end-ncc):end], eta)
+    # Regularize corresponding lower bound multipliers
+    return MadNLP.slack(solver.zl)[(end-ncc):end] =
+        max.(MadNLP.slack(solver.zl)[(end-ncc):end], eta)
+end
+
 function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
     solver = MadNLP.MadNLPSolver(model; kwargs...)
     return solve_homotopy!(solver)
@@ -216,7 +226,10 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             solver.tau = MadNLP.get_tau(solver.mu, solver.opt.tau_min)
             solver.mu = mu_new
             solver.nlp.𝜎[] = mu_new
-            MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
+            MadNLP.@debug(
+                solver.logger,
+                "Updating Scholtes relaxation parameter: $(mu_new)"
+            )
             if mu_new < 1e-9
                 break
             end
@@ -224,7 +237,6 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             push!(solver.filter, (solver.theta_max, -Inf))
         end
 
-        # TODO(@anton) update the scholtes relaxation parameter here!
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta(solver)
 
@@ -235,6 +247,11 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
         end
 
         # TODO(@anton) update solver.x solver.zl, solver.zu
+        MadNLP.@trace(
+            solver.logger,
+            "Applying regularization to complementarity slacks eta = $(eta_k)"
+        )
+        vincente_wright_regularization(solver, eta_k)
         MadNLP.set_aug_diagonal!(solver.kkt, solver)
         MadNLP.set_aug_rhs!(solver, solver.kkt, solver.c)
         MadNLP.dual_inf_perturbation!(
