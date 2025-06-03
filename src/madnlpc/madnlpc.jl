@@ -3,7 +3,7 @@ function get_eta(solver::MadNLPSolver)
     if solver.mu ≤ 5e-6
         return 0.1*solver.mu/(1+maximum(solver.y))
     else
-        return 0
+        return 0.0
     end
 end
 
@@ -122,19 +122,7 @@ function solve_homotopy!(
     return stats
 end
 
-function homotopy!(
-    solver::MadNLP.MadNLPSolver{
-        T,
-        VT,
-        VI,
-        KKTSystem,
-        MadMPEC.ScholtesRelaxation{T, VT},
-        CB,
-        Iterator,
-        IC,
-        KKTVec,
-    },
-) where {T, VT, VI, KKTSystem, CB, Iterator, IC, KKTVec}
+function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
     c_mpcc = VT(undef, length(solver.c))
     while true
         # Set 𝜎 to zero for constraint infeasibility calculations
