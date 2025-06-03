@@ -1,7 +1,9 @@
-function get_eta(solver::MadNLPSolver)
+function get_eta_heuristic(solver::MadNLPSolver)
     # TODO mu thresh to options?
     if solver.mu ≤ 5e-6
-        return 0.1*solver.mu/(1+maximum(solver.y))
+        return 0.1*solver.mu/(
+            1+max(maximum(MadNLP.slack(solver.zu)), maximum(MadNLP.slack(solver.zl)))
+        )
     else
         return 0.0
     end
@@ -10,11 +12,13 @@ end
 function vincente_wright_regularization(solver::MadNLPSolver{T, VT}, eta::T) where {T, VT}
     ncc = solver.nlp.mpcc.meta.ncc # Get number of complementarity constraints
 
-    # Regularize relaxation slacks
-    MadNLP.slack(solver.x)[(end-ncc):end] = max.(MadNLP.slack(solver.x)[(end-ncc):end], eta)
-    # Regularize corresponding lower bound multipliers
-    return MadNLP.slack(solver.zl)[(end-ncc):end] =
-        max.(MadNLP.slack(solver.zl)[(end-ncc):end], eta)
+    MadNLP.slack(solver.x)[(end-ncc+1):end] =
+        @views min.(MadNLP.slack(solver.x)[(end-ncc+1):end], -eta)
+
+    MadNLP.slack(solver.zu)[(end-ncc+1):end] =
+        @views max.(MadNLP.slack(solver.zu)[(end-ncc+1):end], eta)
+
+    return nothing
 end
 
 function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
@@ -238,7 +242,7 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
         end
 
         MadNLP.@trace(solver.logger, "Get eta.")
-        eta_k = get_eta(solver)
+        eta_k = get_eta_heuristic(solver)
 
         # compute the newton step
         MadNLP.@trace(solver.logger, "Computing the newton step.")
@@ -247,7 +251,7 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
         end
 
         # TODO(@anton) update solver.x solver.zl, solver.zu
-        MadNLP.@trace(
+        MadNLP.@debug(
             solver.logger,
             "Applying regularization to complementarity slacks eta = $(eta_k)"
         )
