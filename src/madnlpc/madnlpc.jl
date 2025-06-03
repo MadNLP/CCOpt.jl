@@ -9,7 +9,7 @@ function get_eta_heuristic(solver::MadNLPSolver)
     end
 end
 
-function vincente_wright_regularization!(solver::MadNLPSolver{T, VT}, eta::T) where {T, VT}
+function vicente_wright_regularization!(solver::MadNLPSolver{T, VT}, eta::T) where {T, VT}
     ncc = solver.nlp.mpcc.meta.ncc # Get number of complementarity constraints
 
     MadNLP.slack(solver.x)[(end-ncc+1):end] =
@@ -255,7 +255,7 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             solver.logger,
             "Applying regularization to complementarity slacks eta = $(eta_k)"
         )
-        vincente_wright_regularization!(solver, eta_k)
+        vicente_wright_regularization!(solver, eta_k)
         MadNLP.set_aug_diagonal!(solver.kkt, solver)
         MadNLP.set_aug_rhs!(solver, solver.kkt, solver.c)
         MadNLP.dual_inf_perturbation!(
