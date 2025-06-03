@@ -775,3 +775,39 @@ function Base.iterate(bench::RandomMPCCBenchmark, state::Int)
 end
 
 Base.length(bench::RandomMPCCBenchmark) = bench.len
+
+# For testing individual problems later
+function Base.getindex(bench::RandomMPCCBenchmark, idx::Integer)
+    for i in 1:(idx-1)
+        if isassigned(bench.states, ii+1)
+            continue
+        end
+
+        rng = MersenneTwister(bench.rng_seed, copy(bench.states[i]))
+        #println("$(i), $(rand(rng))")
+        ind_n, ind_nl_fun = ind2subv((length(bench.ns), length(bench.nl_funs)), i)
+        mpcc = generate_mpcc_jump(
+            bench.ns[ind_n],
+            bench.ns[ind_n],
+            bench.ns_ineq[ind_n],
+            bench.nl_funs[ind_nl_fun];
+            rng=rng,
+        )
+        if i + 1 <= bench.len
+            bench.states[i+1] = copy(rng.state)
+        end
+    end
+    rng = MersenneTwister(bench.rng_seed, copy(bench.states[idx]))
+    #println("$(i), $(rand(rng))")
+    ind_n, ind_nl_fun = ind2subv((length(bench.ns), length(bench.nl_funs)), idx)
+    mpcc = generate_mpcc_jump(
+        bench.ns[ind_n],
+        bench.ns[ind_n],
+        bench.ns_ineq[ind_n],
+        bench.nl_funs[ind_nl_fun];
+        rng=rng,
+    )
+    if idx + 1 <= bench.len
+        bench.states[idx+1] = copy(rng.state)
+    end
+end

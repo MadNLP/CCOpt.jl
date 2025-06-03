@@ -1,6 +1,7 @@
 include("../common.jl")
 include("generate_benchmark.jl")
 using Distributed
+using JLD2
 
 function run_benchmark(
     probs::RandomMPCCBenchmark,
@@ -233,6 +234,19 @@ function run_random_benchmark(
             replace(bench_name*"_$(n_probs)_"*"$(max_size)_"*solname, " "=>"_")*".csv",
         )
     end
+    save(
+        bench_name*"_$(n_probs)_"*"$(max_size)"*".jld2",
+        "rng_states",
+        probs.states,
+        "rng_seed",
+        probs.rng_seed,
+        "n_probs",
+        n_probs,
+        "max_size",
+        max_size,
+        "args",
+        args,
+    )
     if plot
         perf_plot("Performance Plot", solnames, stats)
     end
@@ -293,22 +307,22 @@ function test_random_benchmark(; n_probs=7, max_size=300, multiproc=false)
         ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver)),
     )
 
+    # solnames, names, stats = run_random_benchmark(
+    #     default_madnlp_c,
+    #     default_madncl,
+    #     default_madnlp,
+    #     default_ipopt;
+    #     n_probs=n_probs,
+    #     max_size=max_size,
+    #     multiproc=multiproc,
+    # )
+
     solnames, names, stats = run_random_benchmark(
-        default_madnlp_c,
-        default_madncl,
-        default_madnlp,
-        default_ipopt;
+        default_madnlp_c;
         n_probs=n_probs,
         max_size=max_size,
         multiproc=multiproc,
     )
-
-    # solnames, names, stats = run_random_benchmark(
-    #     default_madnlp_c;
-    #     n_probs=n_probs,
-    #     max_size=max_size,
-    #     multiproc=multiproc
-    # )
 
     # solnames, names, stats =
     #     run_random_benchmark(default_madnlp, default_ipopt; n_probs=n_probs)
