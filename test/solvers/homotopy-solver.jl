@@ -21,6 +21,7 @@
         opts.nlp_solver_options =
             Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.ERROR, :max_iter=>500)
         opts.comp_tol = 1e-7
+        copyto!(mpcc.meta.x0, [2; 1])
         solver = MadMPEC.HomotopySolver(mpcc, MadNLP.MadNLPSolver, opts)
 
         stats = MadMPEC.solve!(solver)
