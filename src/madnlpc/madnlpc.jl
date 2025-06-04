@@ -32,6 +32,41 @@ function MadNLP.set_aug_diagonal!(
     return
 end
 
+function project_scholtes_bisect(
+    xk::T,
+    yk::T,
+    𝜅::T,
+    𝜎::T;
+    step_tol::T=1e-8,
+    abs_tol::T=1e-8,
+    rel_tol::T=1e-8,
+) where {T <: Real}
+    @assert xk*yk > 𝜅*𝜎 # TODO (and what if this isn't true?)
+
+    (l, r) = (0, 10*xk)
+    m_last = typemax(T)
+    stop = false
+    𝜏 = 𝜅*𝜎
+    while !stop
+        m = (l+r)/2
+        fm = m^4 - xk*m^3 + yk*𝜏*m - 𝜏^2
+        println(m, " ", fm)
+        if fm < 0.0
+            l = m
+        else
+            r = m
+        end
+
+        if abs(m_last - m) <= step_tol ||
+           abs((m_last - m)/m) <= rel_tol ||
+           abs(fm) <= abs_tol
+            stop = true
+        end
+        m_last = m
+    end
+    return m_last, 𝜏/m_last
+end
+
 function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
     solver = MadNLP.MadNLPSolver(model; kwargs...)
     return solve_homotopy!(solver)
