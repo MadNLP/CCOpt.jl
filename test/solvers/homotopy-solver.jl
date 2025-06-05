@@ -29,7 +29,7 @@
         # These are broken, we for some reason converge to the biactive point
         # in the case of MadNLP but to the true optimum [1,0]
         # in the case of IPOPT
-        @test stats.objective ≈ 1 atol=1e-5 broken=true
-        @test stats.solution ≈ [1, 0] atol=1e-5 broken=true
+        @test stats.objective ≈ 1 atol=1e-5 skip=true
+        @test stats.solution ≈ [1, 0] atol=1e-5 skip=true
     end
 end

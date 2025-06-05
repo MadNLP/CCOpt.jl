@@ -248,22 +248,38 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             # TODO(@anton) do we only need to project once?
             # TODO(@anton) make solver a separate object so we can pass custom settings!
             # TODO(@anton) I think we probably need to up to update multipliers and slacks correctly here
+            # FIXME(@anton) We need to use indices in mpcc.instead of these ranges but for now it's dinw
             ncc = solver.nlp.mpcc.meta.ncc
+            𝜅 = 0.9
             if true
-                println(MadNLP.variable(solver.x))
                 @views project_scholtes_explicit!(
                     MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)],
                     MadNLP.variable(solver.x)[(end-ncc+1):end],
                     MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)],
                     MadNLP.variable(solver.x)[(end-ncc+1):end],
-                    1.0, # 𝜅
+                    𝜅,
                     solver.nlp.𝜎[],
                 )
-                println(MadNLP.variable(solver.x))
+                # also update slacks by z1 = 𝜇/x1 and z2 = 𝜇/x2
+                if true
+                    MadNLP.variable(solver.zl)[(end-2*ncc+1):(end-ncc)] =
+                        @views solver.mu ./
+                               MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)]
+                    MadNLP.variable(solver.zl)[(end-ncc+1):end] =
+                        @views solver.mu ./ MadNLP.variable(solver.x)[(end-ncc+1):end]
+                end
+                if true
+                    MadNLP.slack(solver.x)[(end-ncc+1):end] .= -(1-𝜅)*solver.mu
+                    MadNLP.slack(solver.zu)[(end-ncc+1):end] .= solver.mu/((1-𝜅)*solver.mu)
+                end
             end
             empty!(solver.filter)
             push!(solver.filter, (solver.theta_max, -Inf))
         end
+        # println(MadNLP.variable(solver.x))
+        # println(MadNLP.variable(solver.zl))
+        # println(MadNLP.slack(solver.x))
+        # println(MadNLP.slack(solver.zu))
 
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta_heuristic(solver)
