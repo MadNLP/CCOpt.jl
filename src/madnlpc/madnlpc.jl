@@ -251,28 +251,21 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             # FIXME(@anton) We need to use indices in mpcc.instead of these ranges but for now it's dinw
             ncc = solver.nlp.mpcc.meta.ncc
             𝜅 = 0.9
-            if true
-                @views project_scholtes_explicit!(
-                    MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)],
-                    MadNLP.variable(solver.x)[(end-ncc+1):end],
-                    MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)],
-                    MadNLP.variable(solver.x)[(end-ncc+1):end],
-                    𝜅,
-                    solver.nlp.𝜎[],
-                )
-                # also update slacks by z1 = 𝜇/x1 and z2 = 𝜇/x2
-                if true
-                    MadNLP.variable(solver.zl)[(end-2*ncc+1):(end-ncc)] =
-                        @views solver.mu ./
-                               MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)]
-                    MadNLP.variable(solver.zl)[(end-ncc+1):end] =
-                        @views solver.mu ./ MadNLP.variable(solver.x)[(end-ncc+1):end]
-                end
-                if true
-                    MadNLP.slack(solver.x)[(end-ncc+1):end] .= -(1-𝜅)*solver.mu
-                    MadNLP.slack(solver.zu)[(end-ncc+1):end] .= solver.mu/((1-𝜅)*solver.mu)
-                end
-            end
+            @views project_scholtes_explicit!(
+                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc1],
+                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc2],
+                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc1],
+                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc2],
+                𝜅,
+                solver.nlp.𝜎[],
+            )
+            # also update slacks by z1 = 𝜇/x1 and z2 = 𝜇/x2
+            MadNLP.variable(solver.zl)[solver.nlp.mpcc.meta.ind_cc1] =
+                @views solver.mu ./ MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc1]
+            MadNLP.variable(solver.zl)[solver.nlp.mpcc.meta.ind_cc2] =
+                @views solver.mu ./ MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc2]
+            MadNLP.slack(solver.x)[(end-ncc+1):end] .= -(1-𝜅)*solver.mu
+            MadNLP.slack(solver.zu)[(end-ncc+1):end] .= solver.mu/((1-𝜅)*solver.mu)
             empty!(solver.filter)
             push!(solver.filter, (solver.theta_max, -Inf))
         end
