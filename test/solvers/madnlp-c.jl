@@ -1,7 +1,7 @@
 @testset "MadNLP-C Test" begin
     mpcc = SimpleMPCCModel(Float64)
     scholtes = MadMPEC.ScholtesRelaxation(mpcc)
-    solver = MadNLP.MadNLPSolver(scholtes; print_level=MadNLP.ERROR)
+    solver = MadNLP.MadNLPSolver(scholtes; print_level=MadNLP.INFO)
 
     copyto!(scholtes.meta.x0, [2; 1])
 

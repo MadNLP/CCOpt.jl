@@ -1,3 +1,5 @@
+include("project.jl")
+
 function get_eta_heuristic(solver::MadNLPSolver)
     # TODO mu thresh to options?
     if solver.mu ≤ 5e-6
@@ -30,41 +32,6 @@ function MadNLP.set_aug_diagonal!(
 
     MadNLP._set_aug_diagonal!(kkt)
     return
-end
-
-function project_scholtes_bisect(
-    xk::T,
-    yk::T,
-    𝜅::T,
-    𝜎::T;
-    step_tol::T=1e-8,
-    abs_tol::T=1e-8,
-    rel_tol::T=1e-8,
-) where {T <: Real}
-    @assert xk*yk > 𝜅*𝜎 # TODO (and what if this isn't true?)
-
-    (l, r) = (0, 10*xk)
-    m_last = typemax(T)
-    stop = false
-    𝜏 = 𝜅*𝜎
-    while !stop
-        m = (l+r)/2
-        fm = m^4 - xk*m^3 + yk*𝜏*m - 𝜏^2
-        println(m, " ", fm)
-        if fm < 0.0
-            l = m
-        else
-            r = m
-        end
-
-        if abs(m_last - m) <= step_tol ||
-           abs((m_last - m)/m) <= rel_tol ||
-           abs(fm) <= abs_tol
-            stop = true
-        end
-        m_last = m
-    end
-    return m_last, 𝜏/m_last
 end
 
 function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
@@ -276,12 +243,23 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             solver.tau = MadNLP.get_tau(solver.mu, solver.opt.tau_min)
             solver.mu = mu_new
             solver.nlp.𝜎[] = mu_new
-            MadNLP.@debug(
-                solver.logger,
-                "Updating Scholtes relaxation parameter: $(mu_new)"
-            )
-            if mu_new < 1e-9
-                break
+            MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
+            # (experimental) magically project the complementarity variables
+            # TODO(@anton) do we only need to project once?
+            # TODO(@anton) make solver a separate object so we can pass custom settings!
+            # TODO(@anton) I think we probably need to up to update multipliers and slacks correctly here
+            ncc = solver.nlp.mpcc.meta.ncc
+            if true
+                println(MadNLP.variable(solver.x))
+                @views project_scholtes_explicit!(
+                    MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)],
+                    MadNLP.variable(solver.x)[(end-ncc+1):end],
+                    MadNLP.variable(solver.x)[(end-2*ncc+1):(end-ncc)],
+                    MadNLP.variable(solver.x)[(end-ncc+1):end],
+                    1.0, # 𝜅
+                    solver.nlp.𝜎[],
+                )
+                println(MadNLP.variable(solver.x))
             end
             empty!(solver.filter)
             push!(solver.filter, (solver.theta_max, -Inf))
