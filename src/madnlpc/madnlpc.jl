@@ -1,10 +1,12 @@
 include("project.jl")
 
-function get_eta_heuristic(solver::MadNLPSolver)
-    # TODO mu thresh to options?
-    if solver.mu ≤ 5e-6
-        return 0.1*solver.mu/(
-            1+max(maximum(MadNLP.slack(solver.zu)), maximum(MadNLP.slack(solver.zl)))
+function get_eta_heuristic(solver::MadNLPCSolver)
+    if solver.ipm.mu ≤ solver.opts.mu_thresh
+        return 0.1*solver.ipm.mu/(
+            1+max(
+                maximum(MadNLP.slack(solver.ipm.zu)),
+                maximum(MadNLP.slack(solver.ipm.zl)),
+            )
         )
     else
         return 0.0
@@ -13,47 +15,42 @@ end
 
 function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.AbstractKKTSystem{T},
-    solver::MadNLP.AbstractMadNLPSolver{T},
+    solver::MadNLPCSolver{T, VT},
     eta::T,
-) where {T}
-    n = length(solver.x_ur)
-    ncc = solver.nlp.mpcc.meta.ncc
+) where {T, VT}
+    ipm = solver.ipm
+    n = length(ipm.x_ur)
+    ncc = ipm.nlp.mpcc.meta.ncc
 
     fill!(kkt.reg, zero(T))
     fill!(kkt.du_diag, zero(T))
-    kkt.l_diag .= solver.xl_r .- solver.x_lr   # (Xˡ - X)
-    kkt.u_diag .= solver.x_ur .- solver.xu_r   # (X - Xᵘ)
-    copyto!(kkt.l_lower, solver.zl_r)
-    copyto!(kkt.u_lower, solver.zu_r)
+    kkt.l_diag .= ipm.xl_r .- ipm.x_lr   # (Xˡ - X)
+    kkt.u_diag .= ipm.x_ur .- ipm.xu_r   # (X - Xᵘ)
+    copyto!(kkt.l_lower, ipm.zl_r)
+    copyto!(kkt.u_lower, ipm.zu_r)
 
     # Regularize with 𝜂 using vicente-wright
-    kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
-    kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
+    if solver.opts.kkt_regularization == :vicente_wright
+        kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
+        kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
+    end
 
     MadNLP._set_aug_diagonal!(kkt)
     return
 end
 
-function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
-    solver = MadNLP.MadNLPSolver(model; kwargs...)
-    return solve_homotopy!(solver)
+function solve_homotopy!(nlp::MadMPEC.ScholtesRelaxation, solver::MadNLPCSolver; kwargs...)
+    return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
 
+function solve_homotopy!(solver::MadNLPCSolver; kwargs...)
+    return solve_homotopy!(solver.scholtes, solver; kwargs...)
+end
+
+# TODO(@anton) Why do we pass things this way???
 function solve_homotopy!(
     nlp::MadMPEC.ScholtesRelaxation,
-    solver::MadNLP.MadNLPSolver;
-    kwargs...,
-)
-    return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver); kwargs...)
-end
-
-function solve_homotopy!(solver::MadNLP.MadNLPSolver; kwargs...)
-    return solve_homotopy!(solver.nlp, solver; kwargs...)
-end
-
-function solve_homotopy!(
-    nlp::MadMPEC.ScholtesRelaxation,
-    solver::MadNLP.MadNLPSolver,
+    solver::MadMPEC.MadNLPCSolver,
     stats::MadNLP.MadNLPExecutionStats;
     x=nothing,
     y=nothing,
@@ -61,285 +58,279 @@ function solve_homotopy!(
     zu=nothing,
     kwargs...,
 )
+    ipm = solver.ipm
     if x != nothing
-        MadNLP.full(solver.x)[1:get_nvar(nlp)] .= x
+        MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
     end
     if y != nothing
-        solver.y[1:get_ncon(nlp)] .= y
+        ipm.y[1:get_ncon(nlp)] .= y
     end
     if zl != nothing
-        MadNLP.full(solver.zl)[1:get_nvar(nlp)] .= zl
+        MadNLP.full(ipm.zl)[1:get_nvar(nlp)] .= zl
     end
     if zu != nothing
-        MadNLP.full(solver.zu)[1:get_nvar(nlp)] .= zu
+        MadNLP.full(ipm.zu)[1:get_nvar(nlp)] .= zu
     end
 
     if !isempty(kwargs)
-        MadNLP.@warn(solver.logger, "The options set during resolve may not have an effect")
-        set_options!(solver.opt, kwargs)
+        MadNLP.@warn(ipm.logger, "The options set during resolve may not have an effect")
+        set_options!(ipm.opt, kwargs)
     end
 
     try
-        if solver.status == MadNLP.INITIAL
+        if ipm.status == MadNLP.INITIAL
             MadNLP.@notice(
                 solver.logger,
-                "This is $(MadNLP.introduce()), using MadMPEC extension, running with $(MadNLP.introduce(solver.kkt.linear_solver))\n"
+                "This is $(MadNLP.introduce()), using MadMPEC extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
             )
-            MadNLP.print_init(solver)
-            solver.status = MadNLP.initialize!(solver)
+            MadNLP.print_init(ipm)
+            ipm.status = MadNLP.initialize!(ipm)
             # Also reset sigma
-            solver.nlp.𝜎[] = solver.mu
+            ipm.nlp.𝜎[] = ipm.mu
         else # resolving the problem
-            solver.status = MadNLP.reinitialize!(solver)
+            ipm.status = MadNLP.reinitialize!(ipm)
             # Also reset sigma
-            solver.nlp.𝜎[] = solver.mu
+            ipm.nlp.𝜎[] = ipm.mu
         end
 
-        while solver.status >= MadNLP.REGULAR
-            solver.status == MadNLP.REGULAR && (solver.status = MadMPEC.homotopy!(solver))
-            solver.status == MadNLP.RESTORE && (solver.status = MadNLP.restore!(solver))
-            solver.status == MadNLP.ROBUST && (solver.status = MadNLP.robust!(solver))
+        while ipm.status >= MadNLP.REGULAR
+            ipm.status == MadNLP.REGULAR && (ipm.status = MadMPEC.homotopy!(solver))
+            ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
+            ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
         end
     catch e
         if e isa MadNLP.InvalidNumberException
             if e.callback == :obj
-                solver.status=MadNLP.INVALID_NUMBER_OBJECTIVE
+                ipm.status=MadNLP.INVALID_NUMBER_OBJECTIVE
             elseif e.callback == :grad
-                solver.status=MadNLP.INVALID_NUMBER_GRADIENT
+                ipm.status=MadNLP.INVALID_NUMBER_GRADIENT
             elseif e.callback == :cons
-                solver.status=MadNLP.INVALID_NUMBER_CONSTRAINTS
+                ipm.status=MadNLP.INVALID_NUMBER_CONSTRAINTS
             elseif e.callback == :jac
-                solver.status=MadNLP.INVALID_NUMBER_JACOBIAN
+                ipm.status=MadNLP.INVALID_NUMBER_JACOBIAN
             elseif e.callback == :hess
-                solver.status=MadNLP.INVALID_NUMBER_HESSIAN_LAGRANGIAN
+                ipm.status=MadNLP.INVALID_NUMBER_HESSIAN_LAGRANGIAN
             else
-                solver.status=MadNLP.INVALID_NUMBER_DETECTED
+                ipm.status=MadNLP.INVALID_NUMBER_DETECTED
             end
         elseif e isa MadNLP.NotEnoughDegreesOfFreedomException
-            solver.status=MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM
+            ipm.status=MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM
         elseif e isa MadNLP.LinearSolverException
-            solver.status=MadNLP.ERROR_IN_STEP_COMPUTATION;
-            solver.opt.rethrow_error && rethrow(e)
+            ipm.status=MadNLP.ERROR_IN_STEP_COMPUTATION;
+            ipm.opt.rethrow_error && rethrow(e)
         elseif e isa MadNLP.InterruptException
-            solver.status=MadNLP.USER_REQUESTED_STOP
-            solver.opt.rethrow_error && rethrow(e)
+            ipm.status=MadNLP.USER_REQUESTED_STOP
+            ipm.opt.rethrow_error && rethrow(e)
         else
-            solver.status=MadNLP.INTERNAL_ERROR
-            solver.opt.rethrow_error && rethrow(e)
+            ipm.status=MadNLP.INTERNAL_ERROR
+            ipm.opt.rethrow_error && rethrow(e)
         end
     finally
-        solver.cnt.total_time = time() - solver.cnt.start_time
-        if !(solver.status < MadNLP.SOLVE_SUCCEEDED)
-            MadNLP.print_summary(solver)
+        ipm.cnt.total_time = time() - ipm.cnt.start_time
+        if !(ipm.status < MadNLP.SOLVE_SUCCEEDED)
+            MadNLP.print_summary(ipm)
         end
 
         MadNLP.@notice(
             solver.logger,
-            "EXIT: $(MadNLP.get_status_output(solver.status, solver.opt))"
+            "EXIT: $(MadNLP.get_status_output(ipm.status, ipm.opt))"
         )
-        solver.opt.disable_garbage_collector && (
+        ipm.opt.disable_garbage_collector && (
             GC.enable(true);
-            MadNLP.@warn(solver.logger, "Julia garbage collector is turned back on")
+            MadNLP.@warn(ipm.logger, "Julia garbage collector is turned back on")
         )
-        MadNLP.finalize(solver.logger)
+        MadNLP.finalize(ipm.logger)
 
-        MadNLP.update!(stats, solver)
+        MadNLP.update!(stats, ipm)
     end
 
     return stats
 end
 
-function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
-    c_mpcc = VT(undef, length(solver.c))
+function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    c_mpcc = VT(undef, length(ipm.c))
     while true
         # Set 𝜎 to zero for constraint infeasibility calculations
-        if (solver.cnt.k!=0 && !solver.opt.jacobian_constant)
-            MadNLP.eval_jac_wrapper!(solver, solver.kkt, solver.x)
+        if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
+            MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
-        𝜎 = solver.nlp.𝜎[]
-        solver.nlp.𝜎[] = 0
-        MadNLP.eval_cons_wrapper!(solver, c_mpcc, solver.x)
-        solver.nlp.𝜎[] = 𝜎
-        MadNLP.jtprod!(solver.jacl, solver.kkt, solver.y)
-        sd = MadNLP.get_sd(solver.y, solver.zl_r, solver.zu_r, T(solver.opt.s_max))
-        sc = MadNLP.get_sc(solver.zl_r, solver.zu_r, T(solver.opt.s_max))
-        solver.inf_pr = MadNLP.get_inf_pr(c_mpcc)
-        solver.inf_du = MadNLP.get_inf_du(
-            MadNLP.full(solver.f),
-            MadNLP.full(solver.zl),
-            MadNLP.full(solver.zu),
-            solver.jacl,
+        𝜎 = ipm.nlp.𝜎[]
+        ipm.nlp.𝜎[] = 0
+        MadNLP.eval_cons_wrapper!(ipm, c_mpcc, ipm.x)
+        ipm.nlp.𝜎[] = 𝜎
+        MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
+        sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
+        sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
+        ipm.inf_pr = MadNLP.get_inf_pr(c_mpcc)
+        ipm.inf_du = MadNLP.get_inf_du(
+            MadNLP.full(ipm.f),
+            MadNLP.full(ipm.zl),
+            MadNLP.full(ipm.zu),
+            ipm.jacl,
             sd,
         )
-        solver.inf_compl = MadNLP.get_inf_compl(
-            solver.x_lr,
-            solver.xl_r,
-            solver.zl_r,
-            solver.xu_r,
-            solver.x_ur,
-            solver.zu_r,
+        ipm.inf_compl = MadNLP.get_inf_compl(
+            ipm.x_lr,
+            ipm.xl_r,
+            ipm.zl_r,
+            ipm.xu_r,
+            ipm.x_ur,
+            ipm.zu_r,
             zero(T),
             sc,
         )
         inf_compl_mu = MadNLP.get_inf_compl(
-            solver.x_lr,
-            solver.xl_r,
-            solver.zl_r,
-            solver.xu_r,
-            solver.x_ur,
-            solver.zu_r,
-            solver.mu,
+            ipm.x_lr,
+            ipm.xl_r,
+            ipm.zl_r,
+            ipm.xu_r,
+            ipm.x_ur,
+            ipm.zu_r,
+            ipm.mu,
             sc,
         )
 
-        MadNLP.print_iter(solver)
+        MadNLP.print_iter(ipm)
         # evaluate termination criteria
-        MadNLP.@trace(solver.logger, "Evaluating termination criteria.")
-        max(solver.inf_pr, solver.inf_du, solver.inf_compl) <= solver.opt.tol &&
+        MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
             return MadNLP.SOLVE_SUCCEEDED
-        max(solver.inf_pr, solver.inf_du, solver.inf_compl) <= solver.opt.acceptable_tol ?
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.acceptable_tol ?
         (
-            solver.cnt.acceptable_cnt < solver.opt.acceptable_iter ?
-            solver.cnt.acceptable_cnt+=1 : return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
-        ) : (solver.cnt.acceptable_cnt = 0)
-        max(solver.inf_pr, solver.inf_du, solver.inf_compl) >=
-        solver.opt.diverging_iterates_tol && return MadNLP.DIVERGING_ITERATES
-        solver.cnt.k>=solver.opt.max_iter && return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
-        time()-solver.cnt.start_time>=solver.opt.max_wall_time &&
+            ipm.cnt.acceptable_cnt < ipm.opt.acceptable_iter ? ipm.cnt.acceptable_cnt+=1 :
+            return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
+        ) : (ipm.cnt.acceptable_cnt = 0)
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) >= ipm.opt.diverging_iterates_tol &&
+            return MadNLP.DIVERGING_ITERATES
+        ipm.cnt.k>=ipm.opt.max_iter && return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
+        time()-ipm.cnt.start_time>=ipm.opt.max_wall_time &&
             return MadNLP.MAXIMUM_WALLTIME_EXCEEDED
 
         # Now go back to using relaxed inf_pr
-        solver.inf_pr = MadNLP.get_inf_pr(solver.c)
+        ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
         # update the barrier parameter
-        MadNLP.@trace(solver.logger, "Updating the barrier parameter.")
-        while solver.mu > max(solver.opt.mu_min, solver.opt.tol/10) &&
-            max(solver.inf_pr, solver.inf_du, inf_compl_mu) <=
-            solver.opt.barrier_tol_factor*solver.mu
+        MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
+        while ipm.mu > max(ipm.opt.mu_min, ipm.opt.tol/10) &&
+            max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <= ipm.opt.barrier_tol_factor*ipm.mu
             mu_new = MadNLP.get_mu(
-                solver.mu,
-                solver.opt.mu_min,
-                solver.opt.mu_linear_decrease_factor,
-                solver.opt.mu_superlinear_decrease_power,
-                solver.opt.tol,
+                ipm.mu,
+                ipm.opt.mu_min,
+                ipm.opt.mu_linear_decrease_factor,
+                ipm.opt.mu_superlinear_decrease_power,
+                ipm.opt.tol,
             )
-            solver.inf_pr = MadNLP.get_inf_pr(solver.c)
-            solver.inf_du = MadNLP.get_inf_du(
-                MadNLP.full(solver.f),
-                MadNLP.full(solver.zl),
-                MadNLP.full(solver.zu),
-                solver.jacl,
+            ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
+            ipm.inf_du = MadNLP.get_inf_du(
+                MadNLP.full(ipm.f),
+                MadNLP.full(ipm.zl),
+                MadNLP.full(ipm.zu),
+                ipm.jacl,
                 sd,
             )
             inf_compl_mu = MadNLP.get_inf_compl(
-                solver.x_lr,
-                solver.xl_r,
-                solver.zl_r,
-                solver.xu_r,
-                solver.x_ur,
-                solver.zu_r,
-                solver.mu,
+                ipm.x_lr,
+                ipm.xl_r,
+                ipm.zl_r,
+                ipm.xu_r,
+                ipm.x_ur,
+                ipm.zu_r,
+                ipm.mu,
                 sc,
             )
-            solver.tau = MadNLP.get_tau(solver.mu, solver.opt.tau_min)
-            solver.mu = mu_new
-            solver.nlp.𝜎[] = mu_new
+            ipm.tau = MadNLP.get_tau(ipm.mu, ipm.opt.tau_min)
+            ipm.mu = mu_new
+            ipm.nlp.𝜎[] = solver.opts.sigma_mu_ratio*mu_new
             MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
             # (experimental) magically project the complementarity variables
             # TODO(@anton) do we only need to project once?
             # TODO(@anton) make solver a separate object so we can pass custom settings!
             # TODO(@anton) I think we probably need to up to update multipliers and slacks correctly here
             # FIXME(@anton) We need to use indices in mpcc.instead of these ranges but for now it's dinw
-            ncc = solver.nlp.mpcc.meta.ncc
-            𝜅 = 0.9
-            @views project_scholtes_explicit!(
-                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc1],
-                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc2],
-                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc1],
-                MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc2],
-                𝜅,
-                solver.nlp.𝜎[],
-            )
-            # also update slacks by z1 = 𝜇/x1 and z2 = 𝜇/x2
-            MadNLP.variable(solver.zl)[solver.nlp.mpcc.meta.ind_cc1] =
-                @views solver.mu ./ MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc1]
-            MadNLP.variable(solver.zl)[solver.nlp.mpcc.meta.ind_cc2] =
-                @views solver.mu ./ MadNLP.variable(solver.x)[solver.nlp.mpcc.meta.ind_cc2]
-            MadNLP.slack(solver.x)[(end-ncc+1):end] .= -(1-𝜅)*solver.mu
-            MadNLP.slack(solver.zu)[(end-ncc+1):end] .= solver.mu/((1-𝜅)*solver.mu)
-            empty!(solver.filter)
-            push!(solver.filter, (solver.theta_max, -Inf))
+            if solver.opts.use_magic_step
+                ncc = mpcc.meta.ncc
+                𝜅 = solver.opts.magic_step_kappa
+                @views project_scholtes_explicit!(
+                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+                    𝜅,
+                    ipm.nlp.𝜎[],
+                )
+                # also update slacks by z1 = 𝜇/x1 and z2 = 𝜇/x2
+                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] =
+                    @views ipm.mu ./ MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1]
+                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] =
+                    @views ipm.mu ./ MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2]
+                MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
+                MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
+            end
+            empty!(ipm.filter)
+            push!(ipm.filter, (ipm.theta_max, -Inf))
         end
-        # println(MadNLP.variable(solver.x))
-        # println(MadNLP.variable(solver.zl))
-        # println(MadNLP.slack(solver.x))
-        # println(MadNLP.slack(solver.zu))
 
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta_heuristic(solver)
 
         # compute the newton step
-        MadNLP.@trace(solver.logger, "Computing the newton step.")
-        if (solver.cnt.k!=0)
-            MadNLP.eval_lag_hess_wrapper!(solver, solver.kkt, solver.x, solver.y)
+        MadNLP.@trace(ipm.logger, "Computing the newton step.")
+        if (ipm.cnt.k!=0)
+            MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
         end
 
-        # TODO(@anton) update solver.x solver.zl, solver.zu
+        # TODO(@anton) update ipm.x ipm.zl, ipm.zu
         MadNLP.@debug(
             solver.logger,
             "Applying regularization to complementarity slacks eta = $(eta_k)"
         )
-        MadNLP.set_aug_diagonal!(solver.kkt, solver, eta_k)
-        MadNLP.set_aug_rhs!(solver, solver.kkt, solver.c)
+        MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
+        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c)
         MadNLP.dual_inf_perturbation!(
-            MadNLP.primal(solver.p),
-            solver.ind_llb,
-            solver.ind_uub,
-            solver.mu,
-            solver.opt.kappa_d,
+            MadNLP.primal(ipm.p),
+            ipm.ind_llb,
+            ipm.ind_uub,
+            ipm.mu,
+            ipm.opt.kappa_d,
         )
 
-        MadNLP.inertia_correction!(solver.inertia_corrector, solver) || return MadNLP.ROBUST
+        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
 
-        MadNLP.@trace(solver.logger, "Backtracking line search initiated.")
-        status = MadNLP.filter_line_search!(solver)
+        MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
+        status = MadNLP.filter_line_search!(ipm)
         if status != MadNLP.LINESEARCH_SUCCEEDED
             return status
         end
 
-        MadNLP.@trace(solver.logger, "Updating primal-dual variables.")
-        copyto!(MadNLP.full(solver.x), MadNLP.full(solver.x_trial))
-        copyto!(solver.c, solver.c_trial)
-        solver.obj_val = solver.obj_val_trial
-        MadNLP.adjust_boundary!(
-            solver.x_lr,
-            solver.xl_r,
-            solver.x_ur,
-            solver.xu_r,
-            solver.mu,
-        )
+        MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
+        copyto!(MadNLP.full(ipm.x), MadNLP.full(ipm.x_trial))
+        copyto!(ipm.c, ipm.c_trial)
+        ipm.obj_val = ipm.obj_val_trial
+        MadNLP.adjust_boundary!(ipm.x_lr, ipm.xl_r, ipm.x_ur, ipm.xu_r, ipm.mu)
 
-        MadNLP.axpy!(solver.alpha, MadNLP.dual(solver.d), solver.y)
+        MadNLP.axpy!(ipm.alpha, MadNLP.dual(ipm.d), ipm.y)
 
-        solver.zl_r .+= solver.alpha_z .* MadNLP.dual_lb(solver.d)
-        solver.zu_r .+= solver.alpha_z .* MadNLP.dual_ub(solver.d)
+        ipm.zl_r .+= ipm.alpha_z .* MadNLP.dual_lb(ipm.d)
+        ipm.zu_r .+= ipm.alpha_z .* MadNLP.dual_ub(ipm.d)
         MadNLP.reset_bound_dual!(
-            MadNLP.primal(solver.zl),
-            MadNLP.primal(solver.x),
-            MadNLP.primal(solver.xl),
-            solver.mu,
-            solver.opt.kappa_sigma,
+            MadNLP.primal(ipm.zl),
+            MadNLP.primal(ipm.x),
+            MadNLP.primal(ipm.xl),
+            ipm.mu,
+            ipm.opt.kappa_sigma,
         )
         MadNLP.reset_bound_dual!(
-            MadNLP.primal(solver.zu),
-            MadNLP.primal(solver.xu),
-            MadNLP.primal(solver.x),
-            solver.mu,
-            solver.opt.kappa_sigma,
+            MadNLP.primal(ipm.zu),
+            MadNLP.primal(ipm.xu),
+            MadNLP.primal(ipm.x),
+            ipm.mu,
+            ipm.opt.kappa_sigma,
         )
 
-        MadNLP.eval_grad_f_wrapper!(solver, solver.f, solver.x)
+        MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
 
-        solver.cnt.k+=1
-        MadNLP.@trace(solver.logger, "Proceeding to the next interior point iteration.")
+        ipm.cnt.k+=1
+        MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
     end
 end
