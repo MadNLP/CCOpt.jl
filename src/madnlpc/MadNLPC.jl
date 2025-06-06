@@ -16,6 +16,9 @@
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
+
+    # Plot Iterations
+    plot_iterates::Bool = false
 end
 
 struct MadNLPCSolver{T, VT}

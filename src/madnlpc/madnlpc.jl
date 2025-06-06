@@ -1,4 +1,5 @@
 include("project.jl")
+include("plot.jl")
 
 function get_eta_heuristic(solver::MadNLPCSolver)
     if solver.ipm.mu ≤ solver.opts.mu_thresh
@@ -58,6 +59,9 @@ function solve_homotopy!(
     zu=nothing,
     kwargs...,
 )
+    if solver.opts.plot_iterates
+        MadMPEC.reset_plot()
+    end
     ipm = solver.ipm
     if x != nothing
         MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
@@ -287,6 +291,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta_heuristic(solver)
 
+        if solver.opts.plot_iterates
+            MadMPEC.plot_complementarities(solver)
+        end
         # compute the newton step
         MadNLP.@trace(ipm.logger, "Computing the newton step.")
         if (ipm.cnt.k!=0)
