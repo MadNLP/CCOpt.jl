@@ -15,7 +15,8 @@ end
 
 function run_macmpec(args...; plot=false, range=:)
     stats = Dict{String, Any}()
-    names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
+    names, probs =
+        load_ampl_benchmark(joinpath(dirname(@__FILE__), "../../data/macMPEC/nls/"))
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
@@ -349,16 +350,19 @@ function test_vs_madnlp_c(; range=:)
         :linear_solver=>Ma27Solver,
     )
 
-    opts_ncl = MadNCL.NCLOptions();
+    opts_ncl = MadNCL.NCLOptions(feas_tol=1e-8) # Match tolerance
     #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
-    opts_madnlp_c =
-        solver_options = Dict(
-            :bound_relax_factor=>1e-12,
-            :print_level=>MadNLP.INFO,
-            :max_iter=>3000,
-            :linear_solver=>Ma27Solver,
-        )
+    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.INFO,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true)
+
     default_ipopt = (
         "ma27 Ipopt",
         solve_benchmark_problem,
@@ -376,13 +380,21 @@ function test_vs_madnlp_c(; range=:)
     default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
     default_madnlp_c = (
         "ma27 madNLP-C",
-        solve_benchmark_problem_madnlp_c,
+        solve_benchmark_problem,
         save_madnlp_c_df,
         opts_madnlp_c,
-        (),
+        ((madnlpc_solver_options...,)),
+    )
+    magic_madnlp_c = (
+        "ma27 madNLP-C magic step",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic,
+        ((madnlpc_solver_options...,)),
     )
     solnames, names, stats = run_macmpec(
         default_madnlp_c,
+        magic_madnlp_c,
         default_ipopt,
         default_madnlp,
         default_madncl;

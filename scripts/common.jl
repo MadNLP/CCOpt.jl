@@ -239,12 +239,12 @@ function solve_benchmark_problem(
     return MadMPEC.solve!(solver)
 end
 
-function solve_benchmark_problem_madnlp_c(
+function solve_benchmark_problem(
     mpcc::MadMPEC.AbstractMPCCModel,
-    opts::Dict{Symbol, Any},
+    opts::MadMPEC.MadNLPCOptions,
+    sol_args...,
 )
-    scholtes = MadMPEC.ScholtesRelaxation(mpcc)
-    solver = MadNLP.MadNLPSolver(scholtes; opts...)
+    solver = MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=opts, sol_args...)
     stats = MadMPEC.solve_homotopy!(solver)
     return stats
 end
@@ -272,7 +272,7 @@ function run_benchmark(
     solfun,
     opts::T,
     solargs...,
-) where {T <: Dict}
+) where {T <: MadMPEC.MadNLPCOptions}
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
