@@ -243,29 +243,42 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ipm.mu = mu_new
             ipm.nlp.𝜎[] = solver.opts.sigma_mu_ratio*mu_new
             MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
+
             # (experimental) magically project the complementarity variables
-            # TODO(@anton) do we only need to project once?
-            # TODO(@anton) make solver a separate object so we can pass custom settings!
-            # TODO(@anton) I think we probably need to up to update multipliers and slacks correctly here
-            # FIXME(@anton) We need to use indices in mpcc.instead of these ranges but for now it's dinw
             if solver.opts.use_magic_step
                 ncc = mpcc.meta.ncc
                 𝜅 = solver.opts.magic_step_kappa
-                @views project_scholtes_explicit!(
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-                    𝜅,
-                    ipm.nlp.𝜎[],
-                )
-                # also update slacks by z1 = 𝜇/x1 and z2 = 𝜇/x2
-                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] =
-                    @views ipm.mu ./ MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1]
-                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] =
-                    @views ipm.mu ./ MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2]
-                MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
-                MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
+                try
+                    @views project_scholtes_explicit!(
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+                        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
+                        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+                        𝜅,
+                        ipm.nlp.𝜎[],
+                    )
+                    # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
+                    # TODO(@anton) throwing away the multiplier information is probably incorrect
+                    #              but doing it correctly seems nontrivial
+                    MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
+                        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
+                    )
+                    MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] = @views ipm.mu ./ (
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] .-
+                        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2]
+                    )
+                    MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
+                    #MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
+                catch e
+                    println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1])
+                    println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc1])
+                    println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2])
+                    println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc2])
+                    throw(e)
+                end
             end
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))

@@ -38,20 +38,66 @@ function project_scholtes_explicit!(
     y_target::AbstractVector{T},
     xk::AbstractVector{T},
     yk::AbstractVector{T},
+    xl::AbstractVector{T},
+    yl::AbstractVector{T},
     𝜅::T,
     𝜎::T;
     heuristic=:min_f,
 ) where {T <: Real}
-    @assert length(x_target) == length(y_target) == length(xk) == length(yk)
+    @assert length(x_target) ==
+            length(y_target) ==
+            length(xk) ==
+            length(yk) ==
+            length(xl) ==
+            length(yl)
     for ii in 1:length(x_target)
-        (x_target[ii], y_target[ii]) =
-            project_scholtes_explicit(xk[ii], yk[ii], 𝜅, 𝜎; heuristic=heuristic)
+        try
+            # Hack for very small cases:
+            if xk[ii]-xl[ii] ≤ 1e-8
+                y_target[ii] = yk[ii]
+                x_target[ii] = (𝜅*𝜎)/(yk[ii]-yl[ii])
+                continue
+            elseif yk[ii]-yl[ii] ≤ 1e-8
+                x_target[ii] = xk[ii]
+                y_target[ii] = (𝜅*𝜎)/(xk[ii]-xl[ii])
+                continue
+            end
+            if xk[ii]-xl[ii] < yk[ii]-yl[ii]
+                (x_target[ii], y_target[ii]) = project_scholtes_explicit(
+                    xk[ii],
+                    yk[ii],
+                    xl[ii],
+                    yl[ii],
+                    𝜅,
+                    𝜎;
+                    heuristic=heuristic,
+                )
+            else
+                (y_target[ii], x_target[ii]) = project_scholtes_explicit(
+                    yk[ii],
+                    xk[ii],
+                    yl[ii],
+                    xl[ii],
+                    𝜅,
+                    𝜎;
+                    heuristic=heuristic,
+                )
+            end
+        catch e
+            println("x original: $(xk[ii]-xl[ii])")
+            println("y original: $(yk[ii]-yl[ii])")
+            println((xk[ii]-xl[ii])*(yk[ii] - yl[ii]))
+            println(𝜅*𝜎)
+            throw(e)
+        end
     end
 end
 
 function project_scholtes_explicit(
     xk::T,
     yk::T,
+    xl::T,
+    yl::T,
     𝜅::T,
     𝜎::T;
     heuristic=:min_f,
@@ -64,14 +110,17 @@ function project_scholtes_explicit(
     # TODO(@anton) type instability in some of the expressions?
 
     # Assert reasonable inputs:
-    @assert xk > 0
-    @assert yk > 0
+    @assert xk > xl
+    @assert yk > yl
     @assert 1 ≥ 𝜅 > 0
     @assert 𝜎 > 0
     @assert heuristic ∈ [:min_diff, :min_f, :max_cos_grad]
 
     # Calculate actual relaxation parameter
     𝜏 = 𝜅*𝜎
+    # get shifted xk
+    xk = xk - xl
+    yk = yk - yl
 
     # Intermediate calculations
     #! format: off
@@ -94,25 +143,43 @@ function project_scholtes_explicit(
     fnorm(x) = 0.5*(x-xk)^2 + 0.5*((𝜏/x)-yk)^2
     fcos(x) = ((𝜏/x)*(xk-x) + (x)*(yk-𝜏/x))/(norm((xk, yk))*norm((x, 𝜏/x)))
     if isempty(real_roots)
-        error("something went wrong in scholtes projection, we have no positive real roots")
+        @warn "something went wrong in scholtes projection, we have no positive real roots"
+        println(xk)
+        println(yk)
+        println(xk*yk)
+        println(𝜏)
+        println("a=$(a)")
+        println("b=$(b)")
+        println(
+            "$((3*𝜏*yk)^2 - (3*𝜏*xk)^2 + sqrt(3)*𝜏^(3/2)*sqrt(a)) = $((3*𝜏*yk)^2) - $((3*𝜏*xk)^2) + $(sqrt(3)*𝜏^(3/2)*sqrt(a))",
+        )
+        println("c=$(c)")
+        println("d=$(d)")
+        println("e=$(e)")
+        println("f=$(f)")
+        println("g=$(g)")
+        println("h=$(h)")
+        println("i=$(i)")
+        println("j=$(j)")
+        println(roots)
     elseif length(real_roots) == 1
-        return real_roots[1], 𝜏/real_roots[1]
+        return real_roots[1]+xl, 𝜏/real_roots[1]+yl
     else # We have multiple roots (check distances and then min norm(x-y), this is a heuristic)
         if heuristic == :min_f
             minnorm = minimum(fnorm, real_roots)
             candidates = [r for r in real_roots if fnorm(r) ≈ minnorm]
             if length(candidates) == 1
-                return candidates[1], 𝜏/candidates[1]
+                return candidates[1]+xl, 𝜏/candidates[1]+yl
             else
                 x = argmax(fcos, real_roots)
-                return x, 𝜏/x
+                return x+xl, 𝜏/x+yl
             end
         elseif heuristic == :min_diff
             x = argmin((x) -> abs(x - 𝜏/x), real_roots)
-            return x, 𝜏/x
+            return x+xl, 𝜏/x+yl
         elseif heuristic == :max_cos_grad
             x = argmax(fcos, real_roots)
-            return x, 𝜏/x
+            return x+xl, 𝜏/x+yl
         else
             error("undefined heuristic")
         end

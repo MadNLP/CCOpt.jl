@@ -1,5 +1,5 @@
 module MadMPEC
-using NLPModels, SolverCore
+using NLPModels, SolverCore, LinearAlgebra
 import MadNLP
 
 include("Types.jl")

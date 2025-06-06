@@ -392,14 +392,16 @@ function test_vs_madnlp_c(; range=:)
         opts_madnlp_c_magic,
         ((madnlpc_solver_options...,)),
     )
-    solnames, names, stats = run_macmpec(
-        default_madnlp_c,
-        magic_madnlp_c,
-        default_ipopt,
-        default_madnlp,
-        default_madncl;
-        range=range,
-    )
+    # solnames, names, stats = run_macmpec(
+    #     default_madnlp_c,
+    #     magic_madnlp_c,
+    #     default_ipopt,
+    #     default_madnlp,
+    #     default_madncl;
+    #     range=range,
+    # )
+
+    solnames, names, stats = run_macmpec(magic_madnlp_c, range=range)
 
     return solnames, names, stats
 end

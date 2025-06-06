@@ -218,6 +218,7 @@ function perf_plot(
     names::Vector{<:AbstractString},
     stats;
     cost_col=:wall_time,
+    plot_args...,
 )
     costs = foldl(hcat, [stats[name][!, cost_col] for name in names])
 
@@ -226,7 +227,7 @@ function perf_plot(
         costs[findall(.!(stats[name].success)), ii] .= -1
         ii += 1
     end
-    return performance_profile(PlotsBackend(), costs, names, title=title)
+    return performance_profile(PlotsBackend(), costs, names, title=title; plot_args...)
 end
 
 function solve_benchmark_problem(
