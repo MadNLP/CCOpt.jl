@@ -54,7 +54,7 @@ end
 function NLPModels.obj(rnlp::Ell1Relaxation, x::AbstractVector)
     obj = NLPModels.obj(rnlp.mpcc, x)
     for i in 1:rnlp.mpcc.meta.ncc
-        obj += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc1[i]] * x[rnlp.mpcc.meta.ind_cc2[i]]
+        obj += (1/rnlp.𝜎[]) * x[rnlp.mpcc.meta.ind_cc1[i]] * x[rnlp.mpcc.meta.ind_cc2[i]]
     end
     return obj
 end
@@ -63,17 +63,18 @@ end
 function NLPModels.grad!(rnlp::Ell1Relaxation, x::AbstractVector, gx::AbstractVector)
     NLPModels.grad!(rnlp.mpcc, x, gx)
     for i in 1:rnlp.mpcc.meta.ncc
-        gx[rnlp.mpcc.meta.ind_cc1[i]] += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc2[i]]
-        gx[rnlp.mpcc.meta.ind_cc2[i]] += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc1[i]]
+        gx[rnlp.mpcc.meta.ind_cc1[i]] += (1/rnlp.𝜎[]) * x[rnlp.mpcc.meta.ind_cc2[i]]
+        gx[rnlp.mpcc.meta.ind_cc2[i]] += (1/rnlp.𝜎[]) * x[rnlp.mpcc.meta.ind_cc1[i]]
     end
     return gx
 end
 
 function NLPModels.objgrad!(rnlp::Ell1Relaxation, x::AbstractVector, gx::AbstractVector)
-    obj = NLPModels.objgrad!(rnlp.mpcc, x, gx)
+    obj, gx = NLPModels.objgrad!(rnlp.mpcc, x, gx)
     for i in 1:rnlp.mpcc.meta.ncc
-        gx[rnlp.mpcc.meta.ind_cc1[i]] += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc2[i]]
-        gx[rnlp.mpcc.meta.ind_cc2[i]] += rnlp.mpcc.𝜎[] * x[rnlp.mpcc.meta.ind_cc1[i]]
+        obj += (1/rnlp.𝜎[]) * x[rnlp.mpcc.meta.ind_cc1[i]] * x[rnlp.mpcc.meta.ind_cc2[i]]
+        gx[rnlp.mpcc.meta.ind_cc1[i]] += (1/rnlp.𝜎[]) * x[rnlp.mpcc.meta.ind_cc2[i]]
+        gx[rnlp.mpcc.meta.ind_cc2[i]] += (1/rnlp.𝜎[]) * x[rnlp.mpcc.meta.ind_cc1[i]]
     end
     return obj, gx
 end
@@ -241,7 +242,7 @@ function NLPModels.hess_coord!(
         obj_weight=obj_weight,
     )
     for i in 1:rnlp.mpcc.meta.ncc
-        H[i+rnlp.mpcc.meta.nnzh] = mpcc.𝜎[]
+        H[i+rnlp.mpcc.meta.nnzh] = (1/rnlp.𝜎[])
     end
     return H
 end
