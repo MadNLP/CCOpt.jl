@@ -1,6 +1,6 @@
 using LinearAlgebra, SparseArrays, Test
 using NLPModels, ADNLPModels, MadMPEC
-using MadNLP, NLPModelsIpopt, MadNLPHSL
+using MadNLP, NLPModelsIpopt
 
 include("models/simple-model.jl")
 include("models/lifted-nlp-model.jl")
