@@ -160,6 +160,10 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
+        if solver.opts.plot_iterates
+            MadMPEC.plot_complementarities(solver)
+        end
+
         𝜎 = ipm.nlp.𝜎[]
         ipm.nlp.𝜎[] = 0
         MadNLP.eval_cons_wrapper!(ipm, c_mpcc, ipm.x)
@@ -216,6 +220,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
+        mu_updated = false
         while ipm.mu > max(ipm.opt.mu_min, ipm.opt.tol/10) &&
             max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <= ipm.opt.barrier_tol_factor*ipm.mu
             mu_new = MadNLP.get_mu(
@@ -275,7 +280,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                         MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2]
                     )
                     MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
-                    #MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
+                    MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
                 catch e
                     println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1])
                     println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc1])
@@ -284,16 +289,17 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     throw(e)
                 end
             end
+            mu_updated = true
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))
+        end
+        if solver.opts.plot_iterates && mu_updated && solver.opts.use_magic_step
+            MadMPEC.plot_complementarities(solver; magic_step=true)
         end
 
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta_heuristic(solver)
 
-        if solver.opts.plot_iterates
-            MadMPEC.plot_complementarities(solver)
-        end
         # compute the newton step
         MadNLP.@trace(ipm.logger, "Computing the newton step.")
         if (ipm.cnt.k!=0)
