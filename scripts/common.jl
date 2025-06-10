@@ -81,7 +81,10 @@ function save_madnlp_c_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 &&
+            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -114,7 +117,10 @@ function save_madnlp_c_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 &&
+            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -168,7 +174,10 @@ function save_ncl_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 &&
+            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
@@ -200,7 +209,10 @@ function save_ncl_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 &&
+            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
@@ -253,6 +265,16 @@ end
 
 function solve_benchmark_problem(
     mpcc::MadMPEC.AbstractMPCCModel,
+    opts::MadMPEC.MadNLPEll1Options,
+    sol_args...,
+)
+    solver = MadMPEC.MadNLPEll1Solver(mpcc; madnlpell1_opts=opts, sol_args...)
+    stats = MadMPEC.solve_homotopy!(solver)
+    return stats
+end
+
+function solve_benchmark_problem(
+    mpcc::MadMPEC.AbstractMPCCModel,
     opts::MadNCL.NCLOptions,
     sol_args...,
 )
@@ -274,10 +296,11 @@ function run_benchmark(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.MadNLPCOptions}
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.MadNLPEll1Options}}
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
+        println(probs[i].nlp.nlp.meta.name)
         push!(stats_vec, solfun(probs[i], opts, solargs...))
     end
 

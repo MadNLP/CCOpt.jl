@@ -83,6 +83,8 @@ function solve_homotopy!(
         elseif e isa MadNLP.InterruptException
             ipm.status=MadNLP.USER_REQUESTED_STOP
             ipm.opt.rethrow_error && rethrow(e)
+        elseif e isa AmplException
+            ipm.status=MadNLP.INVALID_NUMBER_DETECTED
         else
             ipm.status=MadNLP.INTERNAL_ERROR
             ipm.opt.rethrow_error && rethrow(e)
@@ -150,8 +152,8 @@ function homotopy!(solver::MadNLPEll1Solver{T, VT}) where {T, VT}
             sc,
         )
         inf_pr_comp = MadMPEC.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        inf_pr_comp_prod = MadMPEC.comp_residual_product(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        push!(solver.pr_comp_hist, inf_pr_comp_prod)
+        inf_pr_comp_sum = MadMPEC.comp_residual_sum(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
+        push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
         MadNLP.print_iter(ipm)
         # evaluate termination criteria
@@ -172,9 +174,12 @@ function homotopy!(solver::MadNLPEll1Solver{T, VT}) where {T, VT}
         # Do dynamic penalty update:
         # First calculate primal comp epsilon
         eps_pr_comp = ipm.mu^0.4 # TODO(@anton) Make this an option?
+        # MadNLP.@trace(solver.logger, "comp_sum: $(inf_pr_comp_sum)")
+        # MadNLP.@trace(solver.logger, "comp_sum_hist: $(solver.pr_comp_hist)")
+        # MadNLP.@trace(solver.logger, "max(comp_sum_hist): $(maximum(solver.pr_comp_hist))")
         if solver.opts.dynamic_sigma_update &&
-           inf_pr_comp < eps_pr_comp &&
-           inf_pr_comp_prod > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist)
+           inf_pr_comp > eps_pr_comp &&
+           inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist)
             nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
             MadNLP.@trace(
                 solver.logger,

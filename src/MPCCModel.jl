@@ -785,6 +785,16 @@ function comp_residual_product(
     return maximum(G)
 end
 
+function comp_residual_sum(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    G = VT(undef, mpcc.meta.ncc)
+    H = VT(undef, mpcc.meta.ncc)
+    comp_res_left!(mpcc, x, G)
+    comp_res_right!(mpcc, x, H)
+
+    G .*= H
+    return sum(G)
+end
+
 ######################### Vertical Form Conversions #########################
 function vertical_form(mpcc::AbstractMPCCModel)
     ind_var1 = [

@@ -2,6 +2,7 @@ module MadMPEC
 using NLPModels, SolverCore, LinearAlgebra
 using Serialization
 using DataStructures: CircularBuffer
+using AmplNLReader: AmplException
 import MadNLP
 
 include("Types.jl")

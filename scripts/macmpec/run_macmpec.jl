@@ -356,12 +356,22 @@ function test_vs_madnlp_c(; range=:)
     opts_madnlp_c = MadMPEC.MadNLPCOptions()
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>1e-12,
-        :print_level=>MadNLP.INFO,
+        :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
 
     opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true)
+
+    opts_madnlp_ell1 = MadMPEC.MadNLPEll1Options(; print_level=MadNLP.TRACE)
+    opts_madnlp_ell1_dynamic =
+        MadMPEC.MadNLPEll1Options(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+    madnlp_ell1_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
 
     default_ipopt = (
         "ma27 Ipopt",
@@ -392,14 +402,20 @@ function test_vs_madnlp_c(; range=:)
         opts_madnlp_c_magic,
         ((madnlpc_solver_options...,)),
     )
-    # solnames, names, stats = run_macmpec(
-    #     default_madnlp_c,
-    #     magic_madnlp_c,
-    #     default_ipopt,
-    #     default_madnlp,
-    #     default_madncl;
-    #     range=range,
-    # )
+    default_madnlp_ell1 = (
+        "ma27 madNLP-ell1 classic",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_ell1,
+        ((madnlp_ell1_solver_options...,)),
+    )
+    dynamic_madnlp_ell1 = (
+        "ma27 madNLP-ell1 dynamic",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_ell1_dynamic,
+        ((madnlp_ell1_solver_options...,)),
+    )
 
     solnames, names, stats = run_macmpec(default_madnlp_c, magic_madnlp_c, range=range)
 
