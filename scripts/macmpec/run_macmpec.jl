@@ -407,7 +407,7 @@ function test_vs_madnlp_c(; range=:)
         ((madnlpc_solver_options...,)),
     )
     default_madnlp_ell1 = (
-        "test ma27 madNLP-ell1 classic",
+        "ma27 madNLP-ell1 classic",
         solve_benchmark_problem,
         save_madnlp_c_df,
         opts_madnlp_ell1,

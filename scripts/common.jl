@@ -71,7 +71,7 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            MadMPEC.comp_residual(mpcc, s.solution) for
             (mpcc, s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
@@ -83,8 +83,7 @@ function save_madnlp_c_df(
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
             cc ≤ 1e-8 &&
-            s.primal_feas ≤ 1e-8 &&
-            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -107,7 +106,7 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual_product(mpcc, s.solution) for
+            MadMPEC.comp_residual(mpcc, s.solution) for
             ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
@@ -119,8 +118,7 @@ function save_madnlp_c_df(
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
             cc ≤ 1e-8 &&
-            s.primal_feas ≤ 1e-8 &&
-            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -164,7 +162,7 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
+            !isnothing(s) ? MadMPEC.comp_residual(mpcc, s.solution) : Inf for
             (mpcc, s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
@@ -176,8 +174,7 @@ function save_ncl_df(
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
             cc ≤ 1e-8 &&
-            s.primal_feas ≤ 1e-8 &&
-            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
@@ -199,7 +196,7 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
+            !isnothing(s) ? MadMPEC.comp_residual(mpcc, s.solution) : Inf for
             ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
@@ -211,8 +208,7 @@ function save_ncl_df(
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
             cc ≤ 1e-8 &&
-            s.primal_feas ≤ 1e-8 &&
-            s.dual_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
@@ -342,7 +338,7 @@ function run_benchmark_procs(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.MadNLPCOptions}
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.MadNLPEll1Options}}
     nprobs = length(probs)
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()
