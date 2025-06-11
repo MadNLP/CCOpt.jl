@@ -21,8 +21,12 @@ function run_macmpec(args...; plot=false, range=:)
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
-        stats[solname] =
-            dffun(names[range], stats[solname], probs, replace(solname, " "=>"_")*".csv")
+        stats[solname] = dffun(
+            names[range],
+            stats[solname],
+            probs[range],
+            replace(solname, " "=>"_")*".csv",
+        )
     end
     if plot
         perf_plot("Performance Plot", solnames, stats)
@@ -403,7 +407,7 @@ function test_vs_madnlp_c(; range=:)
         ((madnlpc_solver_options...,)),
     )
     default_madnlp_ell1 = (
-        "ma27 madNLP-ell1 classic",
+        "test ma27 madNLP-ell1 classic",
         solve_benchmark_problem,
         save_madnlp_c_df,
         opts_madnlp_ell1,
