@@ -9,16 +9,30 @@ function get_eta_heuristic(solver::MadNLPSolver)
     end
 end
 
-function vicente_wright_regularization!(solver::MadNLPSolver{T, VT}, eta::T) where {T, VT}
-    ncc = solver.nlp.mpcc.meta.ncc # Get number of complementarity constraints
+function set_aug_diagonal!(
+    kkt::MadNLP.AbstractKKTSystem{T},
+    solver::MadNLP.AbstractMadNLPSolver{T},
+    eta::T,
+) where {T}
+    x = full(solver.x)
+    xl = full(solver.xl)
+    xu = full(solver.xu)
+    zl = full(solver.zl)
+    zu = full(solver.zu)
 
-    MadNLP.slack(solver.x)[(end-ncc+1):end] =
-        @views min.(MadNLP.slack(solver.x)[(end-ncc+1):end], -eta)
+    fill!(kkt.reg, zero(T))
+    fill!(kkt.du_diag, zero(T))
+    kkt.l_diag .= solver.xl_r .- solver.x_lr   # (Xˡ - X)
+    kkt.u_diag .= solver.x_ur .- solver.xu_r   # (X - Xᵘ)
+    copyto!(kkt.l_lower, solver.zl_r)
+    copyto!(kkt.u_lower, solver.zu_r)
 
-    MadNLP.slack(solver.zu)[(end-ncc+1):end] =
-        @views max.(MadNLP.slack(solver.zu)[(end-ncc+1):end], eta)
+    # Regularize with 𝜂 using vicente_wright
+    kkt.l_diag[(end-ncc+1):end] .= @views min.(kkt.l_diag[(end-ncc+1):end], -eta)
+    kkt.l_diag[(end-ncc+1):end] .= @views max.(kkt.l_diag[(end-ncc+1):end], eta)
 
-    return nothing
+    _set_aug_diagonal!(kkt)
+    return
 end
 
 function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
@@ -255,8 +269,7 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             solver.logger,
             "Applying regularization to complementarity slacks eta = $(eta_k)"
         )
-        vicente_wright_regularization!(solver, eta_k)
-        MadNLP.set_aug_diagonal!(solver.kkt, solver)
+        MadNLP.set_aug_diagonal!(solver.kkt, solver, eta_k)
         MadNLP.set_aug_rhs!(solver, solver.kkt, solver.c)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(solver.p),
