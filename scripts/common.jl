@@ -5,6 +5,7 @@ using AmplNLReader, MadMPEC
 using NLPModelsIpopt
 using MadNLP, MadNLPHSL
 using MadNCL
+using Distributed
 
 function mpcc_from_ampl(ampl::AmplNLReader.AmplModel)
     # First we find the nonzero elements in the cvar vector:
@@ -311,4 +312,154 @@ function run_benchmark(
     end
 
     return stats_vec
+end
+
+function run_benchmark_procs(
+    probs,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadMPEC.MadNLPCOptions}
+    nprobs = length(probs)
+    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
+    names = Vector{String}()
+    futures = []
+
+    nw = nworkers()
+
+    if nw != 8
+        rmprocs(workers()...)
+        addprocs(8)
+        @everywhere include(joinpath(@__DIR__, "run_random_benchmark.jl"))
+    end
+    wp = default_worker_pool()
+    (pair, state) = iterate(probs)
+    while true
+        if !isready(wp)
+            sleep(0.1)
+            continue
+        end
+        (name, prob) = pair
+        f = Future(1)
+        errormonitor(@async put!(f, remotecall_fetch(solfun, wp, prob, opts, solargs...)))
+        push!(futures, f)
+        push!(names, name)
+        println(name)
+        next = iterate(probs, state)
+        if isnothing(next)
+            break
+        end
+        (pair, state) = next
+    end
+
+    for ii in 1:length(futures)
+        if !isassigned(stats_vec, ii)
+            while !isready(futures[ii])
+                sleep(0.1)
+            end
+            stats_vec[ii] = fetch(futures[ii])
+        end
+    end
+
+    return names, stats_vec
+end
+
+function run_benchmark_procs(
+    probs,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadMPEC.HomotopySolverOptions}
+    nprobs = length(probs)
+    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}(undef, nprobs)
+    names = Vector{String}()
+    futures = []
+
+    nw = nworkers()
+
+    if nw != 8
+        rmprocs(workers()...)
+        addprocs(8)
+        @everywhere include(joinpath(@__DIR__, "run_random_benchmark.jl"))
+    end
+    wp = default_worker_pool()
+    (pair, state) = iterate(probs)
+    while true
+        if !isready(wp)
+            sleep(0.1)
+            continue
+        end
+        (name, prob) = pair
+        f = Future(1)
+        errormonitor(@async put!(f, remotecall_fetch(solfun, wp, prob, opts, solargs...)))
+        push!(futures, f)
+        push!(names, name)
+        println(name)
+        next = iterate(probs, state)
+        if isnothing(next)
+            break
+        end
+        (pair, state) = next
+    end
+
+    for ii in 1:length(futures)
+        if !isassigned(stats_vec, ii)
+            while !isready(futures[ii])
+                sleep(0.1)
+            end
+            stats_vec[ii] = fetch(futures[ii])
+        end
+    end
+
+    return names, stats_vec
+end
+
+function run_benchmark_procs(
+    probs,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: MadNCL.NCLOptions}
+    nprobs = length(probs)
+    stats_vec = Vector{Union{Nothing, MadNCL.NCLStats{Float64}}}(undef, nprobs)
+    names = Vector{String}()
+    futures = []
+
+    nw = nworkers()
+
+    if nw != 8
+        rmprocs(workers()...)
+        addprocs(8)
+        @everywhere include(joinpath(@__DIR__, "run_random_benchmark.jl"))
+    end
+    wp = default_worker_pool()
+    (pair, state) = iterate(probs)
+    while true
+        if !isready(wp)
+            sleep(0.1)
+            continue
+        end
+        (name, prob) = pair
+        f = Future(1)
+        errormonitor(@async put!(f, remotecall_fetch(solfun, wp, prob, opts, solargs...)))
+        push!(futures, f)
+        push!(names, name)
+        println(name)
+        next = iterate(probs, state)
+        if isnothing(next)
+            break
+        end
+        (pair, state) = next
+    end
+
+    for ii in 1:length(futures)
+        if !isassigned(stats_vec, ii)
+            while !isready(futures[ii])
+                sleep(0.1)
+            end
+            stats_vec[ii] = fetch(futures[ii])
+        end
+    end
+
+    return names, stats_vec
 end

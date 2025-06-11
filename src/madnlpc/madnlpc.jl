@@ -1,5 +1,4 @@
 include("project.jl")
-include("plot.jl")
 
 function get_eta_heuristic(solver::MadNLPCSolver)
     if solver.ipm.mu ≤ solver.opts.mu_thresh
@@ -59,9 +58,6 @@ function solve_homotopy!(
     zu=nothing,
     kwargs...,
 )
-    if solver.opts.plot_iterates
-        MadMPEC.reset_plot()
-    end
     ipm = solver.ipm
     if x != nothing
         MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
@@ -144,6 +140,7 @@ function solve_homotopy!(
             MadNLP.@warn(ipm.logger, "Julia garbage collector is turned back on")
         )
         MadNLP.finalize(ipm.logger)
+        finalize(solver.iterate_logger)
 
         MadNLP.update!(stats, ipm)
     end
@@ -160,9 +157,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
-        if solver.opts.plot_iterates
-            MadMPEC.plot_complementarities(solver)
-        end
+        log_iter(solver.iterate_logger, solver)
 
         𝜎 = ipm.nlp.𝜎[]
         ipm.nlp.𝜎[] = 0
@@ -293,8 +288,8 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))
         end
-        if solver.opts.plot_iterates && mu_updated && solver.opts.use_magic_step
-            MadMPEC.plot_complementarities(solver; magic_step=true)
+        if mu_updated && solver.opts.use_magic_step
+            log_iter(solver.iterate_logger, solver; magic=true)
         end
 
         MadNLP.@trace(solver.logger, "Get eta.")

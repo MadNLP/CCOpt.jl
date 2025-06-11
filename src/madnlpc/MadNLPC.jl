@@ -1,3 +1,24 @@
+@kwdef mutable struct IterateLogger
+    file::Union{IOStream, Nothing} = nothing
+end
+
+struct MadNLPCIterate{T, VT}
+    k::Int
+
+    x0::VT
+    x1::VT
+    x2::VT
+    s::VT
+
+    z1::VT
+    z2::VT
+    zs::VT
+
+    alpha_pr::T
+    alpha_du::T
+    magic::Bool
+end
+
 @kwdef struct MadNLPCOptions{T}
 
     # complementarity homotopy options
@@ -17,8 +38,8 @@
     print_level::MadNLP.LogLevels = MadNLP.INFO
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
 
-    # Plot Iterations
-    plot_iterates::Bool = false
+    # Store Iterations
+    iterates_fname::String = ""
 end
 
 struct MadNLPCSolver{T, VT}
@@ -26,6 +47,7 @@ struct MadNLPCSolver{T, VT}
     scholtes::ScholtesRelaxation{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
+    iterate_logger::IterateLogger
     opts::MadNLPCOptions{T}
 end
 
@@ -44,7 +66,13 @@ function MadNLPCSolver(
              open(madnlpc_opts.output_file, "w+"),
     )
 
-    return MadNLPCSolver(mpcc, scholtes, ipm, logger, madnlpc_opts)
+    iterates_logger = IterateLogger(
+        file=madnlpc_opts.iterates_fname == "" ? nothing :
+             open(madnlpc_opts.iterates_fname, "w+"),
+    )
+
+    return MadNLPCSolver(mpcc, scholtes, ipm, logger, iterates_logger, madnlpc_opts)
 end
 
+include("utils.jl")
 include("madnlpc.jl")

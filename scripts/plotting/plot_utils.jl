@@ -1,7 +1,5 @@
 using Plots, LaTeXStrings
 
-wait_for_key(prompt) = (print(stdout, prompt); read(stdin, 1); nothing)
-
 # NOTE: This is only for plotting the basic example:
 let x1 = [],
     x2 = [],
