@@ -9,16 +9,13 @@ function get_eta_heuristic(solver::MadNLPSolver)
     end
 end
 
-function set_aug_diagonal!(
+function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.AbstractKKTSystem{T},
     solver::MadNLP.AbstractMadNLPSolver{T},
     eta::T,
 ) where {T}
-    x = full(solver.x)
-    xl = full(solver.xl)
-    xu = full(solver.xu)
-    zl = full(solver.zl)
-    zu = full(solver.zu)
+    n = length(solver.x_ur)
+    ncc = solver.nlp.mpcc.meta.ncc
 
     fill!(kkt.reg, zero(T))
     fill!(kkt.du_diag, zero(T))
@@ -27,11 +24,11 @@ function set_aug_diagonal!(
     copyto!(kkt.l_lower, solver.zl_r)
     copyto!(kkt.u_lower, solver.zu_r)
 
-    # Regularize with 𝜂 using vicente_wright
-    kkt.l_diag[(end-ncc+1):end] .= @views min.(kkt.l_diag[(end-ncc+1):end], -eta)
-    kkt.l_diag[(end-ncc+1):end] .= @views max.(kkt.l_diag[(end-ncc+1):end], eta)
+    # Regularize with 𝜂 using vicente-wright
+    kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
+    kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
 
-    _set_aug_diagonal!(kkt)
+    MadNLP._set_aug_diagonal!(kkt)
     return
 end
 
