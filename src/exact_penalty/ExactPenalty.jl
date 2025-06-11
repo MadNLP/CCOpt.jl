@@ -1,14 +1,13 @@
 @kwdef struct ExactPenaltyOptions{T}
-
     # complementarity homotopy options
     sigma_0::T = 1.0
     sigma_growth_rate::T = 10.0
 
     # Algorithm options
     dynamic_sigma_update::Bool = false # Switch between classic and dynamic algorithm from
-    # Leyffer2005 paper
-    comp_history_length::Int = 3 # Length of history buffer (default from Leyffer2005)
-    eta_dynamic_update::T = 0.9 # "sufficient decrease" parameter (default from Leyffer2005)
+    # Leyffer2006 paper
+    comp_history_length::Int = 3 # Length of history buffer (default from Leyffer2006)
+    eta_dynamic_update::T = 0.9 # "sufficient decrease" parameter (default from Leyffer2006)
 
     # Output options
     output_file::String = ""
@@ -29,6 +28,13 @@ struct ExactPenaltySolver{T, VT}
     pr_comp_hist::CircularBuffer{T} # Complementarity history
 end
 
+"""
+  This solver implements the two algorithms in the paper:
+  Interior Methods for Mathematical Programs with Complementarity Constraints
+  Sven Leyffer, Gabriel López-Calva, and Jorge Nocedal
+  SIAM Journal on Optimization Vol. 17, Issue 1 (2006)
+  epubs.siam.org/doi/10.1137/040621065
+"""
 function ExactPenaltySolver(
     mpcc::AbstractMPCCModel{T, VT};
     madnlpell1_opts=ExactPenaltyOptions(),
