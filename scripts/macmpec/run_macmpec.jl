@@ -367,9 +367,9 @@ function test_vs_madnlp_c(; range=:)
 
     opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true)
 
-    opts_madnlp_ell1 = MadMPEC.MadNLPEll1Options(; print_level=MadNLP.TRACE)
+    opts_madnlp_ell1 = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
     opts_madnlp_ell1_dynamic =
-        MadMPEC.MadNLPEll1Options(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     madnlp_ell1_solver_options = Dict(
         :bound_relax_factor=>1e-12,
         :print_level=>MadNLP.ERROR,

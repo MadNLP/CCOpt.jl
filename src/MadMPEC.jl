@@ -16,6 +16,6 @@ include("solver/types.jl")
 include("solver/AbstractMPCCSolver.jl")
 include("solver/HomotopySolver.jl")
 include("madnlpc/MadNLPC.jl")
-include("madnlp_ell1/MadNLP_ell1.jl")
+include("exact_penalty/ExactPenalty.jl")
 
 end # module MadMPEC

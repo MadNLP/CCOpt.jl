@@ -1,15 +1,15 @@
-function solve_homotopy!(nlp::MadMPEC.Ell1Relaxation, solver::MadNLPEll1Solver; kwargs...)
+function solve_homotopy!(nlp::MadMPEC.Ell1Relaxation, solver::ExactPenaltySolver; kwargs...)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
 
-function solve_homotopy!(solver::MadNLPEll1Solver; kwargs...)
+function solve_homotopy!(solver::ExactPenaltySolver; kwargs...)
     return solve_homotopy!(solver.ell1, solver; kwargs...)
 end
 
 # TODO(@anton) Why do we pass things this way???
 function solve_homotopy!(
     nlp::MadMPEC.Ell1Relaxation,
-    solver::MadMPEC.MadNLPEll1Solver,
+    solver::MadMPEC.ExactPenaltySolver,
     stats::MadNLP.MadNLPExecutionStats;
     x=nothing,
     y=nothing,
@@ -111,7 +111,7 @@ function solve_homotopy!(
     return stats
 end
 
-function homotopy!(solver::MadNLPEll1Solver{T, VT}) where {T, VT}
+function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
     ipm = solver.ipm
     nlp = solver.ell1
     mpcc = solver.mpcc
@@ -293,7 +293,7 @@ function homotopy!(solver::MadNLPEll1Solver{T, VT}) where {T, VT}
 end
 
 # evaluate mpcc objective instead of ell1 objective (though they should be the same)
-function update!(stats::MadNLP.MadNLPExecutionStats, solver::MadNLPEll1Solver)
+function update!(stats::MadNLP.MadNLPExecutionStats, solver::ExactPenaltySolver)
     MadNLP.update!(stats, solver.ipm)
     stats.objective = MadMPEC.obj(solver.mpcc, stats.solution)
     return stats

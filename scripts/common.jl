@@ -261,10 +261,10 @@ end
 
 function solve_benchmark_problem(
     mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadMPEC.MadNLPEll1Options,
+    opts::MadMPEC.ExactPenaltyOptions,
     sol_args...,
 )
-    solver = MadMPEC.MadNLPEll1Solver(mpcc; madnlpell1_opts=opts, sol_args...)
+    solver = MadMPEC.ExactPenaltySolver(mpcc; madnlpell1_opts=opts, sol_args...)
     stats = MadMPEC.solve_homotopy!(solver)
     return stats
 end
@@ -292,7 +292,7 @@ function run_benchmark(
     solfun,
     opts::T,
     solargs...,
-) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.MadNLPEll1Options}}
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.ExactPenaltyOptions}}
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
@@ -338,7 +338,7 @@ function run_benchmark_procs(
     solfun,
     opts::T,
     solargs...,
-) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.MadNLPEll1Options}}
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.ExactPenaltyOptions}}
     nprobs = length(probs)
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()

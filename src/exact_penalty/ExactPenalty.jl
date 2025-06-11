@@ -1,4 +1,4 @@
-@kwdef struct MadNLPEll1Options{T}
+@kwdef struct ExactPenaltyOptions{T}
 
     # complementarity homotopy options
     sigma_0::T = 1.0
@@ -19,19 +19,19 @@
     plot_iterates::Bool = false
 end
 
-struct MadNLPEll1Solver{T, VT}
+struct ExactPenaltySolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     ell1::Ell1Relaxation{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
-    opts::MadNLPEll1Options{T}
+    opts::ExactPenaltyOptions{T}
 
     pr_comp_hist::CircularBuffer{T} # Complementarity history
 end
 
-function MadNLPEll1Solver(
+function ExactPenaltySolver(
     mpcc::AbstractMPCCModel{T, VT};
-    madnlpell1_opts=MadNLPEll1Options(),
+    madnlpell1_opts=ExactPenaltyOptions(),
     ipm_options...,
 ) where {T, VT}
     ell1 = Ell1Relaxation(mpcc)
@@ -45,7 +45,7 @@ function MadNLPEll1Solver(
     )
 
     pr_comp_hist = CircularBuffer{T}(madnlpell1_opts.comp_history_length)
-    return MadNLPEll1Solver(mpcc, ell1, ipm, logger, madnlpell1_opts, pr_comp_hist)
+    return ExactPenaltySolver(mpcc, ell1, ipm, logger, madnlpell1_opts, pr_comp_hist)
 end
 
-include("madnlp_ell1.jl")
+include("exact_penalty.jl")
