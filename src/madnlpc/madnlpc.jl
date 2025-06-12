@@ -31,6 +31,10 @@ function MadNLP.set_aug_diagonal!(
 
     # Regularize with 𝜂 using vicente-wright
     if solver.opts.kkt_regularization == :vicente_wright
+        MadNLP.@debug(
+            solver.logger,
+            "Applying regularization to complementarity slacks eta = $(eta_k)"
+        )
         kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
         kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
     end
@@ -152,12 +156,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     ipm = solver.ipm
     mpcc = solver.mpcc
     c_mpcc = VT(undef, length(ipm.c))
+    log_iter(solver.iterate_logger, solver) # Log initial state
     while true
         # Set 𝜎 to zero for constraint infeasibility calculations
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
-        log_iter(solver.iterate_logger, solver)
 
         𝜎 = ipm.nlp.𝜎[]
         ipm.nlp.𝜎[] = 0
@@ -196,6 +200,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         )
 
         MadNLP.print_iter(ipm)
+        log_iter(solver.iterate_logger, solver)
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
@@ -302,10 +307,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         end
 
         # TODO(@anton) update ipm.x ipm.zl, ipm.zu
-        MadNLP.@debug(
-            solver.logger,
-            "Applying regularization to complementarity slacks eta = $(eta_k)"
-        )
         MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c)
         MadNLP.dual_inf_perturbation!(

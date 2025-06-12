@@ -122,7 +122,8 @@ function project_scholtes_explicit(
     xk = xk - xl
     yk = yk - yl
 
-    # Intermediate calculations
+    # Intermediate calculations which come from the closed form solution to the polynomial:
+    # x^4 - xk*x^3 + yk*𝜏*x - 𝜏^2 = 0
     #! format: off
     a::Complex{T} = 256*𝜏^3 - 192*𝜏^2*xk*yk + 27*𝜏*xk^4 - 6*𝜏*xk^2*yk^2 + 27*𝜏*yk^4 - 4*xk^3*yk^3
     b::Complex{T} = (3*𝜏*yk)^2 - (3*𝜏*xk)^2 + sqrt(3)*𝜏^(3/2)*sqrt(a) #7

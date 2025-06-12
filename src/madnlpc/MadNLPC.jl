@@ -16,6 +16,18 @@ struct MadNLPCIterate{T, VT}
 
     alpha_pr::T
     alpha_du::T
+
+    ls::Int
+
+    obj::T
+    inf_pr::T
+    inf_du::T
+    theta::T
+    varphi::T
+    mu::T
+
+    KKT_s::VT
+
     magic::Bool
 end
 
