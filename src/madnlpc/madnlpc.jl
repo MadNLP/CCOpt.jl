@@ -1,10 +1,35 @@
-function get_eta(solver::MadNLPSolver)
+function get_eta_heuristic(solver::MadNLPSolver)
     # TODO mu thresh to options?
     if solver.mu ≤ 5e-6
-        return 0.1*solver.mu/(1+maximum(solver.y))
+        return 0.1*solver.mu/(
+            1+max(maximum(MadNLP.slack(solver.zu)), maximum(MadNLP.slack(solver.zl)))
+        )
     else
         return 0.0
     end
+end
+
+function MadNLP.set_aug_diagonal!(
+    kkt::MadNLP.AbstractKKTSystem{T},
+    solver::MadNLP.AbstractMadNLPSolver{T},
+    eta::T,
+) where {T}
+    n = length(solver.x_ur)
+    ncc = solver.nlp.mpcc.meta.ncc
+
+    fill!(kkt.reg, zero(T))
+    fill!(kkt.du_diag, zero(T))
+    kkt.l_diag .= solver.xl_r .- solver.x_lr   # (Xˡ - X)
+    kkt.u_diag .= solver.x_ur .- solver.xu_r   # (X - Xᵘ)
+    copyto!(kkt.l_lower, solver.zl_r)
+    copyto!(kkt.u_lower, solver.zu_r)
+
+    # Regularize with 𝜂 using vicente-wright
+    kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
+    kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
+
+    MadNLP._set_aug_diagonal!(kkt)
+    return
 end
 
 function madnlp_homotopy(model::MadMPEC.ScholtesRelaxation; kwargs...)
@@ -216,7 +241,10 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             solver.tau = MadNLP.get_tau(solver.mu, solver.opt.tau_min)
             solver.mu = mu_new
             solver.nlp.𝜎[] = mu_new
-            MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
+            MadNLP.@debug(
+                solver.logger,
+                "Updating Scholtes relaxation parameter: $(mu_new)"
+            )
             if mu_new < 1e-9
                 break
             end
@@ -224,9 +252,8 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
             push!(solver.filter, (solver.theta_max, -Inf))
         end
 
-        # TODO(@anton) update the scholtes relaxation parameter here!
         MadNLP.@trace(solver.logger, "Get eta.")
-        eta_k = get_eta(solver)
+        eta_k = get_eta_heuristic(solver)
 
         # compute the newton step
         MadNLP.@trace(solver.logger, "Computing the newton step.")
@@ -235,7 +262,11 @@ function homotopy!(solver::MadNLP.MadNLPSolver{T, VT}) where {T, VT}
         end
 
         # TODO(@anton) update solver.x solver.zl, solver.zu
-        MadNLP.set_aug_diagonal!(solver.kkt, solver)
+        MadNLP.@debug(
+            solver.logger,
+            "Applying regularization to complementarity slacks eta = $(eta_k)"
+        )
+        MadNLP.set_aug_diagonal!(solver.kkt, solver, eta_k)
         MadNLP.set_aug_rhs!(solver, solver.kkt, solver.c)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(solver.p),
