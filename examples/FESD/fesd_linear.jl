@@ -1,6 +1,8 @@
 
 using JuMP
+using MadNLP
 using NLPModelsJuMP
+using NLPModelsIpopt
 
 include("utils.jl")
 
@@ -50,9 +52,9 @@ function stewart_anitescu_linearized_fesd(nh, rk::RKScheme; relax=1e-6, big_M=10
     @constraint(model, sum(h) == tf)
 
     # Initial position
+    @constraint(model, x[1, 1] == -2.0)
     @constraint(model, y[1, 1] == 0.0)
     # Initial position for multipliers
-    @constraint(model, μ[1, 0] == x[1, 1]) # N.B: assume initial position is negative
     @constraint(model, λ[1, 0, 1] ==  x[1, 1] - μ[1, 0])
     @constraint(model, λ[1, 0, 2] == -x[1, 1] - μ[1, 0])
     # Dynamics
@@ -74,7 +76,6 @@ function stewart_anitescu_linearized_fesd(nh, rk::RKScheme; relax=1e-6, big_M=10
     # w.r.t dual variables
     @constraints(model, begin
         [t=1:nh-1, j=1:nf], λ[t, nc, j] == λ[t+1, 0, j]
-        [t=1:nh-1], μ[t, nc] == μ[t+1, 0]
     end)
     # Stewart model
     @constraints(model, begin
@@ -88,7 +89,6 @@ function stewart_anitescu_linearized_fesd(nh, rk::RKScheme; relax=1e-6, big_M=10
     @constraints(model, begin
         [t=1:nh, j=1:nf], sum(θ[t, i, j] for i in 1:nc) == θs[t, j]
         [t=1:nh, j=1:nf], sum(λ[t, i, j] for i in 0:nc) == λs[t, j]
-        # [t=1:nh, i=1:nc, j=1:nf], θ[t, i, j] * λs[t, j] <= relax
         [t=1:nh, i=1:nc, j=1:nf], [θ[t, i, j], λs[t, j]] ∈ MOI.Complements(2)
     end)
     # Logical constraints
@@ -106,7 +106,6 @@ function stewart_anitescu_linearized_fesd(nh, rk::RKScheme; relax=1e-6, big_M=10
         [t=1:nh-1, j=1:nf], v[t, j] <= πθ[t, j]
         [t=1:nh-1, j=1:nf], v[t, j] >= πθ[t, j] - τ1[t, j]
         [t=1:nh-1, j=1:nf], πθ[t, j] - πλ[t, j] == τ1[t, j] - τ2[t, j]
-        # [t=1:nh-1, j=1:nf], τ1[t, j] * τ2[t, j] <= relax
         [t=1:nh-1, j=1:nf], [τ1[t, j], τ2[t, j]] ∈ MOI.Complements(2)
     end)
     # Step equilibration
@@ -126,4 +125,15 @@ model = stewart_anitescu_linearized_fesd(50, CrankNicolson(); big_M=1e5)
 ind_cc1, ind_cc2 = parse_ccons!(model)
 # Get evaluator as NLPModels
 nlp = MathOptNLPModel(model)
+
+# Build a MPCC problem
+mpcc = MadMPEC.MPCCModelVarVar(nlp, ind_cc1, ind_cc2)
+
+# Solve problem with MadMPEC
+opts = MadMPEC.HomotopySolverOptions()
+opts.print_level = MadNLP.INFO
+opts.comp_tol = 1e-7
+
+solver = MadMPEC.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)
+stats = MadMPEC.solve!(solver)
 
