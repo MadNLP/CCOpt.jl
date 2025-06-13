@@ -152,13 +152,14 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             sc,
         )
         inf_pr_comp = MadMPEC.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
+        inf_pr_comp_prod = MadMPEC.comp_residual_product(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
         inf_pr_comp_sum = MadMPEC.comp_residual_sum(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
         MadNLP.print_iter(ipm)
         # evaluate termination criteria
-        MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) <= ipm.opt.tol &&
+        MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp_prod) <= ipm.opt.tol &&
             return MadNLP.SOLVE_SUCCEEDED
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) <= ipm.opt.acceptable_tol ?
         (
@@ -183,9 +184,12 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
             MadNLP.@trace(
                 solver.logger,
-                "Updating the penalty parameter dynamically to $(nlp.𝜎[])."
+                "Updating the penalty parameter dynamically to $(1/nlp.𝜎[])."
             )
             ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
+            # Also clear the filter
+            empty!(ipm.filter)
+            push!(ipm.filter, (ipm.theta_max, -Inf))
         end
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")

@@ -357,7 +357,8 @@ function test_vs_madnlp_c(; range=:)
     opts_ncl = MadNCL.NCLOptions(feas_tol=1e-8) # Match tolerance
     #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
-    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c =
+        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>1e-12,
         :print_level=>MadNLP.ERROR,
@@ -365,10 +366,13 @@ function test_vs_madnlp_c(; range=:)
         :linear_solver=>Ma27Solver,
     )
 
-    opts_madnlp_c_magic =
-        MadMPEC.MadNLPCOptions(use_magic_step=true, kkt_regularization=:vicente_wright)
+    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        kkt_regularization=:vicente_wright,
+        print_level=MadNLP.ERROR,
+    )
 
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
     opts_exact_penalty_dynamic =
         MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     exact_penalty_solver_options = Dict(
@@ -422,12 +426,20 @@ function test_vs_madnlp_c(; range=:)
         ((exact_penalty_solver_options...,)),
     )
 
+    # solnames, names, stats = run_macmpec(
+    #     default_exact_penalty,
+    #     dynamic_exact_penalty,
+    #     default_madnlp_c,
+    #     default_ipopt,
+    #     default_madnlp,
+    #     range=range,
+    # )
     solnames, names, stats = run_macmpec(
         default_exact_penalty,
         dynamic_exact_penalty,
         default_madnlp_c,
         default_ipopt,
-        default_madnlp,
+        #default_madnlp,
         range=range,
     )
 

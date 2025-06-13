@@ -65,25 +65,24 @@ end
 
 function MadNLPCSolver(
     mpcc::AbstractMPCCModel{T, VT};
-    madnlpc_opts=MadNLPCOptions(),
+    solver_opts=MadNLPCOptions(),
     ipm_options...,
 ) where {T, VT}
     scholtes = ScholtesRelaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(scholtes; ipm_options...)
 
     logger = MadNLP.MadNLPLogger(
-        print_level=madnlpc_opts.print_level,
-        file_print_level=madnlpc_opts.file_print_level,
-        file=madnlpc_opts.output_file == "" ? nothing :
-             open(madnlpc_opts.output_file, "w+"),
+        print_level=solver_opts.print_level,
+        file_print_level=solver_opts.file_print_level,
+        file=solver_opts.output_file == "" ? nothing : open(solver_opts.output_file, "w+"),
     )
 
     iterates_logger = IterateLogger(
-        file=madnlpc_opts.iterates_fname == "" ? nothing :
-             open(madnlpc_opts.iterates_fname, "w+"),
+        file=solver_opts.iterates_fname == "" ? nothing :
+             open(solver_opts.iterates_fname, "w+"),
     )
 
-    return MadNLPCSolver(mpcc, scholtes, ipm, logger, iterates_logger, madnlpc_opts)
+    return MadNLPCSolver(mpcc, scholtes, ipm, logger, iterates_logger, solver_opts)
 end
 
 include("utils.jl")

@@ -37,21 +37,20 @@ end
 """
 function ExactPenaltySolver(
     mpcc::AbstractMPCCModel{T, VT};
-    madnlpell1_opts=ExactPenaltyOptions(),
+    solver_opts=ExactPenaltyOptions(),
     ipm_options...,
 ) where {T, VT}
     ell1 = Ell1Relaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(ell1; ipm_options...)
 
     logger = MadNLP.MadNLPLogger(
-        print_level=madnlpell1_opts.print_level,
-        file_print_level=madnlpell1_opts.file_print_level,
-        file=madnlpell1_opts.output_file == "" ? nothing :
-             open(madnlpc_opts.output_file, "w+"),
+        print_level=solver_opts.print_level,
+        file_print_level=solver_opts.file_print_level,
+        file=solver_opts.output_file == "" ? nothing : open(solver_opts.output_file, "w+"),
     )
 
-    pr_comp_hist = CircularBuffer{T}(madnlpell1_opts.comp_history_length)
-    return ExactPenaltySolver(mpcc, ell1, ipm, logger, madnlpell1_opts, pr_comp_hist)
+    pr_comp_hist = CircularBuffer{T}(solver_opts.comp_history_length)
+    return ExactPenaltySolver(mpcc, ell1, ipm, logger, solver_opts, pr_comp_hist)
 end
 
 include("exact_penalty.jl")
