@@ -37,13 +37,16 @@ end
     sigma_mu_ratio::T = 1.0
 
     # regularization options
-    kkt_regularization::Symbol = :none # Options: :vicente_wright
+    kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
     mu_thresh::T = 5e-6
 
     # Magic step options
     use_magic_step::Bool = false
-    magic_step_kappa::T = 0.9
+    magic_step_kappa::T = 0.5
     magic_step_projection_heuristic::Symbol = :min_f
+    magic_step_duals::Bool = true
+    magic_step_slack::Bool = true
+    magic_step_slack_dual::Bool = true
 
     # Output options
     output_file::String = ""

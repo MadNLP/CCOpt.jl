@@ -372,7 +372,7 @@ function test_vs_madnlp_c(; range=:)
         print_level=MadNLP.ERROR,
     )
 
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
     opts_exact_penalty_dynamic =
         MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     exact_penalty_solver_options = Dict(
@@ -436,9 +436,9 @@ function test_vs_madnlp_c(; range=:)
     # )
     solnames, names, stats = run_macmpec(
         default_exact_penalty,
-        dynamic_exact_penalty,
+        #dynamic_exact_penalty,
         default_madnlp_c,
-        default_ipopt,
+        #default_ipopt,
         #default_madnlp,
         range=range,
     )
@@ -463,15 +463,18 @@ function test_madnlp_c_opts(; range=:)
 
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>1e-12,
-        :print_level=>MadNLP.INFO,
+        :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
     opts_madnlp_c = MadMPEC.MadNLPCOptions()
     opts_madnlp_c_reg = MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright)
-    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true)
-    opts_madnlp_c_magic_reg =
-        MadMPEC.MadNLPCOptions(use_magic_step=true, kkt_regularization=:vicente_wright)
+    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true, magic_step_kappa=0.5)
+    opts_madnlp_c_magic_reg = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        kkt_regularization=:vicente_wright,
+        magic_step_kappa=0.5,
+    )
 
     default_ipopt = (
         "ma27 Ipopt",
@@ -515,6 +518,73 @@ function test_madnlp_c_opts(; range=:)
         magic_reg_madnlp_c,
         default_madnlp_c,
         default_ipopt,
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_magic_opts(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlp_c_magic_all = MadMPEC.MadNLPCOptions(use_magic_step=true)
+    opts_madnlp_c_magic_primal = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        magic_step_duals=false,
+        magic_step_slack=false,
+        magic_step_slack_dual=false,
+    )
+    opts_madnlp_c_magic_primal_dual = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        magic_step_duals=true,
+        magic_step_slack=false,
+        magic_step_slack_dual=false,
+    )
+    opts_madnlp_c_magic_primal_dual_slack = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        magic_step_duals=true,
+        magic_step_slack=true,
+        magic_step_slack_dual=false,
+    )
+
+    magic_madnlp_c = (
+        "ma27 madNLP-C magic all",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_all,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_p_madnlp_c = (
+        "ma27 madNLP-C magic primal",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_primal,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_pd_madnlp_c = (
+        "ma27 madNLP-C magic primal dual",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_primal_dual,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_pds_madnlp_c = (
+        "ma27 madNLP-C magic primal dual slack",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_primal_dual_slack,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        magic_madnlp_c,
+        magic_p_madnlp_c,
+        magic_pd_madnlp_c,
+        magic_pds_madnlp_c;
         range=range,
     )
 

@@ -157,11 +157,15 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
         MadNLP.print_iter(ipm)
+        #println("inf_pr_comp = $(inf_pr_comp)")
+        #println("inf_pr_comp_prod = $(inf_pr_comp_prod)")
+
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp_prod) <= ipm.opt.tol &&
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) <= ipm.opt.tol &&
             return MadNLP.SOLVE_SUCCEEDED
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) <= ipm.opt.acceptable_tol ?
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp_prod) <=
+        ipm.opt.acceptable_tol ?
         (
             ipm.cnt.acceptable_cnt < ipm.opt.acceptable_iter ? ipm.cnt.acceptable_cnt+=1 :
             return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
@@ -174,10 +178,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
 
         # Do dynamic penalty update:
         # First calculate primal comp epsilon
-        eps_pr_comp = ipm.mu^0.4 # TODO(@anton) Make this an option?
-        # MadNLP.@trace(solver.logger, "comp_sum: $(inf_pr_comp_sum)")
-        # MadNLP.@trace(solver.logger, "comp_sum_hist: $(solver.pr_comp_hist)")
-        # MadNLP.@trace(solver.logger, "max(comp_sum_hist): $(maximum(solver.pr_comp_hist))")
+        eps_pr_comp = ipm.mu^solver.opts.gamma
         if solver.opts.dynamic_sigma_update &&
            inf_pr_comp > eps_pr_comp &&
            inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist)
@@ -228,9 +229,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))
         end
+        # Standard check
         if mu_updated
             # check for complementarity convergence when we decrease 𝜇
-            # TODO(@anton) implement dynamic as well :)
+            # or if we already are at smallest mu increase penalty if we are not satisfying eps_pr_comp
             if inf_pr_comp > eps_pr_comp
                 nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
                 MadNLP.@trace(
@@ -238,6 +240,19 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                     "Updating the penalty parameter to $(1/nlp.𝜎[])."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
+            end
+        elseif ipm.mu ≤ max(ipm.opt.mu_min, ipm.opt.tol/10) &&
+               max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
+               ipm.opt.barrier_tol_factor*ipm.mu
+            if inf_pr_comp > ipm.opt.tol
+                nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
+                MadNLP.@trace(
+                    solver.logger,
+                    "Updating the penalty parameter to $(1/nlp.𝜎[])."
+                )
+                ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
+                empty!(ipm.filter)
+                push!(ipm.filter, (ipm.theta_max, -Inf))
             end
         end
 

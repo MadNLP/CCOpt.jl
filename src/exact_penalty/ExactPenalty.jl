@@ -2,6 +2,7 @@
     # complementarity homotopy options
     sigma_0::T = 1.0
     sigma_growth_rate::T = 10.0
+    gamma::T = 0.4
 
     # Algorithm options
     dynamic_sigma_update::Bool = false # Switch between classic and dynamic algorithm from

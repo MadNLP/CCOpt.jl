@@ -33,7 +33,7 @@ function MadNLP.set_aug_diagonal!(
     if solver.opts.kkt_regularization == :vicente_wright
         MadNLP.@debug(
             solver.logger,
-            "Applying regularization to complementarity slacks eta = $(eta_k)"
+            "Applying regularization to complementarity slacks eta = $(eta)"
         )
         kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
         kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
@@ -41,6 +41,35 @@ function MadNLP.set_aug_diagonal!(
 
     MadNLP._set_aug_diagonal!(kkt)
     return
+end
+
+function MadNLP.set_aug_diagonal!(
+    kkt::MadNLP.ScaledSparseKKTSystem{T},
+    solver::MadNLPCSolver{T, VT},
+    eta::T,
+) where {T, VT}
+    ipm = solver.ipm
+    n = length(ipm.x_ur)
+    ncc = ipm.nlp.mpcc.meta.ncc
+
+    fill!(kkt.reg, zero(T))
+    fill!(kkt.du_diag, zero(T))
+    # Ensure l_diag and u_diag have only non negative entries
+    kkt.l_diag .= ipm.x_lr .- ipm.xl_r   # (X - Xˡ)
+    kkt.u_diag .= ipm.xu_r .- ipm.x_ur   # (Xᵘ - X)
+    copyto!(kkt.l_lower, ipm.zl_r)
+    copyto!(kkt.u_lower, ipm.zu_r)
+
+    if solver.opts.kkt_regularization == :vicente_wright
+        MadNLP.@debug(
+            solver.logger,
+            "Applying regularization to complementarity slacks eta = $(eta)"
+        )
+        kkt.u_diag[(n-ncc+1):n] .= @views max.(kkt.u_diag[(n-ncc+1):n], eta)
+        kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
+    end
+
+    return MadNLP._set_aug_diagonal!(kkt)
 end
 
 function solve_homotopy!(nlp::MadMPEC.ScholtesRelaxation, solver::MadNLPCSolver; kwargs...)
@@ -267,9 +296,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     𝜅,
                     ipm.nlp.𝜎[],
                 )
-                # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
-                # TODO(@anton) throwing away the multiplier information is probably incorrect
-                #              but doing it correctly seems nontrivial
+                also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
+                TODO(@anton) throwing away the multiplier information is probably incorrect
+                             but doing it correctly seems nontrivial
                 MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
                     MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
                         MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
