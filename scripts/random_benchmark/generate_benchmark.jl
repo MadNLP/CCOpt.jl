@@ -42,7 +42,7 @@ const nl_funs = [
     "Edensch",
     "Indef",
     "Cube",
-    "Bdexp",
+    #"Bdexp", Broken due to bound relaxation
     "Genhumps",
     "Arwhead",
     "Quartic",
@@ -622,7 +622,6 @@ function generate_mpcc_jump(
     n_nln_ineq = Int(round(s_ineq*n_ineq))
     n_dupe = Int(round(s_dupe*n_ineq))
     ind_dupe = sample(rng, 1:n_ineq, n_dupe; replace=false)
-
     c_ineq::Vector{NonlinearExpr} = A*x + B*y - a
     c_ineq[1:n_nln_ineq] =
         c_ineq[1:n_nln_ineq] + c_ineq[1:n_nln_ineq] .^ 2 + c_ineq[1:n_nln_ineq] .^ 4
@@ -763,6 +762,7 @@ function Base.iterate(bench::RandomMPCCBenchmark, state::Int)
             bench.ns_ineq[ind_n],
             bench.nl_funs[ind_nl_fun];
             rng=rng,
+            bench.kwargs...,
         )
         if state + 1 <= bench.len
             bench.states[state+1] = copy(rng.state)
@@ -806,6 +806,7 @@ function Base.getindex(bench::RandomMPCCBenchmark, idx::Integer)
         bench.ns_ineq[ind_n],
         bench.nl_funs[ind_nl_fun];
         rng=rng,
+        bench.kwargs...,
     )
     if idx + 1 <= bench.len
         bench.states[idx+1] = copy(rng.state)

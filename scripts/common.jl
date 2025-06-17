@@ -108,8 +108,10 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual(mpcc, s.solution) for
-            ((name, mpcc), s) in zip(probs, stats_madnlp_c)
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
         name=names,
@@ -164,8 +166,11 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            !isnothing(s) ? MadMPEC.comp_residual(mpcc, s.solution) : Inf for
-            (mpcc, s) in zip(probs, stats_ncl)
+            !isnothing(s) ?
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) : Inf for (mpcc, s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,
@@ -198,8 +203,11 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            !isnothing(s) ? MadMPEC.comp_residual(mpcc, s.solution) : Inf for
-            ((name, mpcc), s) in zip(probs, stats_ncl)
+            !isnothing(s) ?
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) : Inf for ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,
@@ -352,6 +360,7 @@ function run_benchmark_procs(
         rmprocs(workers()...)
         addprocs(8)
         @everywhere include(joinpath(@__DIR__, "common.jl"))
+        @everywhere include(joinpath(@__DIR__, "random_benchmark/run_random_benchmark.jl"))
     end
     wp = default_worker_pool()
     (pair, state) = iterate(probs)

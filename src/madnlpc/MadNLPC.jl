@@ -39,6 +39,7 @@ end
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
     mu_thresh::T = 5e-6
+    eta_factor::T = 0.1
 
     # Magic step options
     use_magic_step::Bool = false
