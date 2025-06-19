@@ -35,7 +35,10 @@ end
 
     # complementarity homotopy options
     sigma_mu_ratio::T = 1.0
-    monotone_sigma::Bool = true
+    monotone_sigma::Bool = false
+
+    # initialization options
+    respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright

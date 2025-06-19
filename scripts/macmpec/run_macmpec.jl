@@ -660,3 +660,34 @@ function test_adaptive(; range=:)
 
     return solnames, names, stats
 end
+
+function test_bound_respect(; range=:)
+    madnlpc_default_solver_options = Dict(
+        :bound_relax_factor=>1e-10,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlpc_no_respect = MadMPEC.MadNLPCOptions(respect_comp_bounds=false)
+    opts_madnlpc_respect = MadMPEC.MadNLPCOptions(respect_comp_bounds=true)
+
+    no_respect_madnlp_c = (
+        "ma27 madNLP-C no respect",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_no_respect,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    respect_madnlp_c = (
+        "ma27 madNLP-C respect",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_respect,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(no_respect_madnlp_c, respect_madnlp_c, range=range)
+
+    return solnames, names, stats
+end

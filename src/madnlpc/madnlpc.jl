@@ -125,6 +125,13 @@ function solve_homotopy!(
             # Also reset sigma
             ipm.nlp.𝜎[] = ipm.mu
         end
+        # possibly fix complementarity variable upper bounds:
+        if solver.opts.respect_comp_bounds
+            MadNLP.variable(ipm.xl)[solver.mpcc.meta.ind_cc1] .=
+                solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc1]
+            MadNLP.variable(ipm.xl)[solver.mpcc.meta.ind_cc2] .=
+                solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2]
+        end
 
         while ipm.status >= MadNLP.REGULAR
             ipm.status == MadNLP.REGULAR && (ipm.status = MadMPEC.homotopy!(solver))
