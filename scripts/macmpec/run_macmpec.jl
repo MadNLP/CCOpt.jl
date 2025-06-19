@@ -590,3 +590,73 @@ function test_magic_opts(; range=:)
 
     return solnames, names, stats
 end
+
+function test_adaptive(; range=:)
+    madnlpc_adaptive_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.AdaptiveUpdate(),
+    )
+    opts_madnlpc_adaptive = MadMPEC.MadNLPCOptions()
+    opts_madnlpc_adaptive_sigma = MadMPEC.MadNLPCOptions(monotone_sigma=false)
+
+    madnlpc_loqo_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.LOQOUpdate(gamma=0.05),
+    )
+    opts_madnlpc_loqo = MadMPEC.MadNLPCOptions(monotone_sigma=false)
+
+    madnlpc_monotone_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlpc_monotone = MadMPEC.MadNLPCOptions()
+
+    monotone_madnlp_c = (
+        "ma27 madNLP-C monotone",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_monotone,
+        ((madnlpc_monotone_solver_options...,)),
+    )
+
+    adaptive_madnlp_c = (
+        "ma27 madNLP-C adaptive",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_adaptive,
+        ((madnlpc_adaptive_solver_options...,)),
+    )
+    adaptive_sigma_madnlp_c = (
+        "ma27 madNLP-C adaptive sigma",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_adaptive_sigma,
+        ((madnlpc_adaptive_solver_options...,)),
+    )
+
+    loqo_madnlp_c = (
+        "ma27 madNLP-C loqo",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_loqo,
+        ((madnlpc_loqo_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        loqo_madnlp_c,
+        #adaptive_madnlp_c,
+        #adaptive_sigma_madnlp_c,
+        monotone_madnlp_c,
+        range=range,
+    )
+
+    return solnames, names, stats
+end

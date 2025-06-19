@@ -154,6 +154,8 @@ function solve_homotopy!(
         elseif e isa MadNLP.InterruptException
             ipm.status=MadNLP.USER_REQUESTED_STOP
             ipm.opt.rethrow_error && rethrow(e)
+        elseif e isa AmplException
+            ipm.status=MadNLP.INVALID_NUMBER_DETECTED
         else
             ipm.status=MadNLP.INTERNAL_ERROR
             ipm.opt.rethrow_error && rethrow(e)
@@ -217,16 +219,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             zero(T),
             sc,
         )
-        inf_compl_mu = MadNLP.get_inf_compl(
-            ipm.x_lr,
-            ipm.xl_r,
-            ipm.zl_r,
-            ipm.xu_r,
-            ipm.x_ur,
-            ipm.zu_r,
-            ipm.mu,
-            sc,
-        )
 
         MadNLP.print_iter(ipm)
         log_iter(solver.iterate_logger, solver)
@@ -249,43 +241,24 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
-        mu_updated = false
-        while ipm.mu > max(ipm.opt.mu_min, ipm.opt.tol/10) &&
-            max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <= ipm.opt.barrier_tol_factor*ipm.mu
-            mu_new = MadNLP.get_mu(
-                ipm.mu,
-                ipm.opt.mu_min,
-                ipm.opt.mu_linear_decrease_factor,
-                ipm.opt.mu_superlinear_decrease_power,
-                ipm.opt.tol,
-            )
-            ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
-            ipm.inf_du = MadNLP.get_inf_du(
-                MadNLP.full(ipm.f),
-                MadNLP.full(ipm.zl),
-                MadNLP.full(ipm.zu),
-                ipm.jacl,
-                sd,
-            )
-            inf_compl_mu = MadNLP.get_inf_compl(
-                ipm.x_lr,
-                ipm.xl_r,
-                ipm.zl_r,
-                ipm.xu_r,
-                ipm.x_ur,
-                ipm.zu_r,
-                ipm.mu,
-                sc,
-            )
-            ipm.tau = MadNLP.get_tau(ipm.mu, ipm.opt.tau_min)
-            ipm.mu = mu_new
-            ipm.nlp.𝜎[] = solver.opts.sigma_mu_ratio*mu_new
-            MadNLP.@info(solver.logger, "Updating Scholtes relaxation parameter: $(mu_new)")
+        mu_old = ipm.mu
+        MadNLP.update_barrier!(ipm.opt.barrier, solver, sc)
+        mu_updated = ipm.mu != mu_old
+        MadNLP.@trace(
+            solver.logger,
+            "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
+        )
+        if solver.opts.monotone_sigma
+            solver.scholtes.𝜎[] =
+                min(solver.opts.sigma_mu_ratio*ipm.mu, solver.scholtes.𝜎[])
+        else
+            solver.scholtes.𝜎[] = solver.opts.sigma_mu_ratio*ipm.mu
+        end
 
-            # (experimental) magically project the complementarity variables
-            if solver.opts.use_magic_step
-                ncc = mpcc.meta.ncc
-                𝜅 = solver.opts.magic_step_kappa
+        if mu_updated && solver.opts.use_magic_step
+            ncc = mpcc.meta.ncc
+            𝜅 = solver.opts.magic_step_kappa
+            try
                 @views project_scholtes_explicit!(
                     MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
                     MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
@@ -299,23 +272,29 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
                 # TODO(@anton) throwing away the multiplier information is probably incorrect
                 #              but doing it correctly seems nontrivial
-                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
+                if solver.opts.magic_step_duals
+                    MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
                         MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
-                )
-                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] = @views ipm.mu ./ (
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] .-
+                    )
+                    MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] = @views ipm.mu ./ (
+                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] .-
                         MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2]
-                )
-                MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
-                MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
-
+                    )
+                end
+                if solver.opts.magic_step_slack
+                    MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
+                end
+                if solver.opts.magic_step_slack_dual
+                    MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
+                end
+            catch e
+                println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1])
+                println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc1])
+                println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2])
+                println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc2])
+                throw(e)
             end
-            mu_updated = true
-            empty!(ipm.filter)
-            push!(ipm.filter, (ipm.theta_max, -Inf))
-        end
-        if mu_updated && solver.opts.use_magic_step
             log_iter(solver.iterate_logger, solver; magic=true)
         end
 
@@ -330,7 +309,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
 
         # TODO(@anton) update ipm.x ipm.zl, ipm.zu
         MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
-        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c)
+        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
             ipm.ind_llb,

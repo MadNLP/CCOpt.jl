@@ -35,6 +35,7 @@ end
 
     # complementarity homotopy options
     sigma_mu_ratio::T = 1.0
+    monotone_sigma::Bool = true
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
@@ -90,4 +91,6 @@ function MadNLPCSolver(
 end
 
 include("utils.jl")
+include("kernels.jl")
+include("barrier.jl")
 include("madnlpc.jl")
