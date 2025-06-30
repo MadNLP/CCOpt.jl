@@ -32,6 +32,7 @@ function log_iter(
     varphi = MadNLP.get_varphi(ipm.obj_val, ipm.x_lr, ipm.xl_r, ipm.xu_r, ipm.x_ur, ipm.mu)
 
     mu = ipm.mu
+    sigma = solver.scholtes.mu
 
     W = ipm.kkt.aug_com
     K = Array(Symmetric(W, :L))
@@ -55,6 +56,7 @@ function log_iter(
         theta,
         varphi,
         mu,
+        sigma,
         KKT_s,
         magic,
     )

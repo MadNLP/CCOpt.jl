@@ -2,6 +2,22 @@
     file::Union{IOStream, Nothing} = nothing
 end
 
+# Relaxation updates
+abstract type AbstractRelaxationUpdate{T} end
+
+@kwdef struct ProportionalRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+    sigma_mu_ratio::T = 1.0
+    monotone::Bool = false
+end
+
+@kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+    gamma::T = 0.1 # scale factor
+    gamma_min::T = 1e-5 # smallest factor of reduction allowed
+    mu_factor::T = 1e-3 # smallest factor of reduction allowed
+    r::T = 0.95 # Steplength param
+end
+
+# Iterate saving structure
 struct MadNLPCIterate{T, VT}
     k::Int
 
@@ -25,17 +41,21 @@ struct MadNLPCIterate{T, VT}
     theta::T
     varphi::T
     mu::T
+    sigma::T
 
     KKT_s::VT
 
     magic::Bool
 end
 
+# Options struct
 @kwdef struct MadNLPCOptions{T}
+    # adaptive mu update parameters
+    use_specialized_barrier_update::Bool = true
 
     # complementarity homotopy options
-    sigma_mu_ratio::T = 1.0
-    monotone_sigma::Bool = false
+    relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
+    sigma_min::T = 1e-9 # TODO(@anton) I think this should be probably be related to ipm tolerance
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
@@ -62,6 +82,7 @@ end
     iterates_fname::String = ""
 end
 
+# MadNLP-C algorithm
 struct MadNLPCSolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     scholtes::ScholtesRelaxation{T, VT}
@@ -96,4 +117,5 @@ end
 include("utils.jl")
 include("kernels.jl")
 include("barrier.jl")
+include("relaxation.jl")
 include("madnlpc.jl")

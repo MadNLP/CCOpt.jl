@@ -251,16 +251,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         mu_old = ipm.mu
         MadNLP.update_barrier!(ipm.opt.barrier, solver, sc)
         mu_updated = ipm.mu != mu_old
-        MadNLP.@trace(
+        MadNLP.@debug(
             solver.logger,
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
-        if solver.opts.monotone_sigma
-            solver.scholtes.𝜎[] =
-                min(solver.opts.sigma_mu_ratio*ipm.mu, solver.scholtes.𝜎[])
-        else
-            solver.scholtes.𝜎[] = solver.opts.sigma_mu_ratio*ipm.mu
-        end
+        MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
+        update_sigma!(solver.opts.relaxation_update, solver)
 
         if mu_updated && solver.opts.use_magic_step
             ncc = mpcc.meta.ncc
