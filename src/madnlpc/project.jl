@@ -53,11 +53,11 @@ function project_scholtes_explicit!(
     for ii in 1:length(x_target)
         try
             # Hack for very small cases:
-            if xk[ii]-xl[ii] ≤ 1e-8
+            if xk[ii]-xl[ii] ≤ 1e-6
                 y_target[ii] = yk[ii]
                 x_target[ii] = (𝜅*𝜎)/(yk[ii]-yl[ii])
                 continue
-            elseif yk[ii]-yl[ii] ≤ 1e-8
+            elseif yk[ii]-yl[ii] ≤ 1e-6
                 x_target[ii] = xk[ii]
                 y_target[ii] = (𝜅*𝜎)/(xk[ii]-xl[ii])
                 continue
