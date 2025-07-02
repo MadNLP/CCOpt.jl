@@ -424,6 +424,12 @@ function NLPModels.jac_structure!(
     return rows, cols
 end
 
+function NLPModels.jac_structure(mpcc::AbstractMPCCModel)
+    rows = Vector{Int}(undef, mpcc.meta.nnzj)
+    cols = Vector{Int}(undef, mpcc.meta.nnzj)
+    return jac_structure!(mpcc, rows, cols)
+end
+
 function NLPModels.jac_lin_structure!(
     mpcc::AbstractMPCCModel,
     rows::AbstractVector{<:Integer},
@@ -464,6 +470,11 @@ function NLPModels.jac_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j::Abs
     jac_coord!(mpcc.nlp, x, mpcc._j1)
     @views j .= mpcc._j1[mpcc.meta.ind_j_triplets]
     return j
+end
+
+function NLPModels.jac_coord(mpcc::AbstractMPCCModel{T}, x::AbstractVector) where {T}
+    vals = Vector{T}(undef, mpcc.meta.nnzj)
+    return jac_coord!(mpcc, x, vals)
 end
 
 function NLPModels.jac_lin_coord!(
