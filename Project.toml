@@ -10,6 +10,7 @@ MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 DataStructures = "0.18.22"
@@ -18,4 +19,5 @@ MadNLP = "0.8.7"
 NLPModels = "0.21.4"
 Serialization = "1.11.0"
 SolverCore = "0.3.8"
+SparseArrays = "1.11.0"
 julia = "1.10"
