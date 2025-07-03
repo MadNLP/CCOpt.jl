@@ -343,6 +343,11 @@ NLPModels.obj(mpcc::AbstractMPCCModel, x::AbstractVector) = NLPModels.obj(mpcc.n
 function NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector)
     return NLPModels.grad!(mpcc.nlp, x, gx)
 end
+function NLPModels.grad(mpcc::AbstractMPCCModel{T}, x::AbstractVector{T}) where {T}
+    g = Vector{T}(undef, mpcc.meta.nvar)
+    return grad!(mpcc, x, g)
+end
+
 function NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector)
     return NLPModels.objgrad!(mpcc.nlp, x, g)
 end
