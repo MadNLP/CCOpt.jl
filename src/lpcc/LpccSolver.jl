@@ -18,11 +18,20 @@ end
 struct LpccMILP{T, VT, MT}
     mpcc::AbstractMPCCModel{T, VT}
 
+    # Buffers for COO representation
     arows::IndexSet
     acols::IndexSet
     avals::VT
 
+    # Internal vectors for sparse!
+    klasttouch::IndexSet
+    csrrowptr::IndexSet
+    csrcolval::IndexSet
+    csrnzval::VT
+
+    # Problem data
     A::MT
+    c::VT
     lba::VT
     uba::VT
     lbx::VT
@@ -39,7 +48,7 @@ struct LpccMILP{T, VT, MT}
         nvar = mpcc.meta.nvar
         ncon = mpcc.meta.ncon
         ncc = mpcc.meta.ncc
-        # Build remaining
+        # Build remaining COO representation
         for ii in 1:ncc
             # Ms-x_1 > -lbx_2
             push!(arows, ncon + ii)
@@ -57,11 +66,20 @@ struct LpccMILP{T, VT, MT}
             push!(avals, -100.0) # M
         end
 
-        A = sparse(arows, acols, avals)
-        lba = VT(undef, ncon+2*ncc)
-        uba = VT(undef, ncon+2*ncc)
-        lbx = VT(undef, nvar+ncc)
-        ubx = VT(undef, nvar+ncc)
+        # Populate sparse matrix and intermediate vectors
+        m = ncon+2*ncc
+        n = nvar+ncc
+        A = sparse(arows, acols, avals, m, n)
+        klasttouch = IndexSet(undef, n)
+        csrrowptr = IndexSet(undef, m + 1)
+        csrcolptr = IndexSet(undef, length(arows))
+        csrnzval = VT(undef, length(arows))
+
+        c = grad(mpcc, mpcc.meta.x0)
+        lba = VT(undef, m)
+        uba = VT(undef, m)
+        lbx = VT(undef, n)
+        ubx = VT(undef, n)
         integrality = Vector{Bool}(undef, nvar+ncc)
 
         integrality[1:nvar] .= false
@@ -72,7 +90,12 @@ struct LpccMILP{T, VT, MT}
             arows,
             acols,
             avals,
+            klasttouch,
+            csrrowptr,
+            csrcolptr,
+            csrnzval,
             A,
+            c,
             lba,
             uba,
             lbx,
@@ -81,3 +104,5 @@ struct LpccMILP{T, VT, MT}
         )
     end
 end
+
+function linearize(lpcc::LpccMILP, x::AbstractVector) end
