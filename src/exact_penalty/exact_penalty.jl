@@ -157,8 +157,6 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
         MadNLP.print_iter(ipm)
-        #println("inf_pr_comp = $(inf_pr_comp)")
-        #println("inf_pr_comp_prod = $(inf_pr_comp_prod)")
 
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
