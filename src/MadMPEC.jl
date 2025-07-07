@@ -1,5 +1,5 @@
 module MadMPEC
-using NLPModels, SolverCore, LinearAlgebra, SparseArrays
+using NLPModels, SolverCore, LinearAlgebra, SparseArrays, HiGHS
 using Serialization
 using DataStructures: CircularBuffer
 import MadNLP
