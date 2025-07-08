@@ -383,9 +383,7 @@ end
 ######################### Implementing NLPModels API #########################
 NLPModels.obj(mpcc::AbstractMPCCModel, x::AbstractVector) = NLPModels.obj(mpcc.nlp, x)
 function NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector)
-    print(gx)
     NLPModels.grad!(mpcc.nlp, x, gx)
-    print(gx)
     return gx
 end
 function NLPModels.grad(mpcc::AbstractMPCCModel{T}, x::AbstractVector{T}) where {T}

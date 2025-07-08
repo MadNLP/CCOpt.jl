@@ -189,16 +189,17 @@ function solve_homotopy!(
 end
 
 function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
+    opts = solver.opts
     ipm = solver.ipm
     mpcc = solver.mpcc
     c_mpcc = VT(undef, length(ipm.c))
     log_iter(solver.iterate_logger, solver) # Log initial state
     while true
-        # Set 𝜎 to zero for constraint infeasibility calculations
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
 
+        # Set 𝜎 to zero for constraint infeasibility calculations
         𝜎 = ipm.nlp.𝜎[]
         ipm.nlp.𝜎[] = 0
         MadNLP.eval_cons_wrapper!(ipm, c_mpcc, ipm.x)
@@ -242,6 +243,21 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         time()-ipm.cnt.start_time>=ipm.opt.max_wall_time &&
             return MadNLP.MAXIMUM_WALLTIME_EXCEEDED
 
+        # If using macmpec and we are feasible enough to try projection
+        if opts.use_mpecopt && ipm.inf_pr <= solver.eps_proj[]
+            MadNLP.@trace(ipm.logger, "Linearizing for LPCC based projection.")
+            # Linearize (function + grad evaluations)
+            MadMPEC.linearize!(solver.lpcc, MadNLP.variable(ipm.x); tr=1.1*ipm.inf_pr)
+            # TOOD(@anton) don't allocate here?
+            optimal, d, y = MadMPEC.solve(solver.lpcc)
+            if optimal
+                println("!!!!!!!!! projection succeeded !!!!!!!!!")
+                println(d)
+                println(y)
+            else
+                solver.eps_proj[] = solver.eps_proj[]*opts.alpha_eps_proj[]
+            end
+        end
         # Now go back to using relaxed inf_pr
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
 

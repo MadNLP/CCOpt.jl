@@ -110,7 +110,7 @@ struct LpccMILP{T, VT, MT}
     end
 end
 
-function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1)
+function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binaries=true)
     mpcc = lpcc.mpcc
     nvar = mpcc.meta.nvar
     ncon = mpcc.meta.ncon
@@ -156,18 +156,22 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1)
         lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
     end
     # Preprocess the binaries based on the trust region
-    for ii in 1:ncc
-        println(x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]])
-        if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
-            lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
-            lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
-        elseif x[ind_cc2[ii]] - tr > mpcc.meta.lvar[ind_cc2[ii]]
-            lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
-            lpcc.ubx[mpcc.meta.nvar+ii] = 0.0
-        else
-            lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
-            lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+    if presolve_binaries
+        for ii in 1:ncc
+            if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
+                lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
+                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+            elseif x[ind_cc2[ii]] - tr > mpcc.meta.lvar[ind_cc2[ii]]
+                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
+                lpcc.ubx[mpcc.meta.nvar+ii] = 0.0
+            else
+                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
+                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+            end
         end
+    else
+        lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
+        lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
     end
     # Calculate linearization bounds
     # TODO(@anton) we don't need to re-eval this actually. Fix this
@@ -183,7 +187,7 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1)
     return lpcc
 end
 
-function solve_with_highs(lpcc::LpccMILP)
+function solve(lpcc::LpccMILP)
     # TODO(@anton) this is inefficient as we build the HiGHS solver each time,
     # However, the HiGHs interface doesn't allow for efficiently updating the A matrix
     # via just passing e.g. a new values array.
@@ -196,8 +200,6 @@ function solve_with_highs(lpcc::LpccMILP)
     # TODO(@anton) no need for comprehensions here, (or actually storing A.
     #              we could just store colptr, rowval, and nzval, and modify them in linearze!
     # Add constraints
-    println([i-1 for i in lpcc.A.colptr[1:lpcc.A.n]])
-    println([i-1 for i in lpcc.A.rowval])
 
     Highs_addRows(
         highs,
