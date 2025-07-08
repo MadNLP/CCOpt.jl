@@ -178,7 +178,7 @@ function solve_with_highs(lpcc::LpccMILP)
 
     highs = Highs_create()
     # Set options
-    Highs_setStringOptionValue(highs, "presolve", "off")
+    #Highs_setStringOptionValue(highs, "presolve", "off")
     # Add variables
     Highs_addVars(highs, length(lpcc.lbx), lpcc.lbx, lpcc.ubx)
     # TODO(@anton) no need for comprehensions here, (or actually storing A.
@@ -193,9 +193,9 @@ function solve_with_highs(lpcc::LpccMILP)
         lpcc.lba,
         lpcc.uba,
         length(lpcc.A.nzval),
-        [i-one(i) for i in lpcc.A.colptr[1:lpcc.A.n]],
-        [i-one(i) for i in lpcc.A.rowval],
-        lpcc.A.nzval,
+        [i-one(i) for i in lpcc.csrrowptr[1:lpcc.A.n]],
+        [i-one(i) for i in lpcc.csrcolval],
+        lpcc.csrnzval,
     )
     # Add objective
     Highs_changeColsCostByRange(highs, 0, lpcc.A.n-1, lpcc.c)
@@ -205,5 +205,5 @@ function solve_with_highs(lpcc::LpccMILP)
     Highs_run(highs)
     Highs_destroy(highs)
 
-    return
+    return highs
 end
