@@ -73,6 +73,12 @@ end
     magic_step_slack::Bool = true
     magic_step_slack_dual::Bool = true
 
+    # mpecopt options
+    use_mpecopt::Bool = false
+    eps_proj::T = 1e-1
+    alpha_eps_proj::T = 1e-1
+    M_lpcc::T = 100.0
+
     # Output options
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
@@ -90,6 +96,9 @@ struct MadNLPCSolver{T, VT}
     logger::MadNLP.MadNLPLogger
     iterate_logger::IterateLogger
     opts::MadNLPCOptions{T}
+
+    lpcc::LpccMILP{T, VT}
+    eps_proj::Base.RefValue{T}
 end
 
 function MadNLPCSolver(
@@ -111,7 +120,19 @@ function MadNLPCSolver(
              open(solver_opts.iterates_fname, "w+"),
     )
 
-    return MadNLPCSolver(mpcc, scholtes, ipm, logger, iterates_logger, solver_opts)
+    lpcc = LpccMILP(mpcc; M=solver_opts.M_lpcc)
+    eps_proj = solver_opts.eps_proj
+
+    return MadNLPCSolver(
+        mpcc,
+        scholtes,
+        ipm,
+        logger,
+        iterates_logger,
+        solver_opts,
+        lpcc,
+        Ref(eps_proj),
+    )
 end
 
 include("utils.jl")
