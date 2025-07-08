@@ -1,6 +1,6 @@
 abstract type AbstractLpccSolver{T} end
 
-# TODO(@anton) Assumes Vertical
+# TODO(@anton) Assumes vertical form
 struct SparseLpcc{T, VT}
     arows::Vector{Int32}
     acols::Vector{Int32}
@@ -123,6 +123,7 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1)
     end
     # Rebuild Sparse Matrix:
     # TODO(@anton) is there a better way of doing this through the HIGHS interface itself?
+    # TODO(@anton) We actually only need the csr in our case.
     m::Int32 = ncon+2*ncc
     n::Int32 = nvar+ncc
     SparseArrays.sparse!(
@@ -154,9 +155,20 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1)
         # upper bound on all
         lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
     end
-    lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
-    lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
-
+    # Preprocess the binaries based on the trust region
+    for ii in 1:ncc
+        println(x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]])
+        if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
+            lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
+            lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+        elseif x[ind_cc2[ii]] - tr > mpcc.meta.lvar[ind_cc2[ii]]
+            lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
+            lpcc.ubx[mpcc.meta.nvar+ii] = 0.0
+        else
+            lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
+            lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+        end
+    end
     # Calculate linearization bounds
     # TODO(@anton) we don't need to re-eval this actually. Fix this
     @views begin
@@ -202,8 +214,18 @@ function solve_with_highs(lpcc::LpccMILP)
     # Set integrality
     Highs_changeColsIntegralityByRange(highs, 0, lpcc.A.n-1, lpcc.integrality)
 
+    # Solve the LPCC
     Highs_run(highs)
+
+    # create return values
+    optimal = Highs_getModelStatus(highs) == HiGHS.kHighsModelStatusOptimal
+
+    vals = Vector{Cdouble}(undef, lpcc.A.n)
+    Highs_getSolution(highs, vals, C_NULL, C_NULL, C_NULL)
+
+    y = vals[lpcc.integrality .== one(Int32)] .> 0.5
+
     Highs_destroy(highs)
 
-    return highs
+    return optimal, vals, y
 end
