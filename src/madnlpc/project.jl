@@ -51,45 +51,38 @@ function project_scholtes_explicit!(
             length(xl) ==
             length(yl)
     for ii in 1:length(x_target)
-        try
-            # Hack for very small cases:
-            if xk[ii]-xl[ii] ≤ 1e-6
-                y_target[ii] = yk[ii]
-                x_target[ii] = (𝜅*𝜎)/(yk[ii]-yl[ii])
-                continue
-            elseif yk[ii]-yl[ii] ≤ 1e-6
-                x_target[ii] = xk[ii]
-                y_target[ii] = (𝜅*𝜎)/(xk[ii]-xl[ii])
-                continue
-            end
-            if xk[ii]-xl[ii] < yk[ii]-yl[ii]
-                (x_target[ii], y_target[ii]) = project_scholtes_explicit(
-                    xk[ii],
-                    yk[ii],
-                    xl[ii],
-                    yl[ii],
-                    𝜅,
-                    𝜎;
-                    heuristic=heuristic,
-                )
-            else
-                (y_target[ii], x_target[ii]) = project_scholtes_explicit(
-                    yk[ii],
-                    xk[ii],
-                    yl[ii],
-                    xl[ii],
-                    𝜅,
-                    𝜎;
-                    heuristic=heuristic,
-                )
-            end
-        catch e
-            println("x original: $(xk[ii]-xl[ii])")
-            println("y original: $(yk[ii]-yl[ii])")
-            println((xk[ii]-xl[ii])*(yk[ii] - yl[ii]))
-            println(𝜅*𝜎)
-            throw(e)
+        # Hack for very small cases:
+        if xk[ii]-xl[ii] ≤ 1e-6
+            y_target[ii] = yk[ii]
+            x_target[ii] = (𝜅*𝜎)/(yk[ii]-yl[ii])
+            continue
+        elseif yk[ii]-yl[ii] ≤ 1e-6
+            x_target[ii] = xk[ii]
+            y_target[ii] = (𝜅*𝜎)/(xk[ii]-xl[ii])
+            continue
         end
+        if xk[ii]-xl[ii] < yk[ii]-yl[ii]
+            (x_target[ii], y_target[ii]) = project_scholtes_explicit(
+                xk[ii],
+                yk[ii],
+                xl[ii],
+                yl[ii],
+                𝜅,
+                𝜎;
+                heuristic=heuristic,
+            )
+        else
+            (y_target[ii], x_target[ii]) = project_scholtes_explicit(
+                yk[ii],
+                xk[ii],
+                yl[ii],
+                xl[ii],
+                𝜅,
+                𝜎;
+                heuristic=heuristic,
+            )
+        end
+        
     end
 end
 
