@@ -2,7 +2,7 @@
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
     # TODO(@anton) Should subclass AbstractExecutionStats probably
-    status::MPCCSolverStatus # Return status from the HomotopySolver
+    status::Status           # Return status from the HomotopySolver
     solution::VT             # solution for primal variables x
     objective::T             # objective achieved
     multipliers::VT          # multipliers for nonlinear constraints (including relaxed complementarities)
@@ -18,7 +18,7 @@ end
 
 function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     return HomotopySolverStats(
-        UNKNOWN,
+        INITIAL,
         VT(undef, mpcc.meta.nvar),
         zero(T),
         VT(undef, mpcc.meta.ncon),
@@ -225,9 +225,9 @@ const SOLVER_CORE_TO_MPCC_SOLVER_STATUS = Dict(
     :small_residual => INTERNAL_ERROR,
     :small_step => NLP_STATIONARY,
     :stalled => INTERNAL_ERROR,
-    :unbounded => DIVERGING_ITERATES,
-    :unknown => UNKNOWN,
-    :user => USER_REQUESTED_STOP,
+    :unbounded => INTERNAL_ERROR,
+    :unknown => INTERNAL_ERROR,
+    :user => INTERNAL_ERROR,
 )
 
 const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
@@ -238,10 +238,10 @@ const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
     MadNLP.INFEASIBLE_PROBLEM_DETECTED => INFEASIBLE_PROBLEM_DETECTED,
     MadNLP.MAXIMUM_ITERATIONS_EXCEEDED => MAXIMUM_ITERATIONS_EXCEEDED,
     MadNLP.MAXIMUM_WALLTIME_EXCEEDED => MAXIMUM_WALLTIME_EXCEEDED,
-    MadNLP.INITIAL => UNKNOWN,
-    MadNLP.REGULAR => UNKNOWN,
-    MadNLP.RESTORE => UNKNOWN,
-    MadNLP.ROBUST => UNKNOWN,
+    MadNLP.INITIAL => INTERNAL_ERROR,
+    MadNLP.REGULAR => INTERNAL_ERROR,
+    MadNLP.RESTORE => INTERNAL_ERROR,
+    MadNLP.ROBUST => INTERNAL_ERROR,
     # TODO(@anton) it seems depending on a bleeding edge of a package for CI is difficult?
     #              Commenting out as missing will lead to UNKNOWN as well
     # MadNLP.LINESEARCH_SUCCEEDED => UNKNOWN,
@@ -249,7 +249,7 @@ const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
     MadNLP.INVALID_NUMBER_DETECTED => INTERNAL_ERROR,
     MadNLP.ERROR_IN_STEP_COMPUTATION => INTERNAL_ERROR,
     MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM => INTERNAL_ERROR,
-    MadNLP.USER_REQUESTED_STOP => USER_REQUESTED_STOP,
+    MadNLP.USER_REQUESTED_STOP => INTERNAL_ERROR,
     MadNLP.INTERNAL_ERROR => INTERNAL_ERROR,
     MadNLP.INVALID_NUMBER_OBJECTIVE => INTERNAL_ERROR,
     MadNLP.INVALID_NUMBER_GRADIENT => INTERNAL_ERROR,
@@ -259,11 +259,11 @@ const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
 )
 
 function convert_nlp_solve_failure(nlp_stats::AbstractExecutionStats)
-    return get(SOLVER_CORE_TO_MPCC_SOLVER_STATUS, nlp_stats.status, UNKNOWN)
+    return get(SOLVER_CORE_TO_MPCC_SOLVER_STATUS, nlp_stats.status, INTERNAL_ERROR)
 end
 
 function convert_nlp_solve_failure(nlp_stats::MadNLP.MadNLPExecutionStats)
-    return get(MADNLP_TO_MPCC_SOLVER_STATUS, nlp_stats.status, UNKNOWN)
+    return get(MADNLP_TO_MPCC_SOLVER_STATUS, nlp_stats.status, INTERNAL_ERROR)
 end
 
 function reset_nlp_solver!(
