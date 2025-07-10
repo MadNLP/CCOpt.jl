@@ -275,7 +275,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             # Linearize (function + grad evaluations)
             MadMPEC.linearize!(solver.lpcc, MadNLP.variable(ipm.x); tr=1.1*ipm.inf_pr)
             # TOOD(@anton) don't allocate here?
-            optimal, d, b = MadMPEC.solve(solver.lpcc)
+            optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
             if optimal
                 # Projection was a success so we can go to solving the branch nlp
                 ipm.x.x .+= d[1:mpcc.meta.nvar]
@@ -407,21 +407,24 @@ function phaseII!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
 
         # Solve the BNLP
-        solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp)
+        solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; bound_relax_factor=1e-12)
         stats = MadNLP.solve!(solver.bnlp_ipm)
         solver.x .= stats.solution
 
         # Solve the corresponding LPCC
         # TODO(@anton) implement trust region loop
         MadMPEC.linearize!(solver.lpcc, solver.x; tr=1e-3)
-        optimal, d, b = MadMPEC.solve(solver.lpcc)
+        optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
         if optimal
             println("norm(d) = $(norm(d[1:solver.mpcc.meta.nvar]))")
-            if norm(@view d[1:solver.mpcc.meta.nvar]) <= 1e-7 # TODO(@anton) make option
+            if norm(@view d[1:solver.mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
+                solver.status = B_STATIONARY
+            elseif abs(obj) <= 1e-7
                 solver.status = B_STATIONARY
             else
                 solver.x .+= d[1:solver.mpcc.meta.nvar]
                 solver.b .= b
+                print(solver.b)
             end
         else
             solver.status = LPCC_ERROR

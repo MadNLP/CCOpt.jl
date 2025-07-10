@@ -200,21 +200,21 @@ function solve(lpcc::LpccMILP)
     # TODO(@anton) no need for comprehensions here, (or actually storing A.
     #              we could just store colptr, rowval, and nzval, and modify them in linearze!
     # Add constraints
-
     Highs_addRows(
         highs,
         lpcc.A.m,
         lpcc.lba,
         lpcc.uba,
         length(lpcc.A.nzval),
-        [i-one(i) for i in lpcc.csrrowptr[1:lpcc.A.n]],
+        [i-one(i) for i in lpcc.csrrowptr[1:lpcc.A.m]],
         [i-one(i) for i in lpcc.csrcolval],
         lpcc.csrnzval,
     )
-    # Add objective
-    Highs_changeColsCostByRange(highs, 0, lpcc.A.n-1, lpcc.c)
+    # Add objective and set sense
+    Highs_changeColsCostByRange(highs, zero(Int32), lpcc.A.n-1, lpcc.c)
+    Highs_changeObjectiveSense(highs, lpcc.mpcc.meta.minimize ? one(Int32) : -one(Int32))
     # Set integrality
-    Highs_changeColsIntegralityByRange(highs, 0, lpcc.A.n-1, lpcc.integrality)
+    Highs_changeColsIntegralityByRange(highs, zero(Int32), lpcc.A.n-1, lpcc.integrality)
 
     # Solve the LPCC
     Highs_run(highs)
@@ -227,7 +227,9 @@ function solve(lpcc::LpccMILP)
 
     y = vals[lpcc.integrality .== one(Int32)] .> 0.5
 
+    obj = Highs_getObjectiveValue(highs)
+
     Highs_destroy(highs)
 
-    return optimal, vals, y
+    return optimal, vals, y, obj
 end
