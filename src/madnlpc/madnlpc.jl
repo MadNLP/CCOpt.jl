@@ -73,7 +73,12 @@ function MadNLP.set_aug_diagonal!(
 end
 
 function solve_homotopy!(nlp::MadMPEC.ScholtesRelaxation, solver::MadNLPCSolver; kwargs...)
-    return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
+    return solve_homotopy!(
+        nlp,
+        solver,
+        MadNLP.MadNLPExecutionStats(solver.bnlp_ipm);
+        kwargs...,
+    )
 end
 
 function solve_homotopy!(solver::MadNLPCSolver; kwargs...)
@@ -133,36 +138,55 @@ function solve_homotopy!(
                 solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2]
         end
 
-        while ipm.status >= MadNLP.REGULAR
-            ipm.status == MadNLP.REGULAR && (ipm.status = MadMPEC.homotopy!(solver))
+        # Now begin "Phase I"
+        solver.status = PHASE_I
+        while ipm.status >= MadNLP.REGULAR && solver.status ∉ [PHASE_II, NLP_STATIONARY]
+            ipm.status == MadNLP.REGULAR &&
+                ((ipm.status, solver.status) = MadMPEC.homotopy!(solver))
             ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
             ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
+        end
+        # Copy the primal solution from Phase I
+        solver.x .= MadNLP.variable(ipm.x)
+        # Now we are either in NLP stationarity, failed, or proceeding to Phase II.
+        if solver.status == PHASE_II
+            phaseII!(solver)
         end
     catch e
         if e isa MadNLP.InvalidNumberException
             if e.callback == :obj
                 ipm.status=MadNLP.INVALID_NUMBER_OBJECTIVE
+                solver.status = IPM_ERROR
             elseif e.callback == :grad
                 ipm.status=MadNLP.INVALID_NUMBER_GRADIENT
+                solver.status = IPM_ERROR
             elseif e.callback == :cons
                 ipm.status=MadNLP.INVALID_NUMBER_CONSTRAINTS
+                solver.status = IPM_ERROR
             elseif e.callback == :jac
                 ipm.status=MadNLP.INVALID_NUMBER_JACOBIAN
+                solver.status = IPM_ERROR
             elseif e.callback == :hess
                 ipm.status=MadNLP.INVALID_NUMBER_HESSIAN_LAGRANGIAN
+                solver.status = IPM_ERROR
             else
                 ipm.status=MadNLP.INVALID_NUMBER_DETECTED
+                solver.status = IPM_ERROR
             end
         elseif e isa MadNLP.NotEnoughDegreesOfFreedomException
             ipm.status=MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM
+            solver.status = IPM_ERROR
         elseif e isa MadNLP.LinearSolverException
             ipm.status=MadNLP.ERROR_IN_STEP_COMPUTATION;
+            solver.status = IPM_ERROR
             ipm.opt.rethrow_error && rethrow(e)
         elseif e isa MadNLP.InterruptException
             ipm.status=MadNLP.USER_REQUESTED_STOP
+            solver.status = IPM_ERROR
             ipm.opt.rethrow_error && rethrow(e)
         else
             ipm.status=MadNLP.INTERNAL_ERROR
+            solver.status = IPM_ERROR
             ipm.opt.rethrow_error && rethrow(e)
         end
     finally
@@ -173,16 +197,17 @@ function solve_homotopy!(
 
         MadNLP.@notice(
             solver.logger,
-            "EXIT: $(MadNLP.get_status_output(ipm.status, ipm.opt))"
+            "EXIT: $(get_status_output(solver.status, solver.opts, ipm.opt))"
         )
         ipm.opt.disable_garbage_collector && (
             GC.enable(true);
             MadNLP.@warn(ipm.logger, "Julia garbage collector is turned back on")
         )
         MadNLP.finalize(ipm.logger)
+        MadNLP.finalize(solver.logger)
         finalize(solver.iterate_logger)
 
-        MadNLP.update!(stats, ipm)
+        update!(stats, solver)
     end
 
     return stats
@@ -231,31 +256,33 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
-            return MadNLP.SOLVE_SUCCEEDED
+            return MadNLP.SOLVE_SUCCEEDED, NLP_STATIONARY
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.acceptable_tol ?
         (
             ipm.cnt.acceptable_cnt < ipm.opt.acceptable_iter ? ipm.cnt.acceptable_cnt+=1 :
-            return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
+            return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL, NLP_STATIONARY
         ) : (ipm.cnt.acceptable_cnt = 0)
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) >= ipm.opt.diverging_iterates_tol &&
-            return MadNLP.DIVERGING_ITERATES
-        ipm.cnt.k>=ipm.opt.max_iter && return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
+            return MadNLP.DIVERGING_ITERATES, DIVERGING_ITERATES
+        ipm.cnt.k>=ipm.opt.max_iter &&
+            return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED, MAXIMUM_ITERATIONS_EXCEEDED
         time()-ipm.cnt.start_time>=ipm.opt.max_wall_time &&
-            return MadNLP.MAXIMUM_WALLTIME_EXCEEDED
+            return MadNLP.MAXIMUM_WALLTIME_EXCEEDED, MAXIMUM_WALL_TIME_EXCEEDED
 
         # If using macmpec and we are feasible enough to try projection
-        if opts.use_mpecopt && ipm.inf_pr <= solver.eps_proj[]
+        if opts.use_mpecopt && ipm.inf_pr <= solver.eps_proj
             MadNLP.@trace(ipm.logger, "Linearizing for LPCC based projection.")
             # Linearize (function + grad evaluations)
             MadMPEC.linearize!(solver.lpcc, MadNLP.variable(ipm.x); tr=1.1*ipm.inf_pr)
             # TOOD(@anton) don't allocate here?
-            optimal, d, y = MadMPEC.solve(solver.lpcc)
+            optimal, d, b = MadMPEC.solve(solver.lpcc)
             if optimal
-                println("!!!!!!!!! projection succeeded !!!!!!!!!")
-                println(d)
-                println(y)
+                # Projection was a success so we can go to solving the branch nlp
+                ipm.x.x .+= d[1:mpcc.meta.nvar]
+                solver.b .= b
+                return MadNLP.REGULAR, PHASE_II
             else
-                solver.eps_proj[] = solver.eps_proj[]*opts.alpha_eps_proj[]
+                solver.eps_proj = solver.eps_proj*opts.alpha_eps_proj
             end
         end
         # Now go back to using relaxed inf_pr
@@ -336,7 +363,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
         if status != MadNLP.LINESEARCH_SUCCEEDED
-            return status
+            return status, solver.status
         end
 
         MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
@@ -369,4 +396,64 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         ipm.cnt.k+=1
         MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
     end
+end
+
+function phaseII!(solver::MadNLPCSolver{T, VT}) where {T, VT}
+    # TODO(@anton) this is unoptimized for now as we generate a new solver at each iteration :)
+    while solver.status >= PHASE_II
+        # TODO(@anton) Perhaps we evaluate the B_stationarty conditions here already
+        # Create BNLP
+        bnlp = BranchNLP(solver.mpcc, solver.b)
+        bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
+
+        # Solve the BNLP
+        solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp)
+        stats = MadNLP.solve!(solver.bnlp_ipm)
+        solver.x .= stats.solution
+
+        # Solve the corresponding LPCC
+        # TODO(@anton) implement trust region loop
+        MadMPEC.linearize!(solver.lpcc, solver.x; tr=1e-3)
+        optimal, d, b = MadMPEC.solve(solver.lpcc)
+        if optimal
+            println("norm(d) = $(norm(d[1:solver.mpcc.meta.nvar]))")
+            if norm(@view d[1:solver.mpcc.meta.nvar]) <= 1e-7 # TODO(@anton) make option
+                solver.status = B_STATIONARY
+            else
+                solver.x .+= d[1:solver.mpcc.meta.nvar]
+                solver.b .= b
+            end
+        else
+            solver.status = LPCC_ERROR
+        end
+    end
+end
+
+function update!(
+    stats::MadNLP.MadNLPExecutionStats,
+    solver::MadNLPCSolver{T, VT},
+) where {T, VT}
+    # TODO(@anton) we probably want to return a custom stats object which returns the correct statuses etc.
+    ipm = solver.ipm
+    bnlp_ipm = solver.bnlp_ipm
+    if solver.ipm.status < MadNLP.REGULAR # We didn't stop the IPM early
+        stats.status = ipm.status
+        stats.solution .= @view(MadNLP.primal(ipm.x)[1:get_nvar(ipm.nlp)])
+        stats.multipliers .= ipm.y[1:solver.mpcc.meta.ncon]
+        stats.multipliers_L .= @view(MadNLP.primal(ipm.zl)[1:get_nvar(ipm.nlp)])
+        stats.multipliers_U .= @view(MadNLP.primal(ipm.zu)[1:get_nvar(ipm.nlp)])
+        stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
+        stats.constraints .=
+            ipm.c[1:solver.mpcc.meta.ncon] ./ ipm.cb.con_scale[1:solver.mpcc.meta.ncon] .+
+            ipm.rhs[1:solver.mpcc.meta.ncon]
+        ind_ind_ineq = ipm.ind_ineq .∈ [1:solver.mpcc.meta.ncon]
+        stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+= MadNLP.slack(ipm.x)[ind_ind_ineq]
+        stats.dual_feas = ipm.inf_du
+        stats.primal_feas = ipm.inf_pr
+        MadNLP.update_z!(ipm.cb, stats.multipliers_L, stats.multipliers_U, ipm.jacl)
+        stats.iter = ipm.cnt.k
+    else # We stopped the IPM early and have solved BNLPs
+        MadNLP.update!(stats, solver.bnlp_ipm)
+    end
+    return stats
 end

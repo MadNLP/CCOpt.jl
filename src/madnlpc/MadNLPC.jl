@@ -89,7 +89,7 @@ end
 end
 
 # MadNLP-C algorithm
-struct MadNLPCSolver{T, VT}
+mutable struct MadNLPCSolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     scholtes::ScholtesRelaxation{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
@@ -97,8 +97,14 @@ struct MadNLPCSolver{T, VT}
     iterate_logger::IterateLogger
     opts::MadNLPCOptions{T}
 
+    status::Status
+
     lpcc::LpccMILP{T, VT}
-    eps_proj::Base.RefValue{T}
+    bnlp_ipm::MadNLP.MadNLPSolver{T, VT}
+    eps_proj::T
+
+    x::VT
+    b::Vector{Bool} # TODO(@anton) is it actually better to have a Vector{Bool}
 end
 
 function MadNLPCSolver(
@@ -122,6 +128,10 @@ function MadNLPCSolver(
 
     lpcc = LpccMILP(mpcc; M=solver_opts.M_lpcc)
     eps_proj = solver_opts.eps_proj
+    x = VT(undef, mpcc.meta.nvar)
+    b = Vector{Bool}(undef, mpcc.meta.ncc)
+    bnlp = BranchNLP(mpcc, b)
+    bnlp_ipm = MadNLP.MadNLPSolver(bnlp) # TODO(@anton) also pass the bnlp options somehow
 
     return MadNLPCSolver(
         mpcc,
@@ -130,8 +140,12 @@ function MadNLPCSolver(
         logger,
         iterates_logger,
         solver_opts,
+        INITIAL,
         lpcc,
-        Ref(eps_proj),
+        bnlp_ipm,
+        eps_proj,
+        x,
+        b,
     )
 end
 

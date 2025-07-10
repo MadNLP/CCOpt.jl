@@ -1,17 +1,19 @@
 module MadMPEC
 using NLPModels, SolverCore, LinearAlgebra, SparseArrays, HiGHS
+using Printf
 using Serialization
 using DataStructures: CircularBuffer
 import MadNLP
 
 include("Types.jl")
+include("enums.jl")
 include("MappedVector.jl")
 include("MPCCModelMeta.jl")
 include("MPCCModel.jl")
 include("ScholtesRelaxation.jl")
+include("BranchNLP.jl")
 include("models/Ell1Relaxation.jl")
 include("LiftedNLPModel.jl")
-include("solver/types.jl")
 include("solver/AbstractMPCCSolver.jl")
 include("solver/HomotopySolver.jl")
 include("lpcc/LpccSolver.jl")
