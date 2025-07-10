@@ -2,9 +2,6 @@ include("project.jl")
 
 function get_eta_heuristic(solver::MadNLPCSolver)
     if solver.ipm.mu ≤ solver.opts.mu_thresh
-        # return 1.0*solver.ipm.mu/(
-        #     1+maximum(abs.(solver.ipm.y))
-        # )
         return solver.opts.eta_factor*solver.ipm.mu/(
             1+max(
                 maximum(MadNLP.slack(solver.ipm.zu)),

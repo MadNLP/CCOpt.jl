@@ -6,7 +6,6 @@ function solve_homotopy!(solver::ExactPenaltySolver; kwargs...)
     return solve_homotopy!(solver.ell1, solver; kwargs...)
 end
 
-# TODO(@anton) Why do we pass things this way???
 function solve_homotopy!(
     nlp::MadMPEC.Ell1Relaxation,
     solver::MadMPEC.ExactPenaltySolver,
@@ -17,9 +16,6 @@ function solve_homotopy!(
     zu=nothing,
     kwargs...,
 )
-    if solver.opts.plot_iterates
-        MadMPEC.reset_plot()
-    end
     ipm = solver.ipm
     if x != nothing
         MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
@@ -46,12 +42,12 @@ function solve_homotopy!(
                 "This is $(MadNLP.introduce()), using MadMPEC Ell1 extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
             )
             MadNLP.print_init(ipm)
-            # Also reset sigma
-            ipm.nlp.𝜎[] = solver.opts.sigma_0
+            # Also reset tau
+            ipm.nlp.tau[] = solver.opts.tau_0
             ipm.status = MadNLP.initialize!(ipm)
         else # resolving the problem
-            # Also reset sigma
-            ipm.nlp.𝜎[] = solver.opts.sigma_0
+            # Also reset tau
+            ipm.nlp.tau[] = solver.opts.tau_0
             ipm.status = MadNLP.reinitialize!(ipm)
         end
 
@@ -116,7 +112,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
     nlp = solver.ell1
     mpcc = solver.mpcc
     while true
-        # Set 𝜎 to zero for constraint infeasibility calculations
+        # Set sigma to zero for constraint infeasibility calculations
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
@@ -177,13 +173,13 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         # Do dynamic penalty update:
         # First calculate primal comp epsilon
         eps_pr_comp = ipm.mu^solver.opts.gamma
-        if solver.opts.dynamic_sigma_update &&
+        if solver.opts.dynamic_tau_update &&
            inf_pr_comp > eps_pr_comp &&
            inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist)
-            nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
+            nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
             MadNLP.@trace(
                 solver.logger,
-                "Updating the penalty parameter dynamically to $(1/nlp.𝜎[])."
+                "Updating the penalty parameter dynamically to $(nlp.tau[])."
             )
             ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
             # Also clear the filter
@@ -232,10 +228,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             # check for complementarity convergence when we decrease 𝜇
             # or if we already are at smallest mu increase penalty if we are not satisfying eps_pr_comp
             if inf_pr_comp > eps_pr_comp
-                nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
+                nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(1/nlp.𝜎[])."
+                    "Updating the penalty parameter to $(nlp.tau[])."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
             end
@@ -243,10 +239,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
                ipm.opt.barrier_tol_factor*ipm.mu
             if inf_pr_comp > ipm.opt.tol
-                nlp.𝜎[] = (1/solver.opts.sigma_growth_rate)*nlp.𝜎[]
+                nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(1/nlp.𝜎[])."
+                    "Updating the penalty parameter to $(nlp.tau[])."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 empty!(ipm.filter)

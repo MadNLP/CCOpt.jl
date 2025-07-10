@@ -2,7 +2,7 @@
 struct Ell1Relaxation{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
-    𝜎::Base.RefValue{T}
+    tau::Base.RefValue{T}
 end
 
 function Ell1Relaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -37,8 +37,8 @@ function Ell1Relaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
     )
-    𝜎 = zero(T)
-    return Ell1Relaxation(mpcc, meta, Ref(𝜎))
+    sigma = zero(T)
+    return Ell1Relaxation(mpcc, meta, Ref(sigma))
 end
 
 # Counters should be forwarded
@@ -59,14 +59,13 @@ function NLPModels.obj(rnlp::Ell1Relaxation{T, VT}, x::AbstractVector) where {T,
         icc2 = rnlp.mpcc.meta.ind_cc2[i]
         obj +=
             sense *
-            (1/rnlp.𝜎[]) *
+            (rnlp.tau[]) *
             (x[icc1] - rnlp.meta.lvar[icc1]) *
             (x[icc2] - rnlp.meta.lvar[icc2])
     end
     return obj
 end
 
-# TODO update grad
 function NLPModels.grad!(
     rnlp::Ell1Relaxation{T, VT},
     x::AbstractVector,
@@ -77,8 +76,8 @@ function NLPModels.grad!(
     for i in 1:rnlp.mpcc.meta.ncc
         icc1 = rnlp.mpcc.meta.ind_cc1[i]
         icc2 = rnlp.mpcc.meta.ind_cc2[i]
-        gx[icc1] += sense * (1/rnlp.𝜎[]) * (x[icc2] - rnlp.meta.lvar[icc2])
-        gx[icc2] += sense * (1/rnlp.𝜎[]) * (x[icc1] - rnlp.meta.lvar[icc1])
+        gx[icc1] += sense * (rnlp.tau[]) * (x[icc2] - rnlp.meta.lvar[icc2])
+        gx[icc2] += sense * (rnlp.tau[]) * (x[icc1] - rnlp.meta.lvar[icc1])
     end
     return gx
 end
@@ -95,11 +94,11 @@ function NLPModels.objgrad!(
         icc2 = rnlp.mpcc.meta.ind_cc2[i]
         obj +=
             sense *
-            (1/rnlp.𝜎[]) *
+            (rnlp.tau[]) *
             (x[icc1] - rnlp.meta.lvar[icc1]) *
             (x[icc2] - rnlp.meta.lvar[icc2])
-        gx[icc1] += sense * (1/rnlp.𝜎[]) * (x[icc2] - rnlp.meta.lvar[icc2])
-        gx[icc2] += sense * (1/rnlp.𝜎[]) * (x[icc1] - rnlp.meta.lvar[icc1])
+        gx[icc1] += sense * (rnlp.tau[]) * (x[icc2] - rnlp.meta.lvar[icc2])
+        gx[icc2] += sense * (rnlp.tau[]) * (x[icc1] - rnlp.meta.lvar[icc1])
     end
     return obj, gx
 end
@@ -268,7 +267,7 @@ function NLPModels.hess_coord!(
     )
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:rnlp.mpcc.meta.ncc
-        H[i+rnlp.mpcc.meta.nnzh] = obj_weight*sense*(1/rnlp.𝜎[])
+        H[i+rnlp.mpcc.meta.nnzh] = obj_weight*sense*(rnlp.tau[])
     end
     return H
 end
@@ -285,9 +284,9 @@ function NLPModels.hprod!(
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:rnlp.mpcc.meta.ncc
         Hv[rnlp.mpcc.meta.ind_cc1[i]] +=
-            obj_weight*sense*v[rnlp.mpcc.meta.ind_cc2[i]]*(1/rnlp.𝜎[])
+            obj_weight*sense*v[rnlp.mpcc.meta.ind_cc2[i]]*(rnlp.tau[])
         Hv[rnlp.mpcc.meta.ind_cc2[i]] +=
-            obj_weight*sense*v[rnlp.mpcc.meta.ind_cc1[i]]*(1/rnlp.𝜎[])
+            obj_weight*sense*v[rnlp.mpcc.meta.ind_cc1[i]]*(rnlp.tau[])
     end
     return Hv
 end

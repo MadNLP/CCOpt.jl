@@ -1,11 +1,11 @@
 @kwdef struct ExactPenaltyOptions{T}
     # complementarity homotopy options
-    sigma_0::T = 1.0
-    sigma_growth_rate::T = 10.0
+    tau_0::T = 1.0
+    tau_growth_rate::T = 10
     gamma::T = 0.4
 
     # Algorithm options
-    dynamic_sigma_update::Bool = false # Switch between classic and dynamic algorithm from
+    dynamic_tau_update::Bool = false # Switch between classic and dynamic algorithm from
     # Leyffer2006 paper
     comp_history_length::Int = 3 # Length of history buffer (default from Leyffer2006)
     eta_dynamic_update::T = 0.9 # "sufficient decrease" parameter (default from Leyffer2006)
@@ -14,9 +14,6 @@
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
-
-    # Plot Iterations
-    plot_iterates::Bool = false
 end
 
 struct ExactPenaltySolver{T, VT}
