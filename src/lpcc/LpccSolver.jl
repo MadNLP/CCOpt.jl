@@ -152,6 +152,7 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
         # Lower bound on x1 and x2
         lpcc.lbx[ind_cc1] .= max.(mpcc.meta.lvar[ind_cc1] .- x[ind_cc1], -tr)
         lpcc.lbx[ind_cc2] .= max.(mpcc.meta.lvar[ind_cc2] .- x[ind_cc2], -tr)
+
         # upper bound on all
         lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
     end
@@ -187,6 +188,48 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
     return lpcc
 end
 
+function tr!(
+    lpcc::LpccMILP{T, VT},
+    x::AbstractVector{T},
+    tr::T;
+    presolve_binaries=true,
+) where {T, VT}
+    mpcc = lpcc.mpcc
+    ind_x = mpcc.meta.ind_x
+    ind_cc1 = mpcc.meta.ind_cc1
+    ind_cc2 = mpcc.meta.ind_cc2
+    nvar = mpcc.meta.nvar
+    ncon = mpcc.meta.ncon
+    ncc = mpcc.meta.ncc
+    @views begin
+        # Lower bound on x0
+        lpcc.lbx[ind_x] .= max.(mpcc.meta.lvar[ind_x] .- x[ind_x], -tr)
+        # Lower bound on x1 and x2
+        lpcc.lbx[ind_cc1] .= max.(mpcc.meta.lvar[ind_cc1] .- x[ind_cc1], -tr)
+        lpcc.lbx[ind_cc2] .= max.(mpcc.meta.lvar[ind_cc2] .- x[ind_cc2], -tr)
+        # upper bound on all
+        lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
+    end
+    # Preprocess the binaries based on the trust region
+    if presolve_binaries
+        for ii in 1:ncc
+            if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
+                lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
+                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+            elseif x[ind_cc2[ii]] - tr > mpcc.meta.lvar[ind_cc2[ii]]
+                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
+                lpcc.ubx[mpcc.meta.nvar+ii] = 0.0
+            else
+                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
+                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+            end
+        end
+    else
+        lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
+        lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
+    end
+end
+
 function solve(lpcc::LpccMILP)
     # TODO(@anton) this is inefficient as we build the HiGHS solver each time,
     # However, the HiGHs interface doesn't allow for efficiently updating the A matrix
@@ -194,7 +237,10 @@ function solve(lpcc::LpccMILP)
 
     highs = Highs_create()
     # Set options
-    #Highs_setStringOptionValue(highs, "presolve", "off")
+    #Highs_setBoolOptionValue(highs, "log_to_console", false)
+    Highs_setDoubleOptionValue(highs, "kkt_tolerance", 1e-7)
+    Highs_setDoubleOptionValue(highs, "mip_feasibility_tolerance", 1e-7)
+    Highs_setDoubleOptionValue(highs, "mip_rel_gap", 1e-6)
     # Add variables
     Highs_addVars(highs, length(lpcc.lbx), lpcc.lbx, lpcc.ubx)
     # TODO(@anton) no need for comprehensions here, (or actually storing A.
