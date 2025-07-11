@@ -400,31 +400,72 @@ end
 
 function phaseII!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     # TODO(@anton) this is unoptimized for now as we generate a new solver at each iteration :)
+    tr = 1e-3
+    prev_obj = floatmax(T)
+    mpcc = solver.mpcc
     while solver.status >= PHASE_II
         # TODO(@anton) Perhaps we evaluate the B_stationarty conditions here already
         # Create BNLP
-        bnlp = BranchNLP(solver.mpcc, solver.b)
+        bnlp = BranchNLP(mpcc, solver.b)
         bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
 
         # Solve the BNLP
-        solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; bound_relax_factor=1e-12)
+        solver.bnlp_ipm = MadNLP.MadNLPSolver(
+            bnlp;
+            barrier=MadNLP.MonotoneUpdate(mu_init=1e-9),
+            bound_push=1e-6,
+            bound_fac=1e-7,
+        ) # TODO(@anton) again options for BNLP should live somewhere
         stats = MadNLP.solve!(solver.bnlp_ipm)
-        solver.x .= stats.solution
+
+        # Check if MPCC succeeded
+        if stats.status ∈ [
+            MadNLP.SOLVE_SUCCEEDED,
+            MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
+            MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
+        ]
+            if stats.objective < prev_obj # Accept step
+                # update current values
+                prev_obj = stats.objective
+                solver.x .= solver.x .= stats.solution
+                # Check if we even need to solve an LPCC by checking for biactives:
+                @views begin # TODO(@anton) add tolerance as option or maybe use tr?
+                    if ~any(
+                        (solver.x[mpcc.meta.ind_cc1] .< 1e-8) .&
+                        (solver.x[mpcc.meta.ind_cc2] .< 1e-8),
+                    )
+                        solver.status = B_STATIONARY
+                        continue
+                    end
+                end
+                # Reset the trust region TODO(@anton) options
+                tr = 1e-3
+                # Linearize at the current point
+                MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr)
+            else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
+                tr = 1e-1*tr # TODO(@anton) Options
+                if tr <= 1e-6
+                    # Search direction too small
+                    solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
+                end
+                MadMPEC.tr!(solver.lpcc, solver.x, tr)
+            end
+        end
 
         # Solve the corresponding LPCC
         # TODO(@anton) implement trust region loop
-        MadMPEC.linearize!(solver.lpcc, solver.x; tr=1e-3)
         optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
+        println(solver.b)
         if optimal
-            println("norm(d) = $(norm(d[1:solver.mpcc.meta.nvar]))")
-            if norm(@view d[1:solver.mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
+            println("norm(d) = $(norm(d[1:mpcc.meta.nvar]))")
+            if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
                 solver.status = B_STATIONARY
             elseif abs(obj) <= 1e-7
                 solver.status = B_STATIONARY
+            elseif all(solver.b .== b) # TODO(@anton) this should maybe also check for "acceptable" tolerance
+                solver.status = B_STATIONARY
             else
-                solver.x .+= d[1:solver.mpcc.meta.nvar]
                 solver.b .= b
-                print(solver.b)
             end
         else
             solver.status = LPCC_ERROR
