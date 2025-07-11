@@ -237,10 +237,11 @@ function solve(lpcc::LpccMILP)
 
     highs = Highs_create()
     # Set options
-    #Highs_setBoolOptionValue(highs, "log_to_console", false)
+    Highs_setBoolOptionValue(highs, "log_to_console", false)
     Highs_setDoubleOptionValue(highs, "kkt_tolerance", 1e-7)
     Highs_setDoubleOptionValue(highs, "mip_feasibility_tolerance", 1e-7)
     Highs_setDoubleOptionValue(highs, "mip_rel_gap", 1e-6)
+    Highs_setDoubleOptionValue(highs, "time_limit", 5.0)
     # Add variables
     Highs_addVars(highs, length(lpcc.lbx), lpcc.lbx, lpcc.ubx)
     # TODO(@anton) no need for comprehensions here, (or actually storing A.
