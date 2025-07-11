@@ -799,3 +799,60 @@ function test_loqo_sigma_params(; range=:)
 
     return solnames, names, stats
 end
+
+function test_mpecopt(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    opts_madnlp_c =
+        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_mpecopt = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:vicente_wright,
+        print_level=MadNLP.ERROR,
+        use_mpecopt=true,
+        eps_proj=1e-1,
+    )
+
+    default_ipopt = (
+        "Ipopt",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    default_madnlp_c = (
+        "madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c,
+        ((madnlpc_solver_options...,)),
+    )
+    mpecopt = (
+        "madNLP-C-mpecopt",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_mpecopt,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        mpecopt,
+        default_ipopt,
+        default_madnlp_c,
+        #default_ipopt,
+        #default_madnlp,
+        range=range,
+    )
+    return solnames, names, stats
+end

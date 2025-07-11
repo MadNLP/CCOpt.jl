@@ -77,7 +77,7 @@ end
     use_mpecopt::Bool = false
     eps_proj::T = 1e-1
     alpha_eps_proj::T = 1e-1
-    M_lpcc::T = 100.0
+    M_lpcc::T = 1000.0
 
     # Output options
     output_file::String = ""
@@ -132,7 +132,7 @@ function MadNLPCSolver(
     b = Vector{Bool}(undef, mpcc.meta.ncc)
     bnlp = BranchNLP(mpcc, b)
     bnlp_ipm = MadNLP.MadNLPSolver(bnlp) # TODO(@anton) also pass the bnlp options somehow
-
+    bnlp_ipm.cnt = ipm.cnt # WARNING: A HACK TO KEEP TIMING/ITERS CONSISTENT
     return MadNLPCSolver(
         mpcc,
         scholtes,
