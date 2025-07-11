@@ -37,13 +37,17 @@ end
     sigma_mu_ratio::T = 1.0
 
     # regularization options
-    kkt_regularization::Symbol = :none # Options: :vicente_wright
+    kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
     mu_thresh::T = 5e-6
+    eta_factor::T = 0.1
 
     # Magic step options
     use_magic_step::Bool = false
-    magic_step_kappa::T = 0.9
+    magic_step_kappa::T = 0.5
     magic_step_projection_heuristic::Symbol = :min_f
+    magic_step_duals::Bool = true
+    magic_step_slack::Bool = true
+    magic_step_slack_dual::Bool = true
 
     # Output options
     output_file::String = ""
@@ -65,25 +69,24 @@ end
 
 function MadNLPCSolver(
     mpcc::AbstractMPCCModel{T, VT};
-    madnlpc_opts=MadNLPCOptions(),
+    solver_opts=MadNLPCOptions(),
     ipm_options...,
 ) where {T, VT}
     scholtes = ScholtesRelaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(scholtes; ipm_options...)
 
     logger = MadNLP.MadNLPLogger(
-        print_level=madnlpc_opts.print_level,
-        file_print_level=madnlpc_opts.file_print_level,
-        file=madnlpc_opts.output_file == "" ? nothing :
-             open(madnlpc_opts.output_file, "w+"),
+        print_level=solver_opts.print_level,
+        file_print_level=solver_opts.file_print_level,
+        file=solver_opts.output_file == "" ? nothing : open(solver_opts.output_file, "w+"),
     )
 
     iterates_logger = IterateLogger(
-        file=madnlpc_opts.iterates_fname == "" ? nothing :
-             open(madnlpc_opts.iterates_fname, "w+"),
+        file=solver_opts.iterates_fname == "" ? nothing :
+             open(solver_opts.iterates_fname, "w+"),
     )
 
-    return MadNLPCSolver(mpcc, scholtes, ipm, logger, iterates_logger, madnlpc_opts)
+    return MadNLPCSolver(mpcc, scholtes, ipm, logger, iterates_logger, solver_opts)
 end
 
 include("utils.jl")

@@ -608,19 +608,30 @@ function lcomp_right!(mpcc::AbstractMPCCModel, lccx::AbstractVector)
     return lccx
 end
 
-function comp_res_left!(mpcc::AbstractMPCCModel, x::AbstractVector, rccx::AbstractVector)
-    @lencheck mpcc.meta.ncc rccx
+function comp_res_left(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    lccx = VT(undef, mpcc.meta.ncc)
+    return comp_res_left!(mpcc, x, lccx)
+end
+
+function comp_res_left!(mpcc::AbstractMPCCModel, x::AbstractVector, lccx::AbstractVector)
+    @lencheck mpcc.meta.ncc lccx
     @lencheck mpcc.meta.nvar x
 
-    comp_left!(mpcc, x, rccx)
+    comp_left!(mpcc, x, lccx)
 
     for i in 1:mpcc.meta.ncc
         if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
-            rccx[i] -= mpcc.nlp.meta.lvar[mpcc.meta.ind_cc1[i]]
+            lccx[i] -= mpcc.nlp.meta.lvar[mpcc.meta.ind_cc1[i]]
         else
-            rccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc1[i]]
+            lccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc1[i]]
         end
     end
+    return lccx
+end
+
+function comp_res_right(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    rccx = VT(undef, mpcc.meta.ncc)
+    return comp_res_right!(mpcc, x, rccx)
 end
 
 function comp_res_right!(mpcc::AbstractMPCCModel, x::AbstractVector, rccx::AbstractVector)
@@ -636,6 +647,7 @@ function comp_res_right!(mpcc::AbstractMPCCModel, x::AbstractVector, rccx::Abstr
             rccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc2[i]]
         end
     end
+    return rccx
 end
 
 function jac_comp_left_structure(mpcc::AbstractMPCCModel)
@@ -783,6 +795,16 @@ function comp_residual_product(
 
     G .*= H
     return maximum(G)
+end
+
+function comp_residual_sum(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    G = VT(undef, mpcc.meta.ncc)
+    H = VT(undef, mpcc.meta.ncc)
+    comp_res_left!(mpcc, x, G)
+    comp_res_right!(mpcc, x, H)
+
+    G .*= H
+    return sum(G)
 end
 
 ######################### Vertical Form Conversions #########################

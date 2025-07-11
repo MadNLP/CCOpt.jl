@@ -1,7 +1,9 @@
 @testset "MadNLP-C Test" begin
     @testset "Default Options" begin
         mpcc = SimpleMPCCModel(Float64)
-        solver = MadMPEC.MadNLPCSolver(mpcc; print_level=MadNLP.INFO)
+        madnlpc_opts = MadMPEC.MadNLPCOptions(; print_level=MadNLP.ERROR)
+        solver =
+            MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
         copyto!(mpcc.meta.x0, [2; 1])
 
@@ -14,9 +16,10 @@
 
     @testset "With Magic Steps" begin
         mpcc = SimpleMPCCModel(Float64)
-        madnlpc_opts = MadMPEC.MadNLPCOptions(; use_magic_step=true)
+        madnlpc_opts =
+            MadMPEC.MadNLPCOptions(; print_level=MadNLP.ERROR, use_magic_step=true)
         solver =
-            MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=madnlpc_opts, print_level=MadNLP.INFO)
+            MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
         copyto!(mpcc.meta.x0, [2; 1])
 

@@ -71,8 +71,10 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual_product(mpcc, s.solution) for
-            (mpcc, s) in zip(probs, stats_madnlp_c)
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) for (mpcc, s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
         name=names,
@@ -81,7 +83,9 @@ function save_madnlp_c_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -104,8 +108,10 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            MadMPEC.comp_residual_product(mpcc, s.solution) for
-            ((name, mpcc), s) in zip(probs, stats_madnlp_c)
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
         name=names,
@@ -114,7 +120,9 @@ function save_madnlp_c_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -158,8 +166,11 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
-            (mpcc, s) in zip(probs, stats_ncl)
+            !isnothing(s) ?
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) : Inf for (mpcc, s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,
@@ -168,7 +179,9 @@ function save_ncl_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
@@ -190,8 +203,11 @@ function save_ncl_df(
 ) where {T}
     inf_cc =
         inf_cc=[
-            !isnothing(s) ? MadMPEC.comp_residual_product(mpcc, s.solution) : Inf for
-            ((name, mpcc), s) in zip(probs, stats_ncl)
+            !isnothing(s) ?
+            min(
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
+            ) : Inf for ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,
@@ -200,7 +216,9 @@ function save_ncl_df(
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
-            ] && cc ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
+            ] &&
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_ncl, inf_cc)
         ],
         status=[!isnothing(s) ? s.status : MadNLP.INTERNAL_ERROR for s in stats_ncl],
         objective=[!isnothing(s) ? s.objective : Inf for s in stats_ncl],
@@ -246,7 +264,17 @@ function solve_benchmark_problem(
     opts::MadMPEC.MadNLPCOptions,
     sol_args...,
 )
-    solver = MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=opts, sol_args...)
+    solver = MadMPEC.MadNLPCSolver(mpcc; solver_opts=opts, sol_args...)
+    stats = MadMPEC.solve_homotopy!(solver)
+    return stats
+end
+
+function solve_benchmark_problem(
+    mpcc::MadMPEC.AbstractMPCCModel,
+    opts::MadMPEC.ExactPenaltyOptions,
+    sol_args...,
+)
+    solver = MadMPEC.ExactPenaltySolver(mpcc; solver_opts=opts, sol_args...)
     stats = MadMPEC.solve_homotopy!(solver)
     return stats
 end
@@ -274,10 +302,11 @@ function run_benchmark(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.MadNLPCOptions}
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.ExactPenaltyOptions}}
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
+        println(probs[i].nlp.nlp.meta.name)
         push!(stats_vec, solfun(probs[i], opts, solargs...))
     end
 
@@ -319,7 +348,7 @@ function run_benchmark_procs(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.MadNLPCOptions}
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.ExactPenaltyOptions}}
     nprobs = length(probs)
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()
@@ -330,7 +359,8 @@ function run_benchmark_procs(
     if nw != 8
         rmprocs(workers()...)
         addprocs(8)
-        @everywhere include(joinpath(@__DIR__, "run_random_benchmark.jl"))
+        @everywhere include(joinpath(@__DIR__, "common.jl"))
+        @everywhere include(joinpath(@__DIR__, "random_benchmark/run_random_benchmark.jl"))
     end
     wp = default_worker_pool()
     (pair, state) = iterate(probs)
@@ -380,7 +410,7 @@ function run_benchmark_procs(
     if nw != 8
         rmprocs(workers()...)
         addprocs(8)
-        @everywhere include(joinpath(@__DIR__, "run_random_benchmark.jl"))
+        @everywhere include(joinpath(@__DIR__, "common.jl"))
     end
     wp = default_worker_pool()
     (pair, state) = iterate(probs)
@@ -430,7 +460,57 @@ function run_benchmark_procs(
     if nw != 8
         rmprocs(workers()...)
         addprocs(8)
-        @everywhere include(joinpath(@__DIR__, "run_random_benchmark.jl"))
+        @everywhere include(joinpath(@__DIR__, "common.jl"))
+    end
+    wp = default_worker_pool()
+    (pair, state) = iterate(probs)
+    while true
+        if !isready(wp)
+            sleep(0.1)
+            continue
+        end
+        (name, prob) = pair
+        f = Future(1)
+        errormonitor(@async put!(f, remotecall_fetch(solfun, wp, prob, opts, solargs...)))
+        push!(futures, f)
+        push!(names, name)
+        println(name)
+        next = iterate(probs, state)
+        if isnothing(next)
+            break
+        end
+        (pair, state) = next
+    end
+
+    for ii in 1:length(futures)
+        if !isassigned(stats_vec, ii)
+            while !isready(futures[ii])
+                sleep(0.1)
+            end
+            stats_vec[ii] = fetch(futures[ii])
+        end
+    end
+
+    return names, stats_vec
+end
+
+function run_benchmark_threads(
+    probs,
+    solfun,
+    opts::T,
+    solargs...,
+) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.ExactPenaltyOptions}}
+    nprobs = length(probs)
+    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
+    names = Vector{String}()
+    futures = []
+
+    nw = nworkers()
+
+    if nw != 8
+        rmprocs(workers()...)
+        addprocs(8)
+        @everywhere include(joinpath(@__DIR__, "common.jl"))
     end
     wp = default_worker_pool()
     (pair, state) = iterate(probs)
