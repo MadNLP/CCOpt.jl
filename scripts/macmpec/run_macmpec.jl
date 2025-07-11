@@ -15,13 +15,18 @@ end
 
 function run_macmpec(args...; plot=false, range=:)
     stats = Dict{String, Any}()
-    names, probs = load_ampl_benchmark(joinpath(dirname(@__FILE__), "../data/macMPEC/nls/"))
+    names, probs =
+        load_ampl_benchmark(joinpath(dirname(@__FILE__), "../../data/macMPEC/nls/"))
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
-        stats[solname] =
-            dffun(names[range], stats[solname], probs, replace(solname, " "=>"_")*".csv")
+        stats[solname] = dffun(
+            names[range],
+            stats[solname],
+            probs[range],
+            replace(solname, " "=>"_")*".csv",
+        )
     end
     if plot
         perf_plot("Performance Plot", solnames, stats)
@@ -349,16 +354,34 @@ function test_vs_madnlp_c(; range=:)
         :linear_solver=>Ma27Solver,
     )
 
-    opts_ncl = MadNCL.NCLOptions();
+    opts_ncl = MadNCL.NCLOptions(feas_tol=1e-8) # Match tolerance
     #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
     opts_madnlp_c =
-        solver_options = Dict(
-            :bound_relax_factor=>1e-12,
-            :print_level=>MadNLP.INFO,
-            :max_iter=>3000,
-            :linear_solver=>Ma27Solver,
-        )
+        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        kkt_regularization=:vicente_wright,
+        print_level=MadNLP.ERROR,
+    )
+
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty_dynamic =
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+    exact_penalty_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
     default_ipopt = (
         "ma27 Ipopt",
         solve_benchmark_problem,
@@ -376,16 +399,192 @@ function test_vs_madnlp_c(; range=:)
     default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
     default_madnlp_c = (
         "ma27 madNLP-C",
-        solve_benchmark_problem_madnlp_c,
+        solve_benchmark_problem,
         save_madnlp_c_df,
         opts_madnlp_c,
-        (),
+        ((madnlpc_solver_options...,)),
     )
+    magic_madnlp_c = (
+        "ma27 madNLP-C magic step",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic,
+        ((madnlpc_solver_options...,)),
+    )
+    default_exact_penalty = (
+        "ma27 exact penalty classic",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty,
+        ((exact_penalty_solver_options...,)),
+    )
+    dynamic_exact_penalty = (
+        "ma27 exact penalty dynamic",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_dynamic,
+        ((exact_penalty_solver_options...,)),
+    )
+
+    # solnames, names, stats = run_macmpec(
+    #     default_exact_penalty,
+    #     dynamic_exact_penalty,
+    #     default_madnlp_c,
+    #     default_ipopt,
+    #     default_madnlp,
+    #     range=range,
+    # )
     solnames, names, stats = run_macmpec(
+        default_exact_penalty,
+        #dynamic_exact_penalty,
+        default_madnlp_c,
+        #default_ipopt,
+        #default_madnlp,
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_madnlp_c_opts(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.INFO
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp.print_level = MadNLP.INFO
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c_reg = MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright)
+    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true, magic_step_kappa=0.5)
+    opts_madnlp_c_magic_reg = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        kkt_regularization=:vicente_wright,
+        magic_step_kappa=0.5,
+    )
+
+    default_ipopt = (
+        "ma27 Ipopt",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    default_madnlp_c = (
+        "ma27 madNLP-C default",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c,
+        ((madnlpc_solver_options...,)),
+    )
+    reg_madnlp_c = (
+        "ma27 madNLP-C vw regularization",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_reg,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_madnlp_c = (
+        "ma27 madNLP-C magic step",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_reg_madnlp_c = (
+        "ma27 madNLP-C magic and vw",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_reg,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        reg_madnlp_c,
+        magic_madnlp_c,
+        magic_reg_madnlp_c,
         default_madnlp_c,
         default_ipopt,
-        default_madnlp,
-        default_madncl;
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_magic_opts(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlp_c_magic_all = MadMPEC.MadNLPCOptions(use_magic_step=true)
+    opts_madnlp_c_magic_primal = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        magic_step_duals=false,
+        magic_step_slack=false,
+        magic_step_slack_dual=false,
+    )
+    opts_madnlp_c_magic_primal_dual = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        magic_step_duals=true,
+        magic_step_slack=false,
+        magic_step_slack_dual=false,
+    )
+    opts_madnlp_c_magic_primal_dual_slack = MadMPEC.MadNLPCOptions(
+        use_magic_step=true,
+        magic_step_duals=true,
+        magic_step_slack=true,
+        magic_step_slack_dual=false,
+    )
+
+    magic_madnlp_c = (
+        "ma27 madNLP-C magic all",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_all,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_p_madnlp_c = (
+        "ma27 madNLP-C magic primal",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_primal,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_pd_madnlp_c = (
+        "ma27 madNLP-C magic primal dual",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_primal_dual,
+        ((madnlpc_solver_options...,)),
+    )
+    magic_pds_madnlp_c = (
+        "ma27 madNLP-C magic primal dual slack",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_magic_primal_dual_slack,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        magic_madnlp_c,
+        magic_p_madnlp_c,
+        magic_pd_madnlp_c,
+        magic_pds_madnlp_c;
         range=range,
     )
 

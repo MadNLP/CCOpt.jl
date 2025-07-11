@@ -216,9 +216,10 @@ function run_random_benchmark(
     n_probs=7,
     max_size=300,
     multiproc=false,
+    kwargs...,
 )
     stats = Dict{String, Any}()
-    probs = RandomMPCCBenchmark(n_probs, nl_funs, 3; max_size=max_size)
+    probs = RandomMPCCBenchmark(n_probs, nl_funs, 3; max_size=max_size, kwargs...)
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
         if multiproc
@@ -321,6 +322,206 @@ function test_random_benchmark(; n_probs=7, max_size=300, multiproc=false)
         n_probs=n_probs,
         max_size=max_size,
         multiproc=multiproc,
+    )
+
+    # solnames, names, stats =
+    #     run_random_benchmark(default_madnlp, default_ipopt; n_probs=n_probs)
+
+    return solnames, names, stats
+end
+
+function test_no_degen(; n_probs=7, max_size=100, multiproc=true)
+    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt.print_level = MadNLP.INFO
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp.print_level = MadNLP.INFO
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_ncl = MadNCL.NCLOptions(feas_tol=1e-9);
+
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :mu_init=>10.0,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty_dynamic =
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+    exact_penalty_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    default_madnlp_c = (
+        "random ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c,
+        (madnlpc_solver_options...,),
+    )
+    default_exact_penalty = (
+        "random ma27 exact penalty classic",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty,
+        (exact_penalty_solver_options...,),
+    )
+    default_ipopt = (
+        "random ma27 Ipopt",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    default_madnlp = (
+        "random ma27 madNLP",
+        solve_benchmark_problem,
+        save_madnlp_df,
+        opts_madnlp,
+        (MadNLP.MadNLPSolver,),
+    )
+    default_madncl = (
+        "random ma27 madNCL",
+        solve_benchmark_problem,
+        save_ncl_df,
+        opts_ncl,
+        ((:print_level, MadNLP.ERROR), (:linear_solver, Ma27Solver), (:bound_relax, 1e-8)),
+    )
+
+    # solnames, names, stats = run_random_benchmark(
+    #     default_madnlp_c,
+    #     default_madncl,
+    #     default_madnlp,
+    #     default_ipopt;
+    #     n_probs=n_probs,
+    #     max_size=max_size,
+    #     multiproc=multiproc,
+    # )
+
+    solnames, names, stats = run_random_benchmark(
+        default_madnlp_c,
+        default_exact_penalty,
+        default_ipopt,
+        default_madncl;
+        n_probs=n_probs,
+        max_size=max_size,
+        multiproc=multiproc,
+        s_dupe=0.0,
+        s_cc=0.0,
+        s_ineq=0.0,
+    )
+
+    # solnames, names, stats =
+    #     run_random_benchmark(default_madnlp, default_ipopt; n_probs=n_probs)
+
+    return solnames, names, stats
+end
+
+function test_some_degen(; n_probs=7, max_size=100, multiproc=true, kwargs...)
+    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt.print_level = MadNLP.INFO
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp.print_level = MadNLP.INFO
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_ncl = MadNCL.NCLOptions();
+
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :mu_init=>10.0,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty_dynamic =
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+    exact_penalty_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    default_madnlp_c = (
+        "random ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c,
+        (madnlpc_solver_options...,),
+    )
+    default_exact_penalty = (
+        "random ma27 exact penalty classic",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty,
+        (exact_penalty_solver_options...,),
+    )
+    default_ipopt = (
+        "random ma27 Ipopt",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    default_madnlp = (
+        "random ma27 madNLP",
+        solve_benchmark_problem,
+        save_madnlp_df,
+        opts_madnlp,
+        (MadNLP.MadNLPSolver,),
+    )
+    default_madncl = (
+        "random ma27 madNCL",
+        solve_benchmark_problem,
+        save_ncl_df,
+        opts_ncl,
+        (madnlpc_solver_options...,),
+    )
+
+    # solnames, names, stats = run_random_benchmark(
+    #     default_madnlp_c,
+    #     default_madncl,
+    #     default_madnlp,
+    #     default_ipopt;
+    #     n_probs=n_probs,
+    #     max_size=max_size,
+    #     multiproc=multiproc,
+    # )
+
+    solnames, names, stats = run_random_benchmark(
+        default_madnlp_c,
+        default_exact_penalty,
+        default_ipopt;
+        bench_name="custom random",
+        n_probs=n_probs,
+        max_size=max_size,
+        multiproc=multiproc,
+        kwargs...,
     )
 
     # solnames, names, stats =

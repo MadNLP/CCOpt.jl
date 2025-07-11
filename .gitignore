@@ -47,3 +47,7 @@ data/
 *.csv
 *.jld
 *.jld2
+*.gif
+*.log
+*.png
+*.pdf
