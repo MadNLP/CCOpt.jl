@@ -293,7 +293,15 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             if optimal
                 # check BNLP feasible
                 bnlp = BranchNLP(mpcc, convert(Vector{Bool}, b))
-                bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
+                @views begin
+                    bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
+                    # Correctly set the x0 since `MakeParameter` doesn't?
+                    bnlp.meta.x0[mpcc.meta.ind_cc1[.!b]] .=
+                        mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
+                    bnlp.meta.x0[mpcc.meta.ind_cc2[b]] .=
+                        mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
+                end
+                print(bnlp.meta.x0 .- bnlp.meta.uvar)
 
                 # Solve the BNLP
                 solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
@@ -305,10 +313,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 # HACK ENDS HERE
                 stats = MadNLP.solve!(solver.bnlp_ipm)
 
-                # Check if MPCC succeeded
+                # Check if BNLP succeeded
                 if stats.status ∈
                    [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
                     solver.x .= stats.solution
+                    solver.x[mpcc.meta.ind_cc1[.!b]] .=
+                        mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
+                    solver.x[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
                     solver.b = b
                     println("lpec succeeded")
                     return MadNLP.REGULAR, PHASE_II
@@ -463,13 +474,18 @@ function phaseII!(
         # Solve the corresponding LPCC
         # TODO(@anton) implement trust region loop
         println("tr=$(tr)")
-        optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
+        optimal, d, b, obj =
+            MadMPEC.solve(solver.lpcc; x0=vcat(zeros(mpcc.meta.nvar), solver.b))
         println("norm(d)=$(norm(@view d[1:mpcc.meta.nvar]))")
         if optimal
             if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
                 solver.status = B_STATIONARY
                 return
             elseif abs(obj) <= 1e-7
+                solver.status = B_STATIONARY
+                return
+            elseif (mpcc.meta.minimize && obj > 0) || (!mpcc.meta.minimize && obj < 0)
+                # TODO(@anton) is this reasonable? this technically implies an infeasible point?
                 solver.status = B_STATIONARY
                 return
             elseif all(solver.b .== b) # TODO(@anton) this should maybe also check for "acceptable" tolerance
@@ -493,6 +509,8 @@ function phaseII!(
         # Create BNLP
         bnlp = BranchNLP(mpcc, solver.b)
         bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
+        bnlp.meta.x0[mpcc.meta.ind_cc1[.!b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
+        bnlp.meta.x0[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
 
         # Solve the BNLP
         solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
@@ -531,11 +549,11 @@ function phaseII!(
                 MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
             else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
                 tr = 1e-1*tr # TODO(@anton) Options
-                if tr <= 1e-7
+                if tr <= 1e-8
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
                 end
-                MadMPEC.tr!(solver.lpcc, solver.x, tr)
+                MadMPEC.tr!(solver.lpcc, solver.x, tr, presolve_binaries=true)
             end
         end
     end
