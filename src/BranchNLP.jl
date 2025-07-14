@@ -18,9 +18,9 @@ function BranchNLP(mpcc::AbstractMPCCModel{T, VT}, b::Vector{Bool}) where {T, VT
 
     uvar[mpcc.meta.ind_cc1[.!b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
     uvar[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
-
+    x0=copy(mpcc.meta.x0)
     # Copy x0 so changing BNLP x0 does not change mpcc x0
-    meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, uvar=uvar, x0=copy(mpcc.meta.x0))
+    meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, uvar=uvar, x0=x0)
     return BranchNLP(mpcc, meta, b)
 end
 

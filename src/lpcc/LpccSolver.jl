@@ -237,7 +237,7 @@ function tr!(
     end
 end
 
-function solve(lpcc::LpccMILP{T, VT, MT, ST}) where {T, VT, MT, ST}
+function solve(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
     # TODO(@anton) still inefficient because it builds the problem each time:
     # TODO(@anton) Options???
     model = Model(ST)
@@ -248,6 +248,10 @@ function solve(lpcc::LpccMILP{T, VT, MT, ST}) where {T, VT, MT, ST}
     @constraint(model, lpcc.lba .<= lpcc.A * x .<= lpcc.uba)
     for ii in 1:length(lpcc.integrality)
         lpcc.integrality[ii] == one(Int32) && JuMP.set_integer(x[ii])
+    end
+
+    if !isnothing(x0)
+        MOI.set.(model, MOI.VariablePrimalStart(), x, x0)
     end
     optimize!(model)
 
@@ -262,7 +266,7 @@ function solve(lpcc::LpccMILP{T, VT, MT, ST}) where {T, VT, MT, ST}
         y = BitVector(undef, ncc)
         obj = typemax(T)
     end
-
+    write_to_file(model, "jump.lp")
     return optimal, vals, y, obj
 end
 
