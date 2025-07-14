@@ -73,16 +73,22 @@ end
     magic_step_slack::Bool = true
     magic_step_slack_dual::Bool = true
 
+    # Output options
+    output_file::String = ""
+    print_level::MadNLP.LogLevels = MadNLP.INFO
+    file_print_level::MadNLP.LogLevels = MadNLP.INFO
+
     # mpecopt options
     use_mpecopt::Bool = false
     eps_proj::T = 1e-3
     alpha_eps_proj::T = 1e-1
     M_lpcc::T = 1000.0
-
-    # Output options
-    output_file::String = ""
-    print_level::MadNLP.LogLevels = MadNLP.INFO
-    file_print_level::MadNLP.LogLevels = MadNLP.INFO
+    bnlp_opts::Dict = Dict(
+        :barrier=>MadNLP.MonotoneUpdate(mu_init=1e-6),
+        :bound_push=>1e-9,
+        :bound_fac=>1e-7,
+        :print_level=>print_level,
+    )
 
     # Store Iterations
     iterates_fname::String = ""

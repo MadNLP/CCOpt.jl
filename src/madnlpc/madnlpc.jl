@@ -153,11 +153,12 @@ function solve_homotopy!(
                     irregular_to_mpcc_status(MadNLP.robust!(ipm))
             )
         end
-        # Copy the primal solution from Phase I
-        solver.x .= MadNLP.variable(ipm.x)
         # Now we are either in NLP stationarity, failed, or proceeding to Phase II.
         if solver.status == PHASE_II
             phaseII!(solver, stats)
+        else
+            # Copy the primal solution from Phase I
+            solver.x .= MadNLP.variable(ipm.x)
         end
     catch e
         if e isa MadNLP.InvalidNumberException
@@ -290,21 +291,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             # TOOD(@anton) don't allocate here?
             optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
             if optimal
-                # Projection was a success so we can go to solving the branch nlp
-                println("lpec succeeded")
-
                 # check BNLP feasible
                 bnlp = BranchNLP(mpcc, convert(Vector{Bool}, b))
                 bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
 
                 # Solve the BNLP
-                solver.bnlp_ipm = MadNLP.MadNLPSolver(
-                    bnlp;
-                    barrier=MadNLP.MonotoneUpdate(mu_init=1e-6),
-                    bound_push=1e-9,
-                    bound_fac=1e-7,
-                    print_level=solver.ipm.opt.print_level,
-                ) # TODO(@anton) again options for BNLP should live somewhere
+                solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
                 #### WARNING: THIS IS A HACK
                 # Because there is no way to pass a counters object we have to make sure
                 # that all the pointers get updated
@@ -318,6 +310,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                    [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
                     solver.x .= stats.solution
                     solver.b = b
+                    println("lpec succeeded")
                     return MadNLP.REGULAR, PHASE_II
                 else
                     # projection failed
@@ -447,10 +440,10 @@ function phaseII!(
     stats::MadNLP.MadNLPExecutionStats,
 ) where {T, VT}
     # TODO(@anton) this is unoptimized for now as we generate a new solver at each iteration :)
-    tr = 1e-4
-    prev_obj = typemax(T)
+    tr = 1e-3
+    prev_obj = solver.bnlp_ipm.obj_val / solver.bnlp_ipm.cb.obj_scale[]
     mpcc = solver.mpcc
-    MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr)
+    MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
 
     # Check for S-stationarity
     @views begin # TODO(@anton) add tolerance as option or maybe use tr?
@@ -471,7 +464,7 @@ function phaseII!(
         # TODO(@anton) implement trust region loop
         println("tr=$(tr)")
         optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
-        println("norm(d)$(norm(@view d[1:mpcc.meta.nvar]))")
+        println("norm(d)=$(norm(@view d[1:mpcc.meta.nvar]))")
         if optimal
             if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
                 solver.status = B_STATIONARY
@@ -481,26 +474,28 @@ function phaseII!(
                 return
             elseif all(solver.b .== b) # TODO(@anton) this should maybe also check for "acceptable" tolerance
                 println("HMMMM this is strange")
-                solver.status = B_STATIONARY
-                return
+                #solver.status = B_STATIONARY
+                #return
+                tr = 1e-1*tr # TODO(@anton) Options
+                if tr <= 1e-6
+                    # Search direction too small
+                    solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
+                end
+                MadMPEC.tr!(solver.lpcc, solver.x, tr; presolve_binaries=true)
+                continue
             else
                 solver.b .= b
             end
         else
             solver.status = LPCC_ERROR
+            return
         end
         # Create BNLP
         bnlp = BranchNLP(mpcc, solver.b)
         bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
 
         # Solve the BNLP
-        solver.bnlp_ipm = MadNLP.MadNLPSolver(
-            bnlp;
-            barrier=MadNLP.MonotoneUpdate(mu_init=1e-6),
-            bound_push=1e-9,
-            bound_fac=1e-7,
-            print_level=solver.ipm.opt.print_level,
-        ) # TODO(@anton) again options for BNLP should live somewhere
+        solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
         #### WARNING: THIS IS A HACK
         # Because there is no way to pass a counters object we have to make sure
         # that all the pointers get updated
@@ -531,9 +526,9 @@ function phaseII!(
                     end
                 end
                 # Reset the trust region TODO(@anton) options
-                tr = 1e-4
+                tr = 1e-3
                 # Linearize at the current point
-                MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr)
+                MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
             else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
                 tr = 1e-1*tr # TODO(@anton) Options
                 if tr <= 1e-7
