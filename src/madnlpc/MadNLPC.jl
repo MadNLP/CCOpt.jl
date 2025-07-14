@@ -75,7 +75,7 @@ end
 
     # mpecopt options
     use_mpecopt::Bool = false
-    eps_proj::T = 1e-1
+    eps_proj::T = 1e-3
     alpha_eps_proj::T = 1e-1
     M_lpcc::T = 1000.0
 

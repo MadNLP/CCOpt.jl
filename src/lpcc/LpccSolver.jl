@@ -158,6 +158,7 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
     end
     # Preprocess the binaries based on the trust region
     if presolve_binaries
+        a = 0
         for ii in 1:ncc
             if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
                 lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
@@ -168,8 +169,10 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
             else
                 lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
                 lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+                a += 1
             end
         end
+        println("Free binaries: $(a)")
     else
         lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
         lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
@@ -237,11 +240,10 @@ function solve(lpcc::LpccMILP)
 
     highs = Highs_create()
     # Set options
-    Highs_setBoolOptionValue(highs, "log_to_console", false)
+    Highs_setBoolOptionValue(highs, "log_to_console", true)
     Highs_setDoubleOptionValue(highs, "kkt_tolerance", 1e-7)
     Highs_setDoubleOptionValue(highs, "mip_feasibility_tolerance", 1e-7)
     Highs_setDoubleOptionValue(highs, "mip_rel_gap", 1e-6)
-    Highs_setDoubleOptionValue(highs, "time_limit", 5.0)
     # Add variables
     Highs_addVars(highs, length(lpcc.lbx), lpcc.lbx, lpcc.ubx)
     # TODO(@anton) no need for comprehensions here, (or actually storing A.

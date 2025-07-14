@@ -144,8 +144,14 @@ function solve_homotopy!(
         while ipm.status >= MadNLP.REGULAR && solver.status ∉ [PHASE_II, NLP_STATIONARY]
             ipm.status == MadNLP.REGULAR &&
                 ((ipm.status, solver.status) = MadMPEC.homotopy!(solver))
-            ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
-            ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
+            ipm.status == MadNLP.RESTORE && (
+                (ipm.status, solver.status) =
+                    irregular_to_mpcc_status(MadNLP.restore!(ipm))
+            )
+            ipm.status == MadNLP.ROBUST && (
+                (ipm.status, solver.status) =
+                    irregular_to_mpcc_status(MadNLP.robust!(ipm))
+            )
         end
         # Copy the primal solution from Phase I
         solver.x .= MadNLP.variable(ipm.x)
@@ -194,6 +200,8 @@ function solve_homotopy!(
         ipm.cnt.total_time = time() - ipm.cnt.start_time
         if !(ipm.status < MadNLP.SOLVE_SUCCEEDED)
             MadNLP.print_summary(ipm)
+        else
+            solver.status = IPM_ERROR
         end
 
         MadNLP.@notice(
@@ -271,15 +279,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             return MadNLP.MAXIMUM_WALLTIME_EXCEEDED, MAXIMUM_WALL_TIME_EXCEEDED
 
         # If using macmpec and we are feasible enough to try projection
-        if opts.use_mpecopt &&
-           ipm.inf_pr <= solver.eps_proj &&
-           solver.scholtes.𝜎[] <= 0.99*solver.eps_proj
+        if opts.use_mpecopt && ipm.inf_pr <= solver.eps_proj
             MadNLP.@trace(ipm.logger, "Linearizing for LPCC based projection.")
             # Linearize (function + grad evaluations)
             MadMPEC.linearize!(
                 solver.lpcc,
                 MadNLP.variable(ipm.x);
-                tr=1.1*solver.opts.eps_proj,
+                tr=max(2.0*ipm.inf_pr, 1e-5),
             )
             # TOOD(@anton) don't allocate here?
             optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
@@ -441,13 +447,17 @@ function phaseII!(
     stats::MadNLP.MadNLPExecutionStats,
 ) where {T, VT}
     # TODO(@anton) this is unoptimized for now as we generate a new solver at each iteration :)
-    tr = 1e-3
-    prev_obj = floatmax(T)
+    tr = 1e-4
+    prev_obj = typemax(T)
     mpcc = solver.mpcc
     MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr)
 
     # Check for S-stationarity
     @views begin # TODO(@anton) add tolerance as option or maybe use tr?
+        println(
+            "n_biactive $(sum(((solver.x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[mpcc.meta.ind_cc1] .< 1e-8) .&
+        (solver.x[mpcc.meta.ind_cc2] .- mpcc.meta.lvar[mpcc.meta.ind_cc2] .< 1e-8))))",
+        )
         if ~any(
             (solver.x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[mpcc.meta.ind_cc1] .< 1e-8) .&
             (solver.x[mpcc.meta.ind_cc2] .- mpcc.meta.lvar[mpcc.meta.ind_cc2] .< 1e-8),
@@ -459,7 +469,9 @@ function phaseII!(
     while solver.status >= PHASE_II
         # Solve the corresponding LPCC
         # TODO(@anton) implement trust region loop
+        println("tr=$(tr)")
         optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
+        println("norm(d)$(norm(@view d[1:mpcc.meta.nvar]))")
         if optimal
             if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
                 solver.status = B_STATIONARY
@@ -468,6 +480,7 @@ function phaseII!(
                 solver.status = B_STATIONARY
                 return
             elseif all(solver.b .== b) # TODO(@anton) this should maybe also check for "acceptable" tolerance
+                println("HMMMM this is strange")
                 solver.status = B_STATIONARY
                 return
             else
@@ -502,6 +515,7 @@ function phaseII!(
             MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
             MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
         ]
+            println("$(stats.objective) < $(prev_obj)")
             if stats.objective < prev_obj # Accept step
                 # update current values
                 prev_obj = stats.objective
@@ -517,12 +531,12 @@ function phaseII!(
                     end
                 end
                 # Reset the trust region TODO(@anton) options
-                tr = 1e-3
+                tr = 1e-4
                 # Linearize at the current point
                 MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr)
             else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
                 tr = 1e-1*tr # TODO(@anton) Options
-                if tr <= 1e-6
+                if tr <= 1e-7
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
                 end
@@ -559,4 +573,20 @@ function update!(
         MadNLP.update!(stats, solver.bnlp_ipm)
     end
     return stats
+end
+
+function robust_to_mpcc_status(status::MadNLP.Status)
+    if status > MadNLP.INITIAL
+        return status, PHASE_I
+    else
+        return status, IPM_ERROR
+    end
+end
+
+function irregular_to_mpcc_status(status::MadNLP.Status)
+    if status > MadNLP.INITIAL
+        return status, PHASE_I
+    else
+        return status, IPM_ERROR
+    end
 end
