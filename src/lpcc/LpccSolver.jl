@@ -15,7 +15,7 @@ struct SparseLpcc{T, VT}
     ind_cc2::Vector{Int32}
 end
 
-struct LpccMILP{T, VT, MT}
+struct LpccMILP{T, VT, MT, ST}
     mpcc::AbstractMPCCModel{T, VT}
 
     # Buffers for COO representation
@@ -40,7 +40,11 @@ struct LpccMILP{T, VT, MT}
 
     M::T
 
-    function LpccMILP(mpcc::AbstractMPCCModel{T, VT}; M=100.0) where {T, VT}
+    function LpccMILP(
+        mpcc::AbstractMPCCModel{T, VT};
+        M=100.0,
+        solver=HiGHS.Optimizer,
+    ) where {T, VT}
         # TODO(@anton) we assume vertical form
         if !is_vertical(mpcc)
             error("Linearization to LpccMILP currently expects a vertical form MPCC")
@@ -89,7 +93,7 @@ struct LpccMILP{T, VT, MT}
         integrality[1:nvar] .= 0
         integrality[(nvar+1):(nvar+ncc)] .= 1
 
-        return new{T, VT, typeof(A)}(
+        return new{T, VT, typeof(A), solver}(
             mpcc,
             arows,
             acols,
@@ -233,7 +237,36 @@ function tr!(
     end
 end
 
-function solve(lpcc::LpccMILP)
+function solve(lpcc::LpccMILP{T, VT, MT, ST}) where {T, VT, MT, ST}
+    # TODO(@anton) still inefficient because it builds the problem each time:
+    # TODO(@anton) Options???
+    model = Model(ST)
+    MOI.set(model, MOI.Silent(), false)
+
+    @variable(model, lpcc.lbx[i] <= x[i=1:length(lpcc.lbx)] <= lpcc.ubx[i])
+    @objective(model, lpcc.mpcc.meta.minimize ? MIN_SENSE : MAX_SENSE, sum(lpcc.c .* x))
+    @constraint(model, lpcc.lba .<= lpcc.A * x .<= lpcc.uba)
+    for ii in 1:length(lpcc.integrality)
+        lpcc.integrality[ii] == one(Int32) && JuMP.set_integer(x[ii])
+    end
+    optimize!(model)
+
+    optimal = is_solved_and_feasible(model)
+    if optimal
+        vals = value.(x)
+        y = vals[lpcc.integrality .== one(Int32)] .> 0.5
+        obj = objective_value(model)
+    else
+        ncc = lpcc.mpcc.meta.ncc
+        vals = VT(undef, length(x))
+        y = BitVector(undef, ncc)
+        obj = typemax(T)
+    end
+
+    return optimal, vals, y, obj
+end
+
+function solve_highs(lpcc::LpccMILP)
     # TODO(@anton) this is inefficient as we build the HiGHS solver each time,
     # However, the HiGHs interface doesn't allow for efficiently updating the A matrix
     # via just passing e.g. a new values array.
