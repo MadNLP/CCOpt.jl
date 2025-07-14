@@ -176,7 +176,6 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
                 a += 1
             end
         end
-        println("Free binaries: $(a)")
     else
         lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
         lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
@@ -241,7 +240,7 @@ function solve(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
     # TODO(@anton) still inefficient because it builds the problem each time:
     # TODO(@anton) Options???
     model = Model(ST)
-    MOI.set(model, MOI.Silent(), false)
+    MOI.set(model, MOI.Silent(), true)
 
     @variable(model, lpcc.lbx[i] <= x[i=1:length(lpcc.lbx)] <= lpcc.ubx[i])
     @objective(model, lpcc.mpcc.meta.minimize ? MIN_SENSE : MAX_SENSE, sum(lpcc.c .* x))
@@ -266,7 +265,6 @@ function solve(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
         y = BitVector(undef, ncc)
         obj = typemax(T)
     end
-    write_to_file(model, "jump.lp")
     return optimal, vals, y, obj
 end
 

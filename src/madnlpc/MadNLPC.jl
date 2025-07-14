@@ -81,7 +81,7 @@ end
     # mpecopt options
     use_mpecopt::Bool = false
     eps_proj::T = 1e-3
-    alpha_eps_proj::T = 1e-1
+    alpha_eps_proj::T = 1e-2
     M_lpcc::T = 1000.0
     bnlp_opts::Dict = Dict(
         :barrier=>MadNLP.MonotoneUpdate(mu_init=1e-6),

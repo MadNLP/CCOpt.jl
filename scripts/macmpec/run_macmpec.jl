@@ -820,7 +820,7 @@ function test_mpecopt(; range=:)
         kkt_regularization=:vicente_wright,
         print_level=MadNLP.ERROR,
         use_mpecopt=true,
-        eps_proj=1e-1,
+        eps_proj=1e-3,
     )
 
     default_ipopt = (
