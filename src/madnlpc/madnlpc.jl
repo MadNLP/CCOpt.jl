@@ -286,7 +286,8 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             MadMPEC.linearize!(
                 solver.lpcc,
                 MadNLP.variable(ipm.x);
-                tr=max(2.0*ipm.inf_pr, 1e-5),
+                tr=sqrt(1.1*ipm.inf_pr),
+                presolve_binaries=true,
             )
             # TOOD(@anton) don't allocate here?
             optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
@@ -301,7 +302,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     bnlp.meta.x0[mpcc.meta.ind_cc2[b]] .=
                         mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
                 end
-                print(bnlp.meta.x0 .- bnlp.meta.uvar)
 
                 # Solve the BNLP
                 solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
@@ -327,9 +327,8 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     # projection failed
                 end
             else
-                println("lpec failed")
-                solver.eps_proj =
-                    max(1e-8, min(solver.eps_proj*opts.alpha_eps_proj, solver.scholtes.𝜎[]))
+                println("lpec failed at eps=$(solver.eps_proj)")
+                solver.eps_proj = min(solver.eps_proj*opts.alpha_eps_proj)
                 println("trying again at eps=$(solver.eps_proj)")
             end
         end
@@ -458,10 +457,6 @@ function phaseII!(
 
     # Check for S-stationarity
     @views begin # TODO(@anton) add tolerance as option or maybe use tr?
-        println(
-            "n_biactive $(sum(((solver.x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[mpcc.meta.ind_cc1] .< 1e-8) .&
-        (solver.x[mpcc.meta.ind_cc2] .- mpcc.meta.lvar[mpcc.meta.ind_cc2] .< 1e-8))))",
-        )
         if ~any(
             (solver.x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[mpcc.meta.ind_cc1] .< 1e-8) .&
             (solver.x[mpcc.meta.ind_cc2] .- mpcc.meta.lvar[mpcc.meta.ind_cc2] .< 1e-8),
@@ -473,10 +468,8 @@ function phaseII!(
     while solver.status >= PHASE_II
         # Solve the corresponding LPCC
         # TODO(@anton) implement trust region loop
-        println("tr=$(tr)")
         optimal, d, b, obj =
             MadMPEC.solve(solver.lpcc; x0=vcat(zeros(mpcc.meta.nvar), solver.b))
-        println("norm(d)=$(norm(@view d[1:mpcc.meta.nvar]))")
         if optimal
             if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
                 solver.status = B_STATIONARY
@@ -489,7 +482,6 @@ function phaseII!(
                 solver.status = B_STATIONARY
                 return
             elseif all(solver.b .== b) # TODO(@anton) this should maybe also check for "acceptable" tolerance
-                println("HMMMM this is strange")
                 #solver.status = B_STATIONARY
                 #return
                 tr = 1e-1*tr # TODO(@anton) Options
@@ -528,7 +520,6 @@ function phaseII!(
             MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
             MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
         ]
-            println("$(stats.objective) < $(prev_obj)")
             if stats.objective < prev_obj # Accept step
                 # update current values
                 prev_obj = stats.objective
