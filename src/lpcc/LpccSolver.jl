@@ -43,7 +43,7 @@ struct LpccMILP{T, VT, MT, ST}
     function LpccMILP(
         mpcc::AbstractMPCCModel{T, VT};
         M=100.0,
-        solver=HiGHS.Optimizer,
+        solver=Gurobi.Optimizer,
     ) where {T, VT}
         # TODO(@anton) we assume vertical form
         if !is_vertical(mpcc)
@@ -236,9 +236,7 @@ function tr!(
     end
 end
 
-function solve(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
-    # TODO(@anton) still inefficient because it builds the problem each time:
-    # TODO(@anton) Options???
+function build(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
     model = Model(ST)
     MOI.set(model, MOI.Silent(), true)
 
@@ -252,20 +250,7 @@ function solve(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
     if !isnothing(x0)
         MOI.set.(model, MOI.VariablePrimalStart(), x, x0)
     end
-    optimize!(model)
-
-    optimal = is_solved_and_feasible(model)
-    if optimal
-        vals = value.(x)
-        y = vals[lpcc.integrality .== one(Int32)] .> 0.5
-        obj = objective_value(model)
-    else
-        ncc = lpcc.mpcc.meta.ncc
-        vals = VT(undef, length(x))
-        y = BitVector(undef, ncc)
-        obj = typemax(T)
-    end
-    return optimal, vals, y, obj
+    return model
 end
 
 function solve_highs(lpcc::LpccMILP)

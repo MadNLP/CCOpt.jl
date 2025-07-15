@@ -11,7 +11,7 @@ abstract type AbstractRelaxationUpdate{T} end
 end
 
 @kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
-    gamma::T = 0.1 # scale factor
+    gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
     mu_factor::T = 1e-3 # smallest factor of reduction allowed
     r::T = 0.95 # Steplength param
@@ -49,7 +49,7 @@ struct MadNLPCIterate{T, VT}
 end
 
 # Options struct
-@kwdef struct MadNLPCOptions{T}
+@kwdef struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
     # adaptive mu update parameters
     use_specialized_barrier_update::Bool = true
 
@@ -94,6 +94,18 @@ end
     iterates_fname::String = ""
 end
 
+@kwdef mutable struct MadNLPCCounters
+    counters::MadNLP.MadNLPCounters
+
+    lpcc_solves::Int = 0
+    bnlp_solves::Int = 0
+
+    lpcc_init_time::Float64 = 0
+    lpcc_solve_time::Float64 = 0
+    bnlp_init_time::Float64 = 0
+    bnlp_solve_time::Float64 = 0
+end
+
 # MadNLP-C algorithm
 mutable struct MadNLPCSolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
@@ -102,6 +114,7 @@ mutable struct MadNLPCSolver{T, VT}
     logger::MadNLP.MadNLPLogger
     iterate_logger::IterateLogger
     opts::MadNLPCOptions{T}
+    cnt::MadNLPCCounters
 
     status::Status
 
@@ -138,7 +151,9 @@ function MadNLPCSolver(
     b = Vector{Bool}(undef, mpcc.meta.ncc)
     bnlp = BranchNLP(mpcc, b)
     bnlp_ipm = MadNLP.MadNLPSolver(bnlp) # TODO(@anton) also pass the bnlp options somehow
+    ipm.cnt.init_time += bnlp_ipm.cnt.init_time
     bnlp_ipm.cnt = ipm.cnt # WARNING: A HACK TO KEEP TIMING/ITERS CONSISTENT
+    cnt = MadNLPCCounters(counters=ipm.cnt)
     return MadNLPCSolver(
         mpcc,
         scholtes,
@@ -146,6 +161,7 @@ function MadNLPCSolver(
         logger,
         iterates_logger,
         solver_opts,
+        cnt,
         INITIAL,
         lpcc,
         bnlp_ipm,
