@@ -538,6 +538,10 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     end
     stats.status = solver.status
     stats.solution = solver.x
+    stats.counters.solver_time =
+        stats.counters.counters.total_time - stats.counters.counters.linear_solver_time -
+        stats.counters.counters.eval_function_time - stats.counters.lpcc_init_time -
+        stats.counters.lpcc_solve_time - stats.counters.bnlp_init_time
     return stats
 end
 
