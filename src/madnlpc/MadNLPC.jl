@@ -104,6 +104,8 @@ end
     lpcc_solve_time::Float64 = 0
     bnlp_init_time::Float64 = 0
     bnlp_solve_time::Float64 = 0
+
+    solver_time::Float64 = 0
 end
 
 # MadNLP-C algorithm
