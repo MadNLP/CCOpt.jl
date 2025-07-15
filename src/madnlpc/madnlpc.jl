@@ -73,23 +73,17 @@ function MadNLP.set_aug_diagonal!(
 end
 
 function solve_homotopy!(nlp::MadMPEC.ScholtesRelaxation, solver::MadNLPCSolver; kwargs...)
-    return solve_homotopy!(
-        nlp,
-        solver,
-        MadNLP.MadNLPExecutionStats(solver.bnlp_ipm);
-        kwargs...,
-    )
+    return solve_homotopy!(nlp, solver, MadNLPCExecutionStats(solver); kwargs...)
 end
 
 function solve_homotopy!(solver::MadNLPCSolver; kwargs...)
     return solve_homotopy!(solver.scholtes, solver; kwargs...)
 end
 
-# TODO(@anton) Why do we pass things this way???
 function solve_homotopy!(
     nlp::MadMPEC.ScholtesRelaxation,
     solver::MadMPEC.MadNLPCSolver,
-    stats::MadNLP.MadNLPExecutionStats;
+    stats::MadNLPCExecutionStats;
     x=nothing,
     y=nothing,
     zl=nothing,
@@ -282,41 +276,20 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         # If using macmpec and we are feasible enough to try projection
         if opts.use_mpecopt && ipm.inf_pr <= solver.eps_proj
             MadNLP.@trace(ipm.logger, "Linearizing for LPCC based projection.")
+            solver.x .= MadNLP.variable(ipm.x)
             # Linearize (function + grad evaluations)
-            MadMPEC.linearize!(
-                solver.lpcc,
-                MadNLP.variable(ipm.x);
-                tr=sqrt(1.1*ipm.inf_pr),
-                presolve_binaries=true,
-            )
+            MadMPEC.linearize_lpec!(solver, sqrt(1.1*ipm.inf_pr))
             # TOOD(@anton) don't allocate here?
-            optimal, d, b, obj = MadMPEC.solve(solver.lpcc)
+            optimal, d, b, obj = MadMPEC.solve_lpec!(solver)
             if optimal
-                # check BNLP feasible
-                bnlp = BranchNLP(mpcc, convert(Vector{Bool}, b))
-                @views begin
-                    bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
-                    # Correctly set the x0 since `MakeParameter` doesn't?
-                    bnlp.meta.x0[mpcc.meta.ind_cc1[.!b]] .=
-                        mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
-                    bnlp.meta.x0[mpcc.meta.ind_cc2[b]] .=
-                        mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
-                end
-
-                # Solve the BNLP
-                solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
-                #### WARNING: THIS IS A HACK
-                # Because there is no way to pass a counters object we have to make sure
-                # that all the pointers get updated
-                # TODO(@anton) this needs to be done in a smarter way
-                solver.bnlp_ipm.cnt = solver.ipm.cnt
-                # HACK ENDS HERE
-                stats = MadNLP.solve!(solver.bnlp_ipm)
+                # Check if bnlp is feasilbe
+                MadMPEC.build_bnlp_solver!(solver, b)
+                ipm_stats = MadMPEC.solve_bnlp!(solver)
 
                 # Check if BNLP succeeded
-                if stats.status ∈
+                if ipm_stats.status ∈
                    [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
-                    solver.x .= stats.solution
+                    solver.x .= ipm_stats.solution
                     solver.x[mpcc.meta.ind_cc1[.!b]] .=
                         mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
                     solver.x[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
@@ -445,15 +418,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     end
 end
 
-function phaseII!(
-    solver::MadNLPCSolver{T, VT},
-    stats::MadNLP.MadNLPExecutionStats,
-) where {T, VT}
+function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) where {T, VT}
     # TODO(@anton) this is unoptimized for now as we generate a new solver at each iteration :)
     tr = 1e-3
     prev_obj = solver.bnlp_ipm.obj_val / solver.bnlp_ipm.cb.obj_scale[]
     mpcc = solver.mpcc
-    MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
+    MadMPEC.linearize_lpec!(solver, tr)
 
     # Check for S-stationarity
     @views begin # TODO(@anton) add tolerance as option or maybe use tr?
@@ -469,7 +439,7 @@ function phaseII!(
         # Solve the corresponding LPCC
         # TODO(@anton) implement trust region loop
         optimal, d, b, obj =
-            MadMPEC.solve(solver.lpcc; x0=vcat(zeros(mpcc.meta.nvar), solver.b))
+            MadMPEC.solve_lpec!(solver; x0=vcat(zeros(mpcc.meta.nvar), solver.b))
         if optimal
             if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
                 solver.status = B_STATIONARY
@@ -489,7 +459,7 @@ function phaseII!(
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
                 end
-                MadMPEC.tr!(solver.lpcc, solver.x, tr; presolve_binaries=true)
+                MadMPEC.update_lpec_tr!(solver, tr)
                 continue
             else
                 solver.b .= b
@@ -498,32 +468,22 @@ function phaseII!(
             solver.status = LPCC_ERROR
             return
         end
-        # Create BNLP
-        bnlp = BranchNLP(mpcc, solver.b)
-        bnlp.meta.x0 .= MadNLP.variable(solver.ipm.x) # Warmstart the BranchNLP
-        bnlp.meta.x0[mpcc.meta.ind_cc1[.!b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
-        bnlp.meta.x0[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
+        # Build bnlp
+        MadMPEC.build_bnlp_solver!(solver, b)
 
-        # Solve the BNLP
-        solver.bnlp_ipm = MadNLP.MadNLPSolver(bnlp; solver.opts.bnlp_opts...) # TODO(@anton) again options for BNLP should live somewhere
-        #### WARNING: THIS IS A HACK
-        # Because there is no way to pass a counters object we have to make sure
-        # that all the pointers get updated
-        # TODO(@anton) this needs to be done in a smarter way
-        solver.bnlp_ipm.cnt = solver.ipm.cnt
-        # HACK ENDS HERE
-        stats = MadNLP.solve!(bnlp, solver.bnlp_ipm, stats)
+        # Solve bnlp
+        ipm_stats = MadMPEC.solve_bnlp!(solver, stats.stats)
 
         # Check if BNLP succeeded
-        if stats.status ∈ [
+        if ipm_stats.status ∈ [
             MadNLP.SOLVE_SUCCEEDED,
             MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
             MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
         ]
-            if stats.objective < prev_obj # Accept step
+            if ipm_stats.objective < prev_obj # Accept step
                 # update current values
-                prev_obj = stats.objective
-                solver.x .= stats.solution
+                prev_obj = ipm_stats.objective
+                solver.x .= ipm_stats.solution
                 # Check if we even need to solve an LPCC by checking for biactives:
                 @views begin # TODO(@anton) add tolerance as option or maybe use tr?
                     if ~any(
@@ -537,45 +497,47 @@ function phaseII!(
                 # Reset the trust region TODO(@anton) options
                 tr = 1e-3
                 # Linearize at the current point
-                MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
+                MadMPEC.linearize_lpec!(solver, tr)
             else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
                 tr = 1e-1*tr # TODO(@anton) Options
                 if tr <= 1e-8
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
+                    continue
                 end
-                MadMPEC.tr!(solver.lpcc, solver.x, tr, presolve_binaries=true)
+                MadMPEC.update_lpec_tr!(solver, tr)
             end
         end
     end
 end
 
-function update!(
-    stats::MadNLP.MadNLPExecutionStats,
-    solver::MadNLPCSolver{T, VT},
-) where {T, VT}
+function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) where {T, VT}
     # TODO(@anton) we probably want to return a custom stats object which returns the correct statuses etc.
     ipm = solver.ipm
     bnlp_ipm = solver.bnlp_ipm
-    if solver.ipm.status < MadNLP.REGULAR # We didn't stop the IPM early
-        stats.status = ipm.status
-        stats.solution .= @view(MadNLP.primal(ipm.x)[1:get_nvar(ipm.nlp)])
-        stats.multipliers .= ipm.y[1:solver.mpcc.meta.ncon]
-        stats.multipliers_L .= @view(MadNLP.primal(ipm.zl)[1:get_nvar(ipm.nlp)])
-        stats.multipliers_U .= @view(MadNLP.primal(ipm.zu)[1:get_nvar(ipm.nlp)])
-        stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
-        stats.constraints .=
+    ipm_stats = stats.stats
+    if solver.ipm.status < MadNLP.REGULAR # We didn't stop the IPM early TODO(@anton) A cleaner way here would be good
+        ipm_stats.status = ipm.status
+        ipm_stats.solution .= @view(MadNLP.primal(ipm.x)[1:get_nvar(ipm.nlp)])
+        ipm_stats.multipliers .= ipm.y[1:solver.mpcc.meta.ncon]
+        ipm_stats.multipliers_L .= @view(MadNLP.primal(ipm.zl)[1:get_nvar(ipm.nlp)])
+        ipm_stats.multipliers_U .= @view(MadNLP.primal(ipm.zu)[1:get_nvar(ipm.nlp)])
+        ipm_stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
+        ipm_stats.constraints .=
             ipm.c[1:solver.mpcc.meta.ncon] ./ ipm.cb.con_scale[1:solver.mpcc.meta.ncon] .+
             ipm.rhs[1:solver.mpcc.meta.ncon]
         ind_ind_ineq = ipm.ind_ineq .∈ [1:solver.mpcc.meta.ncon]
-        stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+= MadNLP.slack(ipm.x)[ind_ind_ineq]
-        stats.dual_feas = ipm.inf_du
-        stats.primal_feas = ipm.inf_pr
-        MadNLP.update_z!(ipm.cb, stats.multipliers_L, stats.multipliers_U, ipm.jacl)
-        stats.iter = ipm.cnt.k
+        ipm_stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+=
+            MadNLP.slack(ipm.x)[ind_ind_ineq]
+        ipm_stats.dual_feas = ipm.inf_du
+        ipm_stats.primal_feas = ipm.inf_pr
+        MadNLP.update_z!(ipm.cb, ipm_stats.multipliers_L, ipm_stats.multipliers_U, ipm.jacl)
+        ipm_stats.iter = ipm.cnt.k
     else # We stopped the IPM early and have solved BNLPs
-        MadNLP.update!(stats, solver.bnlp_ipm)
+        MadNLP.update!(ipm_stats, solver.bnlp_ipm)
     end
+    stats.status = solver.status
+    stats.solution = solver.x
     return stats
 end
 
