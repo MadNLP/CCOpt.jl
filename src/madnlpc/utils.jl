@@ -155,7 +155,7 @@ end
 function solve_bnlp!(solver::MadNLPCSolver, stats)
     solver.cnt.bnlp_solves += 1
     solver.cnt.bnlp_solve_time += @elapsed begin
-        stats = MadNLP.solve!(bnlp, solver.bnlp_ipm, stats)
+        stats = MadNLP.solve!(solver.bnlp_ipm.nlp, solver.bnlp_ipm, stats)
     end
     return stats
 end
