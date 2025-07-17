@@ -290,10 +290,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 if ipm_stats.status ∈
                    [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
                     solver.x .= ipm_stats.solution
-                    solver.x[mpcc.meta.ind_cc1[.!b]] .=
-                        mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
-                    solver.x[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
-                    solver.b = b
+                    @views begin
+                        solver.x[mpcc.meta.ind_cc1[.!b]] .=
+                            mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
+                        solver.x[mpcc.meta.ind_cc2[b]] .=
+                            mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
+                        solver.b = b
+                    end
                     println("lpec succeeded")
                     return MadNLP.REGULAR, PHASE_II
                 else
