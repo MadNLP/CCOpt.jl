@@ -103,7 +103,7 @@ end
 
 function update_lpec_tr!(solver::MadNLPCSolver, tr::Float64)
     return solver.cnt.lpcc_init_time +=
-        @elapsed MadMPEC.tr!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
+        @elapsed MadMPEC.tr!(solver.lpcc, solver.x, tr, presolve_binaries=true)
 end
 
 function solve_lpec!(solver::MadNLPCSolver{T, VT}; x0=nothing) where {T, VT}
@@ -166,4 +166,26 @@ function solve_bnlp!(solver::MadNLPCSolver)
         stats = MadNLP.solve!(solver.bnlp_ipm)
     end
     return stats
+end
+
+function phase_I_b_oracle(solver::MadNLPCSolver)
+    ipm = solver.ipm
+    if solver.opts.phase_I_oracle == :lpcc
+        MadMPEC.linearize_lpec!(solver, sqrt(1.1*ipm.inf_pr))
+        # TOOD(@anton) don't allocate here?
+        optimal, d, b, obj = MadMPEC.solve_lpec!(solver)
+        if optimal
+            return true, b
+        else
+            return false, b
+        end
+    elseif solver.opts.phase_I_oracle == :naive
+        ind_cc1 = solver.mpcc.meta.ind_cc1
+        ind_cc2 = solver.mpcc.meta.ind_cc2
+        b = @views(
+            MadNLP.variable(ipm.x)[ind_cc1] .- MadNLP.variable(ipm.xl)[ind_cc1] .>
+            MadNLP.variable(ipm.x)[ind_cc2] .- MadNLP.variable(ipm.xl)[ind_cc2],
+        )
+        return true, b
+    end
 end

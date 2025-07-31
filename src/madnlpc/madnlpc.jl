@@ -275,13 +275,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
 
         # If using macmpec and we are feasible enough to try projection
         if opts.use_mpecopt && ipm.inf_pr <= solver.eps_proj
-            MadNLP.@trace(ipm.logger, "Linearizing for LPCC based projection.")
+            MadNLP.@trace(ipm.logger, "Getting active set oracle.")
             solver.x .= MadNLP.variable(ipm.x)
-            # Linearize (function + grad evaluations)
-            MadMPEC.linearize_lpec!(solver, sqrt(1.1*ipm.inf_pr))
-            # TOOD(@anton) don't allocate here?
-            optimal, d, b, obj = MadMPEC.solve_lpec!(solver)
-            if optimal
+
+            # get oracle
+            valid, b = MadMPEC.phase_I_b_oracle(solver)
+            if valid
                 # Check if bnlp is feasilbe
                 MadMPEC.build_bnlp_solver!(solver, b)
                 ipm_stats = MadMPEC.solve_bnlp!(solver)
@@ -300,7 +299,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     println("lpec succeeded")
                     return MadNLP.REGULAR, PHASE_II
                 else
-                    # projection failed
+                    println("lpec failed at eps=$(solver.eps_proj)")
+                    solver.eps_proj = min(solver.eps_proj*opts.alpha_eps_proj)
+                    println("trying again at eps=$(solver.eps_proj)")
                 end
             else
                 println("lpec failed at eps=$(solver.eps_proj)")

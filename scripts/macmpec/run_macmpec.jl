@@ -822,6 +822,7 @@ function test_mpecopt(; range=:)
 
     opts_mpecopt = MadMPEC.MadNLPCOptions(
         kkt_regularization=:vicente_wright,
+        phase_I_oracle=:naive,
         print_level=MadNLP.ERROR,
         use_mpecopt=true,
         eps_proj=1e-3,
