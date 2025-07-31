@@ -19,7 +19,7 @@ function get_status_output(status, opt, ipm_opt)
     if status == B_STATIONARY
         return "B-Stationary point found (tol = 1e-7)."
     elseif status == NLP_STATIONARY
-        return @sprintf "NLP stationary point found (tol = %5.1e)." ipm_opt.tol
+        return "NLP stationary point found ."
     elseif status == SEARCH_DIRECTION_BECOMES_TOO_SMALL
         return "Search Direction is becoming Too Small."
     elseif status == DIVERGING_ITERATES

@@ -80,6 +80,7 @@ end
 
     # mpecopt options
     use_mpecopt::Bool = false
+    phase_I_oracle = :lpcc
     eps_proj::T = 1e-3
     alpha_eps_proj::T = 1e-2
     M_lpcc::T = 1000.0
