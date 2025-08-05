@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.5"
+julia_version = "1.11.6"
 manifest_format = "2.0"
 project_hash = "e86ec8895b67301ba38405c5a9193cfe9408259d"
 
@@ -613,8 +613,8 @@ version = "0.5.16"
 
 [[deps.MadNLP]]
 deps = ["LDLFactorizations", "LinearAlgebra", "Logging", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "4860716ef2275f8426cb076fd14a69b674f08326"
-repo-rev = "master"
+git-tree-sha1 = "0ddf0eac5ff5d61271bc5e7060e7c6681d690424"
+repo-rev = "fp/adaptive_barrier"
 repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.8.7"
