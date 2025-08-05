@@ -296,9 +296,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     𝜅,
                     ipm.nlp.𝜎[],
                 )
-                also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
-                TODO(@anton) throwing away the multiplier information is probably incorrect
-                             but doing it correctly seems nontrivial
+                # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
+                # TODO(@anton) throwing away the multiplier information is probably incorrect
+                #              but doing it correctly seems nontrivial
                 MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
                     MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
                         MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
@@ -309,7 +309,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 )
                 MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
                 MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
-                
+
             end
             mu_updated = true
             empty!(ipm.filter)

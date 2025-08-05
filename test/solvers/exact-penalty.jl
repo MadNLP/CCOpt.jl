@@ -1,10 +1,10 @@
 @testset "ExactPenalty Test" begin
     @testset "Default Options" begin
         mpcc = SimpleMPCCModel2(Float64)
-        madnlpell1_opts = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+        madnlpell1_opts = MadMPEC.ExactPenaltyOptions{Float64}(; print_level=MadNLP.ERROR)
         solver = MadMPEC.ExactPenaltySolver(
             mpcc;
-            madnlpell1_opts=madnlpell1_opts,
+            solver_opts=madnlpell1_opts,
             print_level=MadNLP.ERROR,
         )
 
@@ -17,13 +17,13 @@
 
     @testset "With dynamic update" begin
         mpcc = SimpleMPCCModel2(Float64)
-        madnlpell1_opts = MadMPEC.ExactPenaltyOptions(;
+        madnlpell1_opts = MadMPEC.ExactPenaltyOptions{Float64}(;
             print_level=MadNLP.ERROR,
-            dynamic_sigma_update=true,
+            dynamic_tau_update=true,
         )
         solver = MadMPEC.ExactPenaltySolver(
             mpcc;
-            madnlpell1_opts=madnlpell1_opts,
+            solver_opts=madnlpell1_opts,
             print_level=MadNLP.ERROR,
         )
 
