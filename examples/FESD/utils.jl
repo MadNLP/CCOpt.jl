@@ -82,7 +82,7 @@ function parse_ccons!(model)
                         if isvar1 && !isvar2
                             # Reformulate only RHS using vertical form
                             ind = _vertical_formulation!(moimodel, t2, c2)
-                            push!(ind_cc1, t2[1].variable.value)
+                            push!(ind_cc1, t1[1].variable.value)
                             push!(ind_cc2, ind)
                         elseif !isvar1 && isvar2
                             # Reformulate only LHS using vertical form
@@ -96,7 +96,8 @@ function parse_ccons!(model)
                             push!(ind_cc1, ind1)
                             push!(ind_cc2, ind2)
                         else
-                            error("Error in parsing complementarity constraints.")
+                            push!(ind_cc1, t1[1].variable.value)
+                            push!(ind_cc2, t2[1].variable.value)
                         end
                     end
                 else
