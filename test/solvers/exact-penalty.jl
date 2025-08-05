@@ -4,7 +4,7 @@
         madnlpell1_opts = MadMPEC.ExactPenaltyOptions{Float64}(; print_level=MadNLP.ERROR)
         solver = MadMPEC.ExactPenaltySolver(
             mpcc;
-            madnlpell1_opts=madnlpell1_opts,
+            solver_opts=madnlpell1_opts,
             print_level=MadNLP.ERROR,
         )
 
@@ -23,7 +23,7 @@
         )
         solver = MadMPEC.ExactPenaltySolver(
             mpcc;
-            madnlpell1_opts=madnlpell1_opts,
+            solver_opts=madnlpell1_opts,
             print_level=MadNLP.ERROR,
         )
 

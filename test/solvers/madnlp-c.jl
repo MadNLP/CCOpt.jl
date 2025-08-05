@@ -3,7 +3,7 @@
         mpcc = SimpleMPCCModel(Float64)
         madnlpc_opts = MadMPEC.MadNLPCOptions(; print_level=MadNLP.ERROR)
         solver =
-            MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=madnlpc_opts, print_level=MadNLP.ERROR)
+            MadMPEC.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
         copyto!(mpcc.meta.x0, [2; 1])
 
@@ -19,7 +19,7 @@
         madnlpc_opts =
             MadMPEC.MadNLPCOptions(; print_level=MadNLP.ERROR, use_magic_step=true)
         solver =
-            MadMPEC.MadNLPCSolver(mpcc; madnlpc_opts=madnlpc_opts, print_level=MadNLP.ERROR)
+            MadMPEC.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
         copyto!(mpcc.meta.x0, [2; 1])
 
