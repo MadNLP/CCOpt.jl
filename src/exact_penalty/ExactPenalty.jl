@@ -35,7 +35,7 @@ end
 """
 function ExactPenaltySolver(
     mpcc::AbstractMPCCModel{T, VT};
-    solver_opts=ExactPenaltyOptions(),
+    solver_opts=ExactPenaltyOptions{Float64}(),
     ipm_options...,
 ) where {T, VT}
     ell1 = Ell1Relaxation(mpcc)
