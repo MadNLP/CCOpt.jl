@@ -261,42 +261,34 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         if mu_updated && solver.opts.use_magic_step
             ncc = mpcc.meta.ncc
             𝜅 = solver.opts.magic_step_kappa
-            try
-                @views project_scholtes_explicit!(
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-                    MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
-                    MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
-                    𝜅,
-                    ipm.nlp.𝜎[],
+            @views project_scholtes_explicit!(
+                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+                MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
+                MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+                𝜅,
+                ipm.nlp.𝜎[],
+            )
+            # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
+            # TODO(@anton) throwing away the multiplier information is probably incorrect
+            #              but doing it correctly seems nontrivial
+            if solver.opts.magic_step_duals
+                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
+                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
+                    MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
                 )
-                # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
-                # TODO(@anton) throwing away the multiplier information is probably incorrect
-                #              but doing it correctly seems nontrivial
-                if solver.opts.magic_step_duals
-                    MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
-                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
-                        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
-                    )
-                    MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] = @views ipm.mu ./ (
-                        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] .-
-                        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2]
-                    )
-                end
-                if solver.opts.magic_step_slack
-                    MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
-                end
-                if solver.opts.magic_step_slack_dual
-                    MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
-                end
-            catch e
-                println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1])
-                println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc1])
-                println(MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2])
-                println(MadNLP.variable(ipm.xu)[mpcc.meta.ind_cc2])
-                throw(e)
+                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] = @views ipm.mu ./ (
+                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] .-
+                    MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2]
+                )
+            end
+            if solver.opts.magic_step_slack
+                MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
+            end
+            if solver.opts.magic_step_slack_dual
+                MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
             end
             log_iter(solver.iterate_logger, solver; magic=true)
         end
