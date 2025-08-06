@@ -161,8 +161,6 @@ function solve_homotopy!(
         elseif e isa MadNLP.InterruptException
             ipm.status=MadNLP.USER_REQUESTED_STOP
             ipm.opt.rethrow_error && rethrow(e)
-        elseif e isa AmplException
-            ipm.status=MadNLP.INVALID_NUMBER_DETECTED
         else
             ipm.status=MadNLP.INTERNAL_ERROR
             ipm.opt.rethrow_error && rethrow(e)
