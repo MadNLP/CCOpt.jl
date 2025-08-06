@@ -140,7 +140,7 @@ version = "1.11.0"
 
 [[deps.MadNLP]]
 deps = ["LDLFactorizations", "LinearAlgebra", "Logging", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "51706948ab6379db5118d0de14763b9ce6744264"
+git-tree-sha1 = "62122745a428026bcaf01d7c7d4a20663698708a"
 repo-rev = "fp/adaptive_barrier"
 repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
