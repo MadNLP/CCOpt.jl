@@ -1,4 +1,5 @@
 abstract type AbstractLpccSolver{T} end
+abstract type AbstractLpccSolverOptions{T} end
 
 # TODO(@anton) Assumes vertical form
 struct SparseLpcc{T, VT}
@@ -112,6 +113,15 @@ struct LpccMILP{T, VT, MT, ST}
             M,
         )
     end
+end
+
+@kwdef struct LpccMILPOptions{T} <: AbstractLpccSolverOptions{T}
+    verbose::Bool = true
+    abs_gap::T = 1e-10
+    rel_gap::T = 1e-4
+    opt_tol::T = 1e-9
+    feas_tol::T = 1e-9
+    int_feas_tol::T = 1e-9
 end
 
 function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binaries=true)
@@ -236,9 +246,39 @@ function tr!(
     end
 end
 
-function build(lpcc::LpccMILP{T, VT, MT, ST}; x0=nothing) where {T, VT, MT, ST}
+function set_opts!(
+    model::Model,
+    lpcc::LpccMILP{T, VT, MT, Gurobi.Optimizer},
+    opts::LpccMILPOptions{T},
+) where {T, VT, MT}
+    MOI.set(model, MOI.Silent(), !opts.verbose)
+    JuMP.set_optimizer_attribute(model, "FeasibilityTol", opts.feas_tol)
+    JuMP.set_optimizer_attribute(model, "IntFeasTol", opts.int_feas_tol)
+    JuMP.set_optimizer_attribute(model, "OptimalityTol", opts.opt_tol)
+    JuMP.set_optimizer_attribute(model, "MIPGap", opts.rel_gap)
+    return JuMP.set_optimizer_attribute(model, "MIPGapAbs", opts.abs_gap)
+end
+
+function set_opts!(
+    model::Model,
+    lpcc::LpccMILP{T, VT, MT, HiGHS.Optimizer},
+    opts::LpccMILPOptions{T},
+) where {T, VT, MT}
+    MOI.set(model, MOI.Silent(), !opts.verbose)
+    JuMP.set_optimizer_attribute(model, "kkt_tolerance", opts.feas_tol)
+    JuMP.set_optimizer_attribute(model, "mip_feasiblility_tolerance", opts.int_feas_tol)
+    JuMP.set_optimizer_attribute(model, "optimality_tolerance", opts.opt_tol)
+    JuMP.set_optimizer_attribute(model, "mip_rel_gap", opts.rel_gap)
+    return JuMP.set_optimizer_attribute(model, "mip_abs_gap", opts.abs_gap)
+end
+
+function build(
+    lpcc::LpccMILP{T, VT, MT, ST},
+    opts::LpccMILPOptions{T};
+    x0=nothing,
+) where {T, VT, MT, ST}
     model = Model(ST)
-    MOI.set(model, MOI.Silent(), true)
+    set_opts!(model, lpcc, opts)
 
     @variable(model, lpcc.lbx[i] <= x[i=1:length(lpcc.lbx)] <= lpcc.ubx[i])
     @objective(model, lpcc.mpcc.meta.minimize ? MIN_SENSE : MAX_SENSE, sum(lpcc.c .* x))
