@@ -174,19 +174,31 @@ end
 
 function phase_I_b_oracle(solver::MadNLPCSolver)
     ipm = solver.ipm
-    if solver.opts.phase_I_oracle == :lpcc
-        println("tr = $(sqrt(10*ipm.inf_pr))")
-        MadMPEC.linearize_lpec!(solver, sqrt(1.1*ipm.inf_pr); presolve_binaries=false)
+    opts = solver.opts
+    ind_cc1 = solver.mpcc.meta.ind_cc1
+    ind_cc2 = solver.mpcc.meta.ind_cc2
+
+    if opts.phase_I_oracle == :lpcc
+        println("tr = $(sqrt(1.1*ipm.inf_pr))")
+        b = @views(
+            MadNLP.variable(ipm.x)[ind_cc1] .- MadNLP.variable(ipm.xl)[ind_cc1] .>
+            MadNLP.variable(ipm.x)[ind_cc2] .- MadNLP.variable(ipm.xl)[ind_cc2],
+        )
+        MadMPEC.linearize_lpec!(
+            solver,
+            sqrt(opts.phase_I_tr_factor*ipm.inf_pr);
+            presolve_binaries=false,
+        )
+
         # TOOD(@anton) don't allocate here?
-        optimal, d, b, obj = MadMPEC.solve_lpec!(solver)
+        optimal, d, b, obj =
+            MadMPEC.solve_lpec!(solver; x0=vcat(zeros(solver.mpcc.meta.nvar), b))
         if optimal
             return true, b
         else
             return false, b
         end
-    elseif solver.opts.phase_I_oracle == :naive
-        ind_cc1 = solver.mpcc.meta.ind_cc1
-        ind_cc2 = solver.mpcc.meta.ind_cc2
+    elseif opts.phase_I_oracle == :naive
         b = @views(
             MadNLP.variable(ipm.x)[ind_cc1] .- MadNLP.variable(ipm.xl)[ind_cc1] .>
             MadNLP.variable(ipm.x)[ind_cc2] .- MadNLP.variable(ipm.xl)[ind_cc2],
