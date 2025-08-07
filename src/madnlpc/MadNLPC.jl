@@ -83,13 +83,19 @@ end
     phase_I_oracle = :lpcc
     eps_proj::T = 1e-3
     alpha_eps_proj::T = 1e-2
-    M_lpcc::T = 100.0
+    M_lpcc::T = 1000.0
     bnlp_opts::Dict = Dict(
         :barrier=>MadNLP.MonotoneUpdate(mu_init=1e-3),
         :bound_push=>1e-6,
         :bound_fac=>1e-6,
         :print_level=>print_level,
     )
+    phase_I_tr_factor::T = 100.0
+    s_stationarity_tol::T = 1e-8
+    b_stationarity_tol::T = 1e-7
+    phase_II_tr0::T = 1e-3
+    phase_II_alpha_tr::T = 1e-1
+    phase_II_tr_min::T = 1e-6
 
     # lpec solver options
     lpcc_solver_opts::AbstractLpccSolverOptions{T} = LpccMILPOptions()

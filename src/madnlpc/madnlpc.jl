@@ -424,16 +424,22 @@ end
 
 function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) where {T, VT}
     # TODO(@anton) this is unoptimized for now as we generate a new solver at each iteration :)
-    tr = 1e-3
+    tr = solver.opts.phase_II_tr0
     prev_obj = solver.bnlp_ipm.obj_val / solver.bnlp_ipm.cb.obj_scale[]
     mpcc = solver.mpcc
+    opts = solver.opts
     MadMPEC.linearize_lpec!(solver, tr)
 
     # Check for S-stationarity
     @views begin # TODO(@anton) add tolerance as option or maybe use tr?
         if ~any(
-            (solver.x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[mpcc.meta.ind_cc1] .< 1e-8) .&
-            (solver.x[mpcc.meta.ind_cc2] .- mpcc.meta.lvar[mpcc.meta.ind_cc2] .< 1e-8),
+            (
+                solver.x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[mpcc.meta.ind_cc1] .<
+                opts.s_stationarity_tol
+            ) .& (
+                solver.x[mpcc.meta.ind_cc2] .- mpcc.meta.lvar[mpcc.meta.ind_cc2] .<
+                opts.s_stationarity_tol
+            ),
         )
             solver.status = B_STATIONARY
             return
@@ -441,14 +447,13 @@ function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) wh
     end
     while solver.status >= PHASE_II
         # Solve the corresponding LPCC
-        # TODO(@anton) implement trust region loop
         optimal, d, b, obj =
             MadMPEC.solve_lpec!(solver; x0=vcat(zeros(mpcc.meta.nvar), solver.b))
         if optimal
-            if norm(@view d[1:mpcc.meta.nvar]) <= 1e-7  # TODO(@anton) make option
+            if norm(@view d[1:mpcc.meta.nvar]) <= opts.b_stationarity_tol  # TODO(@anton) make option
                 solver.status = B_STATIONARY
                 return
-            elseif abs(obj) <= 1e-7
+            elseif abs(obj) <= opts.b_stationarity_tol
                 solver.status = B_STATIONARY
                 return
             elseif (mpcc.meta.minimize && obj > 0) || (!mpcc.meta.minimize && obj < 0)
@@ -458,8 +463,8 @@ function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) wh
             elseif all(solver.b .== b) # TODO(@anton) this should maybe also check for "acceptable" tolerance
                 #solver.status = B_STATIONARY
                 #return
-                tr = 1e-1*tr # TODO(@anton) Options
-                if tr <= 1e-6
+                tr = opts.phase_II_alpha_tr*tr # TODO(@anton) Options
+                if tr <= opts.phase_II_tr_min
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
                 end
@@ -499,14 +504,14 @@ function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) wh
                         continue
                     end
                 end
-                # Reset the trust region TODO(@anton) options
-                tr = 1e-3
+                # Reset the trust region
+                tr = opts.phase_II_tr0
                 # Linearize at the current point
                 MadMPEC.linearize_lpec!(solver, tr)
             else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
-                tr = 1e-1*tr # TODO(@anton) Options
+                tr = opts.phase_II_alpha_tr*tr # TODO(@anton) Options
                 println("REJECTED PHASE II STEP")
-                if tr <= 1e-8
+                if tr <= opts.phase_II_tr_min
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
                     continue

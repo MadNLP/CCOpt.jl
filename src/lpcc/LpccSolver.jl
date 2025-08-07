@@ -117,11 +117,11 @@ end
 
 @kwdef struct LpccMILPOptions{T} <: AbstractLpccSolverOptions{T}
     verbose::Bool = true
-    abs_gap::T = 1e-10
+    abs_gap::T = 1e-9
     rel_gap::T = 1e-4
-    opt_tol::T = 1e-9
-    feas_tol::T = 1e-9
-    int_feas_tol::T = 1e-9
+    opt_tol::T = 1e-8
+    feas_tol::T = 1e-8
+    int_feas_tol::T = 1e-8
 end
 
 function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binaries=true)
@@ -166,7 +166,6 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
         # Lower bound on x1 and x2
         lpcc.lbx[ind_cc1] .= max.(mpcc.meta.lvar[ind_cc1] .- x[ind_cc1], -tr)
         lpcc.lbx[ind_cc2] .= max.(mpcc.meta.lvar[ind_cc2] .- x[ind_cc2], -tr)
-
         # upper bound on all
         lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
     end
@@ -256,6 +255,9 @@ function set_opts!(
     JuMP.set_optimizer_attribute(model, "IntFeasTol", opts.int_feas_tol)
     JuMP.set_optimizer_attribute(model, "OptimalityTol", opts.opt_tol)
     JuMP.set_optimizer_attribute(model, "MIPGap", opts.rel_gap)
+    JuMP.set_optimizer_attribute(model, "MIPFocus", 1)
+    JuMP.set_optimizer_attribute(model, "Presolve", 1)
+    JuMP.set_optimizer_attribute(model, "SolutionLimit", 1)
     return JuMP.set_optimizer_attribute(model, "MIPGapAbs", opts.abs_gap)
 end
 
@@ -284,7 +286,7 @@ function build(
     @objective(model, lpcc.mpcc.meta.minimize ? MIN_SENSE : MAX_SENSE, sum(lpcc.c .* x))
     @constraint(model, lpcc.lba .<= lpcc.A * x .<= lpcc.uba)
     for ii in 1:length(lpcc.integrality)
-        lpcc.integrality[ii] == one(Int32) && JuMP.set_integer(x[ii])
+        lpcc.integrality[ii] == one(Int32) && JuMP.set_binary(x[ii])
     end
 
     if !isnothing(x0)
