@@ -83,11 +83,11 @@ end
     phase_I_oracle = :lpcc
     eps_proj::T = 1e-3
     alpha_eps_proj::T = 1e-2
-    M_lpcc::T = 1000.0
+    M_lpcc::T = 100.0
     bnlp_opts::Dict = Dict(
-        :barrier=>MadNLP.MonotoneUpdate(mu_init=1e-6),
-        :bound_push=>1e-9,
-        :bound_fac=>1e-7,
+        :barrier=>MadNLP.MonotoneUpdate(mu_init=1e-3),
+        :bound_push=>1e-6,
+        :bound_fac=>1e-6,
         :print_level=>print_level,
     )
 

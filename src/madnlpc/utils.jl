@@ -96,14 +96,18 @@ function finalize(logger::IterateLogger)
     return close(logger.file)
 end
 
-function linearize_lpec!(solver::MadNLPCSolver, tr::Float64)
-    return solver.cnt.lpcc_init_time +=
-        @elapsed MadMPEC.linearize!(solver.lpcc, solver.x; tr=tr, presolve_binaries=true)
+function linearize_lpec!(solver::MadNLPCSolver, tr::Float64; presolve_binaries=true)
+    return solver.cnt.lpcc_init_time += @elapsed MadMPEC.linearize!(
+        solver.lpcc,
+        solver.x;
+        tr=tr,
+        presolve_binaries=presolve_binaries,
+    )
 end
 
-function update_lpec_tr!(solver::MadNLPCSolver, tr::Float64)
+function update_lpec_tr!(solver::MadNLPCSolver, tr::Float64; presolve_binaries=true)
     return solver.cnt.lpcc_init_time +=
-        @elapsed MadMPEC.tr!(solver.lpcc, solver.x, tr, presolve_binaries=true)
+        @elapsed MadMPEC.tr!(solver.lpcc, solver.x, tr, presolve_binaries=presolve_binaries)
 end
 
 function solve_lpec!(solver::MadNLPCSolver{T, VT}; x0=nothing) where {T, VT}
@@ -171,7 +175,8 @@ end
 function phase_I_b_oracle(solver::MadNLPCSolver)
     ipm = solver.ipm
     if solver.opts.phase_I_oracle == :lpcc
-        MadMPEC.linearize_lpec!(solver, sqrt(1.1*ipm.inf_pr))
+        println("tr = $(sqrt(10*ipm.inf_pr))")
+        MadMPEC.linearize_lpec!(solver, sqrt(1.1*ipm.inf_pr); presolve_binaries=false)
         # TOOD(@anton) don't allocate here?
         optimal, d, b, obj = MadMPEC.solve_lpec!(solver)
         if optimal

@@ -485,6 +485,7 @@ function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) wh
             MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
         ]
             if ipm_stats.objective < prev_obj # Accept step
+                println("ACCEPTED PHASE II STEP")
                 # update current values
                 prev_obj = ipm_stats.objective
                 solver.x .= ipm_stats.solution
@@ -504,12 +505,21 @@ function phaseII!(solver::MadNLPCSolver{T, VT}, stats::MadNLPCExecutionStats) wh
                 MadMPEC.linearize_lpec!(solver, tr)
             else # Otherwise we did not get descent in the BNLP, reuse linearization and a smaller tr
                 tr = 1e-1*tr # TODO(@anton) Options
+                println("REJECTED PHASE II STEP")
                 if tr <= 1e-8
                     # Search direction too small
                     solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
                     continue
                 end
                 MadMPEC.update_lpec_tr!(solver, tr)
+            end
+        else
+            if ipm_stats.status == MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
+                solver.status = MAXIMUM_ITERATIONS_EXCEEDED
+            elseif ipm_stats.status == MadNLP.MAXIMUM_WALLTIME_EXCEEDED
+                solver.status = MAXIMUM_WALLTIME_EXCEEDED
+            else
+                solver.status = IPM_ERROR
             end
         end
     end
