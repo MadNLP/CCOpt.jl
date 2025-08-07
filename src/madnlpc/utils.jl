@@ -113,7 +113,7 @@ end
 function solve_lpec!(solver::MadNLPCSolver{T, VT}; x0=nothing) where {T, VT}
     solver.cnt.lpcc_solves += 1
     solver.cnt.lpcc_init_time += @elapsed begin
-        model = MadMPEC.build(solver.lpcc; x0=x0)
+        model = MadMPEC.build(solver.lpcc, solver.opts.lpcc_solver_opts; x0=x0)
     end
 
     solver.cnt.lpcc_solve_time += @elapsed begin

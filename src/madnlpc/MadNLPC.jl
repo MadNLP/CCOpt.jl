@@ -91,6 +91,9 @@ end
         :print_level=>print_level,
     )
 
+    # lpec solver options
+    lpcc_solver_opts::AbstractLpccSolverOptions{T} = LpccMILPOptions()
+
     # Store Iterations
     iterates_fname::String = ""
 end
