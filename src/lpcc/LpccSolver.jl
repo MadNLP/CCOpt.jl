@@ -257,7 +257,6 @@ function set_opts!(
     JuMP.set_optimizer_attribute(model, "MIPGap", opts.rel_gap)
     JuMP.set_optimizer_attribute(model, "MIPFocus", 1)
     JuMP.set_optimizer_attribute(model, "Presolve", 1)
-    JuMP.set_optimizer_attribute(model, "SolutionLimit", 1)
     return JuMP.set_optimizer_attribute(model, "MIPGapAbs", opts.abs_gap)
 end
 
