@@ -387,6 +387,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
         if status != MadNLP.LINESEARCH_SUCCEEDED
+            if status == MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL
+                solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
+            end
             return status, solver.status
         end
 
