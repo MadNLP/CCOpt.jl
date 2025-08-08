@@ -775,6 +775,7 @@ function jac_comp_right_coord!(
 end
 
 function comp_residual(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    # TODO(@anton): This can be done more efficiently in vertical form
     G = VT(undef, mpcc.meta.ncc)
     H = VT(undef, mpcc.meta.ncc)
     comp_res_left!(mpcc, x, G)
@@ -788,6 +789,7 @@ function comp_residual_product(
     mpcc::AbstractMPCCModel{T, VT},
     x::AbstractVector,
 ) where {T, VT}
+    # TODO(@anton): This can be done more efficiently in vertical form
     G = VT(undef, mpcc.meta.ncc)
     H = VT(undef, mpcc.meta.ncc)
     comp_res_left!(mpcc, x, G)
@@ -798,13 +800,12 @@ function comp_residual_product(
 end
 
 function comp_residual_sum(mpcc::AbstractMPCCModel{T, VT}, x::AbstractVector) where {T, VT}
+    # TODO(@anton): This can be done more efficiently in vertical form
     G = VT(undef, mpcc.meta.ncc)
     H = VT(undef, mpcc.meta.ncc)
     comp_res_left!(mpcc, x, G)
     comp_res_right!(mpcc, x, H)
-
-    G .*= H
-    return sum(G)
+    return dot(G, H)
 end
 
 ######################### Vertical Form Conversions #########################

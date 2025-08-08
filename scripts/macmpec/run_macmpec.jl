@@ -590,3 +590,212 @@ function test_magic_opts(; range=:)
 
     return solnames, names, stats
 end
+
+function test_adaptive(; range=:)
+    madnlpc_adaptive_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.AdaptiveUpdate(),
+    )
+    opts_madnlpc_adaptive = MadMPEC.MadNLPCOptions()
+    opts_madnlpc_adaptive_sigma = MadMPEC.MadNLPCOptions(monotone_sigma=false)
+
+    madnlpc_loqo_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.LOQOUpdate(gamma=0.05),
+    )
+    opts_madnlpc_loqo = MadMPEC.MadNLPCOptions(monotone_sigma=false)
+
+    madnlpc_monotone_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlpc_monotone = MadMPEC.MadNLPCOptions()
+
+    monotone_madnlp_c = (
+        "ma27 madNLP-C monotone",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_monotone,
+        ((madnlpc_monotone_solver_options...,)),
+    )
+
+    adaptive_madnlp_c = (
+        "ma27 madNLP-C adaptive",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_adaptive,
+        ((madnlpc_adaptive_solver_options...,)),
+    )
+    adaptive_sigma_madnlp_c = (
+        "ma27 madNLP-C adaptive sigma",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_adaptive_sigma,
+        ((madnlpc_adaptive_solver_options...,)),
+    )
+
+    loqo_madnlp_c = (
+        "ma27 madNLP-C loqo",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_loqo,
+        ((madnlpc_loqo_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        loqo_madnlp_c,
+        #adaptive_madnlp_c,
+        #adaptive_sigma_madnlp_c,
+        monotone_madnlp_c,
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_bound_respect(; range=:)
+    madnlpc_default_solver_options = Dict(
+        :bound_relax_factor=>1e-10,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlpc_no_respect = MadMPEC.MadNLPCOptions(respect_comp_bounds=false)
+    opts_madnlpc_respect = MadMPEC.MadNLPCOptions(respect_comp_bounds=true)
+
+    no_respect_madnlp_c = (
+        "ma27 madNLP-C no respect",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_no_respect,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    respect_madnlp_c = (
+        "ma27 madNLP-C respect",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_respect,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(no_respect_madnlp_c, respect_madnlp_c, range=range)
+
+    return solnames, names, stats
+end
+
+function test_loqo_sigma(; range=:)
+    madnlpc_default_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    madnlpc_loqo_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.LOQOUpdate(gamma=0.05),
+    )
+
+    opts_madnlpc_loqo = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.LOQORelaxationUpdate(mu_factor=1e-2);
+        use_specialized_barrier_update=false,
+    )
+    opts_madnlpc_default = MadMPEC.MadNLPCOptions()
+
+    default_madnlp_c = (
+        "madNLP-C default update",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_default,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    loqo_sigma_madnlp_c = (
+        "madNLP-C loqo sigma update",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_loqo,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    loqo_mu_madnlp_c = (
+        "madNLP-C loqo mu update",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_default,
+        ((madnlpc_loqo_solver_options...,)),
+    )
+
+    full_loqo_madnlp_c = (
+        "madNLP-C full loqo update",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_loqo,
+        ((madnlpc_loqo_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        full_loqo_madnlp_c,
+        loqo_mu_madnlp_c,
+        loqo_sigma_madnlp_c,
+        default_madnlp_c,
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_loqo_sigma_params(; range=:)
+    madnlpc_default_solver_options = Dict(
+        :bound_relax_factor=>1e-12,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlpc_loqo_8 =
+        MadMPEC.MadNLPCOptions(relaxation_update=MadMPEC.LOQORelaxationUpdate())
+    opts_madnlpc_loqo_9 = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.LOQORelaxationUpdate(),
+        sigma_min=1e-9,
+    )
+    opts_madnlpc_default = MadMPEC.MadNLPCOptions()
+
+    default_madnlp_c = (
+        "madNLP-C default update",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_default,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    loqo8_madnlp_c = (
+        "madNLP-C loqo update min 1e-8",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_loqo_8,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    loqo9_madnlp_c = (
+        "madNLP-C loqo update min 1e-9",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlpc_loqo_9,
+        ((madnlpc_default_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(loqo8_madnlp_c, loqo9_madnlp_c, range=range)
+
+    return solnames, names, stats
+end

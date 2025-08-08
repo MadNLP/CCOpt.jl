@@ -190,39 +190,8 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
         mu_updated = false
         mu_old = ipm.mu
-        while ipm.mu > max(ipm.opt.mu_min, ipm.opt.tol/10) &&
-            max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <= ipm.opt.barrier_tol_factor*ipm.mu
-            mu_new = MadNLP.get_mu(
-                ipm.mu,
-                ipm.opt.mu_min,
-                ipm.opt.mu_linear_decrease_factor,
-                ipm.opt.mu_superlinear_decrease_power,
-                ipm.opt.tol,
-            )
-            ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
-            ipm.inf_du = MadNLP.get_inf_du(
-                MadNLP.full(ipm.f),
-                MadNLP.full(ipm.zl),
-                MadNLP.full(ipm.zu),
-                ipm.jacl,
-                sd,
-            )
-            inf_compl_mu = MadNLP.get_inf_compl(
-                ipm.x_lr,
-                ipm.xl_r,
-                ipm.zl_r,
-                ipm.xu_r,
-                ipm.x_ur,
-                ipm.zu_r,
-                ipm.mu,
-                sc,
-            )
-            ipm.tau = MadNLP.get_tau(ipm.mu, ipm.opt.tau_min)
-            ipm.mu = mu_new
-            mu_updated = true
-            empty!(ipm.filter)
-            push!(ipm.filter, (ipm.theta_max, -Inf))
-        end
+        MadNLP.update_barrier!(ipm.opt.barrier, solver.ipm, sc)
+        mu_updated = ipm.mu != mu_old
         # Standard check
         if mu_updated
             # check for complementarity convergence when we decrease 𝜇
@@ -235,7 +204,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
             end
-        elseif ipm.mu ≤ max(ipm.opt.mu_min, ipm.opt.tol/10) &&
+        elseif ipm.mu ≤ max(ipm.opt.barrier.mu_min, ipm.opt.tol/10) &&
                max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
                ipm.opt.barrier_tol_factor*ipm.mu
             if inf_pr_comp > ipm.opt.tol
@@ -256,7 +225,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
         end
         MadNLP.set_aug_diagonal!(ipm.kkt, ipm)
-        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c)
+        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
             ipm.ind_llb,

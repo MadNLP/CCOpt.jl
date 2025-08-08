@@ -8,15 +8,19 @@ function plot_solver_traj(
     range=:,
     save_plt=false,
     save_ext=".png",
+    plt_mu_updates=true,
 )
     iters = readlog(iters_fname)
     k_newton = [i.k for i in iters[range] if !i.magic]
     k_magic = [i.k for i in iters[range] if i.magic]
-    k_mu = [iters[i].k for i in 1:(length(iters)-1) if iters[i+1].mu < iters[i].mu]
+    k_mu =
+        plt_mu_updates ?
+        [iters[i].k for i in 1:(length(iters)-1) if iters[i+1].mu < iters[i].mu] : []
     apr = [clamp(i.alpha_pr, 1e-12, Inf) for i in iters[range] if !i.magic]
     adu = [clamp(i.alpha_du, 1e-12, Inf) for i in iters[range] if !i.magic]
     inf_pr = [clamp(i.inf_pr, 1e-12, Inf) for i in iters[range] if !i.magic]
     inf_du = [clamp(i.inf_du, 1e-12, Inf) for i in iters[range] if !i.magic]
+    inf_cc = [clamp(dot(i.x1, i.x2), 1e-12, Inf) for i in iters[range] if !i.magic]
     obj = [i.obj for i in iters[range] if !i.magic]
     mu = [i.mu for i in iters[range] if !i.magic]
     sp_min = [minimum(i.KKT_s[i.KKT_s .> 0]) for i in iters[range] if !i.magic]
@@ -91,12 +95,26 @@ function plot_solver_traj(
         labelfontsize=15,
         linetype=:steppre,
     )
+    inf_cc_plt = plot(
+        k_newton,
+        inf_cc,
+        size=(1900, 400),
+        yaxis=:log10,
+        ylabel="inf_cc",
+        legend=false,
+        tickfontsize=15,
+        bottommargin=20Plots.px,
+        leftmargin=50Plots.px,
+        labelfontsize=15,
+        linetype=:steppre,
+    )
     vline!(inf_du_plt, k_magic)
     vline!(inf_du_plt, k_mu)
     inf_plt = plot(
         inf_pr_plt,
         inf_du_plt,
-        layout=(2, 1),
+        inf_cc_plt,
+        layout=(3, 1),
         size=(1900, 1000),
         plot_title=name*" infeasibility",
     )
@@ -128,6 +146,7 @@ function plot_solver_traj(
         mu,
         size=(1900, 400),
         yaxis=:log10,
+        ylim=(1e-12, 10),
         ylabel="mu",
         legend=false,
         tickfontsize=15,

@@ -5,7 +5,6 @@ version = "0.1.0"
 
 [deps]
 ADNLPModels = "54578032-b7ea-4c30-94aa-7cbd1cce6c9a"
-AmplNLReader = "77dd3d4c-cb1d-5e09-9340-85030ff7ba66"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -18,7 +17,6 @@ SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 
 [compat]
 ADNLPModels = "0.8.12"
-AmplNLReader = "0.12.0"
 DataStructures = "0.18.22"
 LaTeXStrings = "1.4.0"
 LinearAlgebra = "1.11.0"
