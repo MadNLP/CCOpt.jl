@@ -50,6 +50,9 @@ end
 
 # Options struct
 @kwdef struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
+    # Relaxation type
+    relaxation::Type = ScholtesRelaxation
+
     # adaptive mu update parameters
     use_specialized_barrier_update::Bool = true
 
@@ -121,7 +124,7 @@ end
 # MadNLP-C algorithm
 mutable struct MadNLPCSolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
-    scholtes::ScholtesRelaxation{T, VT}
+    rnlp::AbstractMPCCRelaxation{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
     iterate_logger::IterateLogger
@@ -143,8 +146,8 @@ function MadNLPCSolver(
     solver_opts=MadNLPCOptions(),
     ipm_options...,
 ) where {T, VT}
-    scholtes = ScholtesRelaxation(mpcc)
-    ipm = MadNLP.MadNLPSolver(scholtes; ipm_options...)
+    rnlp = solver_opts.relaxation(mpcc)
+    ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
 
     logger = MadNLP.MadNLPLogger(
         print_level=solver_opts.print_level,
@@ -168,7 +171,7 @@ function MadNLPCSolver(
     cnt = MadNLPCCounters(counters=ipm.cnt)
     return MadNLPCSolver(
         mpcc,
-        scholtes,
+        rnlp,
         ipm,
         logger,
         iterates_logger,

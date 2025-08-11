@@ -77,7 +77,7 @@ function solve_homotopy!(nlp::MadMPEC.ScholtesRelaxation, solver::MadNLPCSolver;
 end
 
 function solve_homotopy!(solver::MadNLPCSolver; kwargs...)
-    return solve_homotopy!(solver.scholtes, solver; kwargs...)
+    return solve_homotopy!(solver.rnlp, solver; kwargs...)
 end
 
 function solve_homotopy!(
@@ -229,10 +229,10 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         end
 
         # Set σ to zero for constraint infeasibility calculations
-        σ = ipm.nlp.𝜎[]
+        σ = ipm.nlp.σ[]
         ipm.nlp.σ[] = 0
         MadNLP.eval_cons_wrapper!(ipm, c_mpcc, ipm.x)
-        ipm.nlp.σ[] = 𝜎
+        ipm.nlp.σ[] = σ
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
