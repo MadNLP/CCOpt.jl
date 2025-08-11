@@ -72,7 +72,11 @@ function MadNLP.set_aug_diagonal!(
     return MadNLP._set_aug_diagonal!(kkt)
 end
 
-function solve_homotopy!(nlp::MadMPEC.ScholtesRelaxation, solver::MadNLPCSolver; kwargs...)
+function solve_homotopy!(
+    nlp::ST,
+    solver::MadNLPCSolver;
+    kwargs...,
+) where {ST <: AbstractMPCCRelaxation}
     return solve_homotopy!(nlp, solver, MadNLPCExecutionStats(solver); kwargs...)
 end
 
@@ -81,7 +85,7 @@ function solve_homotopy!(solver::MadNLPCSolver; kwargs...)
 end
 
 function solve_homotopy!(
-    nlp::MadMPEC.ScholtesRelaxation,
+    nlp::ST,
     solver::MadMPEC.MadNLPCSolver,
     stats::MadNLPCExecutionStats;
     x=nothing,
@@ -89,7 +93,7 @@ function solve_homotopy!(
     zl=nothing,
     zu=nothing,
     kwargs...,
-)
+) where {ST <: AbstractMPCCRelaxation}
     ipm = solver.ipm
     ipm.cnt.start_time = time()
     if x != nothing
@@ -221,7 +225,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     opts = solver.opts
     ipm = solver.ipm
     mpcc = solver.mpcc
-    c_mpcc = VT(undef, length(ipm.c))
     log_iter(solver.iterate_logger, solver) # Log initial state
     while true
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
@@ -230,13 +233,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
 
         # Set σ to zero for constraint infeasibility calculations
         σ = ipm.nlp.σ[]
-        ipm.nlp.σ[] = 0
-        MadNLP.eval_cons_wrapper!(ipm, c_mpcc, ipm.x)
-        ipm.nlp.σ[] = σ
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
-        ipm.inf_pr = MadNLP.get_inf_pr(c_mpcc)
+        ipm.inf_pr = max(
+            MadNLP.get_inf_pr(@view(ipm.c[1:mpcc.meta.ncon])),
+            MadMPEC.get_inf_pr_cc(solver),
+        )
         ipm.inf_du = MadNLP.get_inf_du(
             MadNLP.full(ipm.f),
             MadNLP.full(ipm.zl),
