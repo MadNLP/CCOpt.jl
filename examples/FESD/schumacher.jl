@@ -241,7 +241,7 @@ solver_type = :madnlpc
 if solver_type == :homotopy
     opts = MadMPEC.HomotopySolverOptions()
     opts.print_level = MadNLP.INFO
-    opts.𝜎₀ = 1e-4
+    opts.σ₀ = 1e-4
     opts.comp_tol = 1e-6
 
     solver = MadMPEC.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)

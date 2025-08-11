@@ -7,7 +7,7 @@ let x1 = [],
     z2 = [],
     s = Vector{Float64}(),
     zs = Vector{Float64}(),
-    𝜎 = 1,
+    σ = 1,
     primal_plot = plot(; xlims=(0, 3), ylims=(0, 3), aspect_ratio=:equal),
     colors = [],
     anim_plots = []
@@ -20,7 +20,7 @@ let x1 = [],
         s = []
         zs = []
         colors = []
-        𝜎 = 1
+        σ = 1
         anim_plots = []
         return nothing
     end
@@ -38,7 +38,7 @@ let x1 = [],
         push!(z2, MadNLP.variable(solver.ipm.zl)[2])
         push!(s, -MadNLP.slack(solver.ipm.x)[end])
         push!(zs, MadNLP.slack(solver.ipm.zu)[end])
-        𝜎 = solver.scholtes.𝜎[]
+        σ = solver.scholtes.𝜎[]
         println(colors)
         pxx = plot(
             x1,
@@ -58,7 +58,7 @@ let x1 = [],
             xlabel=L"$x_1$",
             ylabel=L"$x_2$",
         )
-        plot!(pxx, (x) -> 𝜎/x, 1e-12:0.01:10; legend=false)
+        plot!(pxx, (x) -> σ/x, 1e-12:0.01:10; legend=false)
 
         pz1 = plot(
             x1,
@@ -78,7 +78,7 @@ let x1 = [],
             xlabel=L"$x_1$",
             ylabel=L"$z_1$",
         )
-        plot!(pz1, (x) -> 𝜎/x, 1e-12:0.01:10; legend=false)
+        plot!(pz1, (x) -> σ/x, 1e-12:0.01:10; legend=false)
 
         pz2 = plot(
             x2,
@@ -98,7 +98,7 @@ let x1 = [],
             xlabel=L"$x_2$",
             ylabel=L"$z_2$",
         )
-        plot!(pz2, (x) -> 𝜎/x, 1e-12:0.01:10; legend=false)
+        plot!(pz2, (x) -> σ/x, 1e-12:0.01:10; legend=false)
 
         pzs = plot(
             clamp.(s, 5e-10, Inf),
@@ -118,7 +118,7 @@ let x1 = [],
             xlabel=L"$s$",
             ylabel=L"$z_s$",
         )
-        plot!(pzs, (x) -> 𝜎/x, 1e-12:0.01:10; legend=false)
+        plot!(pzs, (x) -> σ/x, 1e-12:0.01:10; legend=false)
 
         plt = plot(pxx, pz1, pz2, pzs; layout=(2, 2), size=(900, 900))
         push!(anim_plots, plt)
@@ -134,7 +134,7 @@ let x1 = [],
         #       xlims=(1e-12, 100), ylims=(1e-12, 100),
         #       linecolor=colors[2:end])
         #display()
-        #plot!(primal_plot, (x) -> 𝜎/x,  1e-12:0.01:10; layout=l, show=true, legend=false)
+        #plot!(primal_plot, (x) -> σ/x,  1e-12:0.01:10; layout=l, show=true, legend=false)
         return wait_for_key("press any key to continue...")
     end
 

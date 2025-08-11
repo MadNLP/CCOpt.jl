@@ -32,7 +32,7 @@ function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
 end
 
 @kwdef mutable struct HomotopySolverOptions{T}
-    𝜎₀::T = 1.0 # Initial value of complementarity relaxation
+    σ₀::T = 1.0 # Initial value of complementarity relaxation
     𝛼::T = 0.1  # Linear component of relaxation tightening law
     𝛽::T = 1.0  # Superlinear component of relaxation tightening law
 
@@ -75,9 +75,9 @@ into the NLP
       lx ≤ x₀   ≤ ux
       0 ≤ x₁
       0 ≤ x₂
-      0 ≥ x₁⊙x₂ - 𝜎
+      0 ≥ x₁⊙x₂ - σ
 
-And solve a sequence of these NLPs with 𝜎→0.
+And solve a sequence of these NLPs with σ→0.
 """
 mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     mpcc::M
@@ -96,7 +96,7 @@ mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
     f_k::T
     inf_cc::T
 
-    𝜎::T
+    σ::T
 end
 
 function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOptions)
@@ -118,7 +118,7 @@ function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOp
     x_k = nlp.meta.x0
     y_k = nlp.meta.y0
 
-    𝜎 = opts.𝜎₀
+    σ = opts.𝜎₀
 
     return HomotopySolver(
         mpcc,
@@ -133,7 +133,7 @@ function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOp
         y_k,
         0.0,
         0.0,
-        𝜎,
+        σ,
     )
 end
 
@@ -361,7 +361,7 @@ function solve!(
     converged = false
     timeout = false
     max_inner_iter_reached = false
-    solver.nlp.𝜎[] = solver.𝜎
+    solver.nlp.σ[] = solver.𝜎
     ii = 1
     while ii ≤ opts.N_homotopy
         solver.k = ii
@@ -387,9 +387,9 @@ function solve!(
             break
         end
 
-        # 𝛽 > 1 decreases 𝜎 superlinearly when close to convergence
-        solver.𝜎 = min(opts.𝛼*solver.𝜎, solver.𝜎^opts.𝛽)
-        solver.nlp.𝜎[] = solver.𝜎
+        # 𝛽 > 1 decreases σ superlinearly when close to convergence
+        solver.σ = min(opts.𝛼*solver.𝜎, solver.𝜎^opts.𝛽)
+        solver.nlp.σ[] = solver.𝜎
         ii += 1
         reset_nlp_solver!(solver)
     end

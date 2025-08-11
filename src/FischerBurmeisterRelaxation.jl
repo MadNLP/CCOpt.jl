@@ -4,7 +4,7 @@ struct FischerBurmeisterRelaxation{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
     cc1_buf::VT
     cc2_buf::VT
-    𝜎::Base.RefValue{T}
+    σ::Base.RefValue{T}
 end
 
 function FischerBurmeisterRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -12,7 +12,7 @@ function FischerBurmeisterRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, V
         # TODO(@anton) Perhaps we should do this automatically in the future or we can support non-vertical form scholtes
         #              though this makes the callbacks a bit more complicated
         error(
-            "FischerBurmeister Relaxation currently expects a vertical form MPCC, use vertical_form(mpcc) to convert it.",
+            "Fischer-Burmeister Relaxation currently expects a vertical form MPCC, use vertical_form(mpcc) to convert it.",
         )
     end
 
@@ -49,8 +49,8 @@ function FischerBurmeisterRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, V
     cc1_buf = VT(undef, mpcc.meta.ncc)
     cc2_buf = VT(undef, mpcc.meta.ncc)
 
-    𝜎 = zero(T)
-    return FischerBurmeisterRelaxation(mpcc, meta, cc1_buf, cc2_buf, Ref(𝜎))
+    σ = zero(T)
+    return FischerBurmeisterRelaxation(mpcc, meta, cc1_buf, cc2_buf, Ref(σ))
 end
 
 # Counters should be forwarded
@@ -94,9 +94,14 @@ function NLPModels.cons!(
     end
     comp_res_left!(rnlp.mpcc, x, cc1_buf)
     comp_res_right!(rnlp.mpcc, x, cc2_buf)
-    cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
-        (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+    @views(
+        map!(
+            (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
+            cx[(mpcc_ncon+1):(rnlp.meta.ncon)],
+            cc1_buf,
+            cc2_buf,
+        )
+    )
     return cx
 end
 
@@ -125,7 +130,7 @@ function NLPModels.cons_nln!(
     # TODO(@anton) figure out if the intermediate outputs cause allocations
     cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .=
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
     return cx
 end
 
