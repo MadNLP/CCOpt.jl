@@ -92,14 +92,14 @@ function NLPModels.cons!(
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
-    comp_res_left!(rnlp.mpcc, x, cc1_buf)
-    comp_res_right!(rnlp.mpcc, x, cc2_buf)
+    comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
+    comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
     @views(
         map!(
             (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
             cx[(mpcc_ncon+1):(rnlp.meta.ncon)],
-            cc1_buf,
-            cc2_buf,
+            rnlp.cc1_buf,
+            rnlp.cc2_buf,
         )
     )
     return cx
@@ -128,14 +128,14 @@ function NLPModels.cons_nln!(
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
     end
     # TODO(@anton) figure out if the intermediate outputs cause allocations
-    comp_res_left!(rnlp.mpcc, x, cc1_buf)
-    comp_res_right!(rnlp.mpcc, x, cc2_buf)
+    comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
+    comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
     @views(
         map!(
             (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
             cx[(mpcc_nnln+1):(rnlp.meta.nnln)],
-            cc1_buf,
-            cc2_buf,
+            rnlp.cc1_buf,
+            rnlp.cc2_buf,
         )
     )
     return cx
@@ -205,19 +205,19 @@ function NLPModels.jac_coord!(
     #              or in some region around 0.
     @views begin
         jac_coord!(rnlp.mpcc, x, j[1:rnlp.mpcc.meta.nnzj])
-        comp_res_left!(rnlp.mpcc, x, cc1_buf)
-        comp_res_right!(rnlp.mpcc, x, cc2_buf)
+        comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
+        comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
         map!(
             (a, b) -> 1 - a/(sqrt(a^2 + b^2)),
             j[(rnlp.mpcc.meta.nnzj+1):(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc)],
-            cc1_buf,
-            cc2_buf,
+            rnlp.cc1_buf,
+            rnlp.cc2_buf,
         )
         map!(
             (a, b) -> 1 - b/(sqrt(a^2 + b^2)),
             j[(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nnzj+2*rnlp.mpcc.meta.ncc)],
-            cc1_buf,
-            cc2_buf,
+            rnlp.cc1_buf,
+            rnlp.cc2_buf,
         )
     end
     return j
@@ -240,19 +240,19 @@ function NLPModels.jac_nln_coord!(
     #              or in some region around 0.
     @views begin
         jac_coord!(rnlp.mpcc, x, j[1:rnlp.mpcc.meta.nln_nnzj])
-        comp_res_left!(rnlp.mpcc, x, cc1_buf)
-        comp_res_right!(rnlp.mpcc, x, cc2_buf)
+        comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
+        comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
         map!(
             (a, b) -> 1 - a/(sqrt(a^2 + b^2)),
             jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)],
-            cc1_buf,
-            cc2_buf,
+            rnlp.cc1_buf,
+            rnlp.cc2_buf,
         )
         map!(
             (a, b) -> 1 - b/(sqrt(a^2 + b^2)),
             jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)],
-            cc1_buf,
-            cc2_buf,
+            rnlp.cc1_buf,
+            rnlp.cc2_buf,
         )
     end
     return jac
@@ -323,10 +323,12 @@ function NLPModels.hess_structure!(
     end
     # Diagonal terms
     for i in 1:ncc
-        cols[i+nnzh+ncc], rows[i+nnzh+ncc] = rnlp.mpcc.meta.ind_cc1[i]
+        cols[i+nnzh+ncc], rows[i+nnzh+ncc] =
+            rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc1[i]
     end
     for i in 1:ncc
-        cols[i+nnzh+2*ncc], rows[i+nnzh+2*ncc] = rnlp.mpcc.meta.ind_cc2[i]
+        cols[i+nnzh+2*ncc], rows[i+nnzh+2*ncc] =
+            rnlp.mpcc.meta.ind_cc2[i], rnlp.mpcc.meta.ind_cc2[i]
     end
     return rows, cols
 end
@@ -348,19 +350,24 @@ function NLPModels.hess_coord!(
     nnzh = rnlp.mpcc.meta.nnzh
     ncc = rnlp.mpcc.meta.ncc
     ncon = rnlp.mpcc.meta.ncon
-    comp_res_left!(rnlp.mpcc, x, cc1_buf)
-    comp_res_right!(rnlp.mpcc, x, cc2_buf)
+    comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
+    comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
     # xy
     for i in 1:ncc
-        H[i+nnzh] = y[i+ncon]*(cc1_buf[i]*cc2_buf[i])/(cc1_buf[i]^2 + cc1_buf[i]^2)^(3/2)
+        H[i+nnzh] =
+            y[i+ncon]*(
+                rnlp.cc1_buf[i]*rnlp.cc2_buf[i]
+            )/(rnlp.cc1_buf[i]^2 + rnlp.cc2_buf[i]^2)^(3/2)
     end
     # xx
     for i in 1:ncc
-        H[i+nnzh+ncc] = -y[i+ncon]*(cc2_buf[i]^2)/(cc1_buf[i]^2 + cc1_buf[i]^2)^(3/2)
+        H[i+nnzh+ncc] =
+            -y[i+ncon]*(rnlp.cc2_buf[i]^2)/(rnlp.cc1_buf[i]^2 + rnlp.cc2_buf[i]^2)^(3/2)
     end
     # yy
     for i in 1:ncc
-        H[i+nnzh+2*ncc] = -y[i+ncon]*(cc1_buf[i]^2)/(cc1_buf[i]^2 + cc1_buf[i]^2)^(3/2)
+        H[i+nnzh+2*ncc] =
+            -y[i+ncon]*(rnlp.cc1_buf[i]^2)/(rnlp.cc1_buf[i]^2 + rnlp.cc2_buf[i]^2)^(3/2)
     end
     return H
 end

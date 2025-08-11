@@ -96,6 +96,18 @@ function finalize(logger::IterateLogger)
     return close(logger.file)
 end
 
+function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
+    return @views(
+        mapreduce(
+            (a, b)->a*b,
+            max;
+            init=zero(T),
+            MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc1],
+            MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc2],
+        )
+    )
+end
+
 function linearize_lpec!(solver::MadNLPCSolver, tr::Float64; presolve_binaries=true)
     return solver.cnt.lpcc_init_time += @elapsed MadMPEC.linearize!(
         solver.lpcc,
