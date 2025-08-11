@@ -2,17 +2,17 @@ function project_scholtes_bisect(
     xk::T,
     yk::T,
     𝜅::T,
-    𝜎::T;
+    σ::T;
     step_tol::T=1e-8,
     abs_tol::T=1e-8,
     rel_tol::T=1e-8,
 ) where {T <: Real}
-    @assert xk*yk > 𝜅*𝜎 # TODO (and what if this isn't true?)
+    @assert xk*yk > 𝜅*σ # TODO (and what if this isn't true?)
 
     (l, r) = (0, 10*xk)
     m_last = typemax(T)
     stop = false
-    𝜏 = 𝜅*𝜎
+    𝜏 = 𝜅*σ
     while !stop
         m = (l+r)/2
         fm = m^4 - xk*m^3 + yk*𝜏*m - 𝜏^2
@@ -41,7 +41,7 @@ function project_scholtes_explicit!(
     xl::AbstractVector{T},
     yl::AbstractVector{T},
     𝜅::T,
-    𝜎::T;
+    σ::T;
     heuristic=:min_f,
 ) where {T <: Real}
     @assert length(x_target) ==
@@ -54,11 +54,11 @@ function project_scholtes_explicit!(
         # Hack for very small cases:
         if xk[ii]-xl[ii] ≤ 1e-6
             y_target[ii] = yk[ii]
-            x_target[ii] = (𝜅*𝜎)/(yk[ii]-yl[ii])
+            x_target[ii] = (𝜅*σ)/(yk[ii]-yl[ii])
             continue
         elseif yk[ii]-yl[ii] ≤ 1e-6
             x_target[ii] = xk[ii]
-            y_target[ii] = (𝜅*𝜎)/(xk[ii]-xl[ii])
+            y_target[ii] = (𝜅*σ)/(xk[ii]-xl[ii])
             continue
         end
         if xk[ii]-xl[ii] < yk[ii]-yl[ii]
@@ -68,7 +68,7 @@ function project_scholtes_explicit!(
                 xl[ii],
                 yl[ii],
                 𝜅,
-                𝜎;
+                σ;
                 heuristic=heuristic,
             )
         else
@@ -78,11 +78,10 @@ function project_scholtes_explicit!(
                 yl[ii],
                 xl[ii],
                 𝜅,
-                𝜎;
+                σ;
                 heuristic=heuristic,
             )
         end
-        
     end
 end
 
@@ -92,7 +91,7 @@ function project_scholtes_explicit(
     xl::T,
     yl::T,
     𝜅::T,
-    𝜎::T;
+    σ::T;
     heuristic=:min_f,
 ) where {T <: Real}
     # TODO(@anton) do some simplifications to stop duplicate evals (and check if compiler is smart enough to do it itself):
@@ -106,11 +105,11 @@ function project_scholtes_explicit(
     @assert xk > xl
     @assert yk > yl
     @assert 1 ≥ 𝜅 > 0
-    @assert 𝜎 > 0
+    @assert σ > 0
     @assert heuristic ∈ [:min_diff, :min_f, :max_cos_grad]
 
     # Calculate actual relaxation parameter
-    𝜏 = 𝜅*𝜎
+    𝜏 = 𝜅*σ
     # get shifted xk
     xk = xk - xl
     yk = yk - yl

@@ -2,7 +2,7 @@
 struct ScholtesRelaxation{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
-    𝜎::Base.RefValue{T}
+    σ::Base.RefValue{T}
 end
 
 function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -43,8 +43,8 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
     )
-    𝜎 = zero(T)
-    return ScholtesRelaxation(mpcc, meta, Ref(𝜎))
+    σ = zero(T)
+    return ScholtesRelaxation(mpcc, meta, Ref(σ))
 end
 
 # Counters should be forwarded
@@ -74,7 +74,7 @@ function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::Abstra
     end
     cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
     return cx
 end
 
@@ -103,7 +103,7 @@ function NLPModels.cons_nln!(
     # TODO(@anton) figure out if the intermediate outputs cause allocations
     cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .=
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.𝜎[]
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
     return cx
 end
 

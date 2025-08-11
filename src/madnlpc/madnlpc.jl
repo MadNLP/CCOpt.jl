@@ -119,11 +119,11 @@ function solve_homotopy!(
             MadNLP.print_init(ipm)
             ipm.status = MadNLP.initialize!(ipm)
             # Also reset sigma
-            ipm.nlp.𝜎[] = ipm.mu
+            ipm.nlp.σ[] = ipm.mu
         else # resolving the problem
             ipm.status = MadNLP.reinitialize!(ipm)
             # Also reset sigma
-            ipm.nlp.𝜎[] = ipm.mu
+            ipm.nlp.σ[] = ipm.mu
         end
         # possibly fix complementarity variable upper bounds:
         if solver.opts.respect_comp_bounds
@@ -228,11 +228,11 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
 
-        # Set 𝜎 to zero for constraint infeasibility calculations
-        𝜎 = ipm.nlp.𝜎[]
-        ipm.nlp.𝜎[] = 0
+        # Set σ to zero for constraint infeasibility calculations
+        σ = ipm.nlp.𝜎[]
+        ipm.nlp.σ[] = 0
         MadNLP.eval_cons_wrapper!(ipm, c_mpcc, ipm.x)
-        ipm.nlp.𝜎[] = 𝜎
+        ipm.nlp.σ[] = 𝜎
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
@@ -348,7 +348,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
                 MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
                 𝜅,
-                ipm.nlp.𝜎[],
+                ipm.nlp.σ[],
             )
             # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
             # TODO(@anton) throwing away the multiplier information is probably incorrect
