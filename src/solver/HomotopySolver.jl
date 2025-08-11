@@ -118,7 +118,7 @@ function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOp
     x_k = nlp.meta.x0
     y_k = nlp.meta.y0
 
-    σ = opts.𝜎₀
+    σ = opts.σ₀
 
     return HomotopySolver(
         mpcc,
@@ -361,7 +361,7 @@ function solve!(
     converged = false
     timeout = false
     max_inner_iter_reached = false
-    solver.nlp.σ[] = solver.𝜎
+    solver.nlp.σ[] = solver.σ
     ii = 1
     while ii ≤ opts.N_homotopy
         solver.k = ii
@@ -388,8 +388,8 @@ function solve!(
         end
 
         # 𝛽 > 1 decreases σ superlinearly when close to convergence
-        solver.σ = min(opts.𝛼*solver.𝜎, solver.𝜎^opts.𝛽)
-        solver.nlp.σ[] = solver.𝜎
+        solver.σ = min(opts.𝛼*solver.σ, solver.σ^opts.𝛽)
+        solver.nlp.σ[] = solver.σ
         ii += 1
         reset_nlp_solver!(solver)
     end

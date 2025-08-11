@@ -1,5 +1,5 @@
 ######################### Scholtes Relaxation #########################
-struct ScholtesRelaxation{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
+struct ScholtesRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
     σ::Base.RefValue{T}

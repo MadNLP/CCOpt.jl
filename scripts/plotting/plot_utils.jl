@@ -38,7 +38,7 @@ let x1 = [],
         push!(z2, MadNLP.variable(solver.ipm.zl)[2])
         push!(s, -MadNLP.slack(solver.ipm.x)[end])
         push!(zs, MadNLP.slack(solver.ipm.zu)[end])
-        σ = solver.scholtes.𝜎[]
+        σ = solver.rnlp.σ[]
         println(colors)
         pxx = plot(
             x1,
