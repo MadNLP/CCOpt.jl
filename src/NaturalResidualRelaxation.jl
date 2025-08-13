@@ -1,5 +1,5 @@
-######################### FischerBurmeister Relaxation #########################
-struct FischerBurmeisterRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
+######################### NaturalResidual Relaxation #########################
+struct NaturalResidualRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
     cc1_buf::VT
@@ -7,7 +7,7 @@ struct FischerBurmeisterRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
     σ::Base.RefValue{T}
 end
 
-function FischerBurmeisterRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
+function NaturalResidualRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     if !is_vertical(mpcc)
         # TODO(@anton) Perhaps we should do this automatically in the future or we can support non-vertical form scholtes
         #              though this makes the callbacks a bit more complicated
@@ -50,11 +50,11 @@ function FischerBurmeisterRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, V
     cc2_buf = VT(undef, mpcc.meta.ncc)
 
     σ = zero(T)
-    return FischerBurmeisterRelaxation(mpcc, meta, cc1_buf, cc2_buf, Ref(σ))
+    return NaturalResidualRelaxation(mpcc, meta, cc1_buf, cc2_buf, Ref(σ))
 end
 
 # Counters should be forwarded
-function Base.getproperty(rnlp::FischerBurmeisterRelaxation, sym::Symbol)
+function Base.getproperty(rnlp::NaturalResidualRelaxation, sym::Symbol)
     if sym ∈ [:counters]
         getproperty(rnlp.mpcc.nlp, sym)
     else
@@ -63,12 +63,12 @@ function Base.getproperty(rnlp::FischerBurmeisterRelaxation, sym::Symbol)
 end
 
 ######################### NLPModels Callbacks #########################
-function NLPModels.obj(rnlp::FischerBurmeisterRelaxation, x::AbstractVector)
+function NLPModels.obj(rnlp::NaturalResidualRelaxation, x::AbstractVector)
     return NLPModels.obj(rnlp.mpcc, x)
 end
 
 function NLPModels.grad!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     gx::AbstractVector,
 )
@@ -76,7 +76,7 @@ function NLPModels.grad!(
 end
 
 function NLPModels.objgrad!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     g::AbstractVector,
 )
@@ -84,7 +84,7 @@ function NLPModels.objgrad!(
 end
 
 function NLPModels.cons!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     cx::AbstractVector,
 )
@@ -96,7 +96,7 @@ function NLPModels.cons!(
     comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
     @views(
         map!(
-            (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
+            (a, b) -> a + b - sqrt((a-b)^2 + 4*rnlp.σ[]),
             cx[(mpcc_ncon+1):(rnlp.meta.ncon)],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
@@ -106,7 +106,7 @@ function NLPModels.cons!(
 end
 
 function NLPModels.cons_lin!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     cx::AbstractVector,
 )
@@ -118,7 +118,7 @@ function NLPModels.cons_lin!(
 end
 
 function NLPModels.cons_nln!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     cx::AbstractVector,
 )
@@ -132,7 +132,7 @@ function NLPModels.cons_nln!(
     comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
     @views(
         map!(
-            (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
+            (a, b) -> a + b - sqrt((a-b)^2 + 4*rnlp.σ[]),
             cx[(mpcc_nnln+1):(rnlp.meta.nnln)],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
@@ -142,7 +142,7 @@ function NLPModels.cons_nln!(
 end
 
 function NLPModels.jac_structure!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
 )
@@ -165,7 +165,7 @@ function NLPModels.jac_structure!(
 end
 
 function NLPModels.jac_lin_structure!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
 )
@@ -174,7 +174,7 @@ function NLPModels.jac_lin_structure!(
 end
 
 function NLPModels.jac_nln_structure!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
 )
@@ -197,7 +197,7 @@ function NLPModels.jac_nln_structure!(
 end
 
 function NLPModels.jac_coord!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     j::AbstractVector,
 )
@@ -208,13 +208,13 @@ function NLPModels.jac_coord!(
         comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
         comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
         map!(
-            (a, b) -> 1 - a/(sqrt(a^2 + b^2 + 2*rnlp.σ[])),
+            (a, b) -> 1 - (a-b)/(sqrt((a-b)^2 + 4*rnlp.σ[])),
             j[(rnlp.mpcc.meta.nnzj+1):(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc)],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
         )
         map!(
-            (a, b) -> 1 - b/(sqrt(a^2 + b^2 + 2*rnlp.σ[])),
+            (a, b) -> 1 + (a-b)/(sqrt((a-b)^2 + 4*rnlp.σ[])),
             j[(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nnzj+2*rnlp.mpcc.meta.ncc)],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
@@ -224,7 +224,7 @@ function NLPModels.jac_coord!(
 end
 
 function NLPModels.jac_lin_coord!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     jac::AbstractVector,
 )
@@ -232,7 +232,7 @@ function NLPModels.jac_lin_coord!(
 end
 
 function NLPModels.jac_nln_coord!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     jac::AbstractVector,
 )
@@ -243,13 +243,13 @@ function NLPModels.jac_nln_coord!(
         comp_res_left!(rnlp.mpcc, x, rnlp.cc1_buf)
         comp_res_right!(rnlp.mpcc, x, rnlp.cc2_buf)
         map!(
-            (a, b) -> 1 - a/(sqrt(a^2 + b^2 + 2*rnlp.σ[])),
+            (a, b) -> 1 - (a-b)/(sqrt((a-b)^2 + 4*rnlp.σ[])),
             jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
         )
         map!(
-            (a, b) -> 1 - b/(sqrt(a^2 + b^2 + 2*rnlp.σ[])),
+            (a, b) -> 1 + (a-b)/(sqrt((a-b)^2 + 4*rnlp.σ[])),
             jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
@@ -259,7 +259,7 @@ function NLPModels.jac_nln_coord!(
 end
 
 function NLPModels.jprod_lin!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     v::AbstractVector,
     Jv::AbstractVector,
@@ -270,7 +270,7 @@ function NLPModels.jprod_lin!(
 end
 
 function NLPModels.jprod_nln!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     v::AbstractVector,
     Jv::AbstractVector,
@@ -281,7 +281,7 @@ function NLPModels.jprod_nln!(
 end
 
 function NLPModels.jtprod_lin!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     v::AbstractVector,
     Jtv::AbstractVector,
@@ -292,7 +292,7 @@ function NLPModels.jtprod_lin!(
 end
 
 function NLPModels.jtprod_nln!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     x::AbstractVector,
     v::AbstractVector,
     Jtv::AbstractVector,
@@ -303,7 +303,7 @@ function NLPModels.jtprod_nln!(
 end
 
 function NLPModels.hess_structure!(
-    rnlp::FischerBurmeisterRelaxation,
+    rnlp::NaturalResidualRelaxation,
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
 )
@@ -333,7 +333,7 @@ function NLPModels.hess_structure!(
     return rows, cols
 end
 function NLPModels.hess_coord!(
-    rnlp::FischerBurmeisterRelaxation{T, VT},
+    rnlp::NaturalResidualRelaxation{T, VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     H::AbstractVector{T};
@@ -356,28 +356,28 @@ function NLPModels.hess_coord!(
     for i in 1:ncc
         H[i+nnzh] =
             y[i+ncon]*(
-                rnlp.cc1_buf[i]*rnlp.cc2_buf[i]
-            )/(rnlp.cc1_buf[i]^2 + rnlp.cc2_buf[i]^2 + 2*rnlp.σ[])^(3/2)
+                4*rnlp.σ[]
+            )/((rnlp.cc1_buf[i] - rnlp.cc2_buf[i])^2 + 4*rnlp.σ[])^(3/2)
     end
     # xx
     for i in 1:ncc
         H[i+nnzh+ncc] =
             -y[i+ncon]*(
-                2*rnlp.σ[] + rnlp.cc2_buf[i]^2
-            )/(rnlp.cc1_buf[i]^2 + rnlp.cc2_buf[i]^2 + 2*rnlp.σ[])^(3/2)
+                4*rnlp.σ[]
+            )/((rnlp.cc1_buf[i] - rnlp.cc2_buf[i])^2 + 4*rnlp.σ[])^(3/2)
     end
     # yy
     for i in 1:ncc
         H[i+nnzh+2*ncc] =
             -y[i+ncon]*(
-                2*rnlp.σ[] + rnlp.cc1_buf[i]^2
-            )/(rnlp.cc1_buf[i]^2 + rnlp.cc2_buf[i]^2 + 2*rnlp.σ[])^(3/2)
+                4*rnlp.σ[]
+            )/((rnlp.cc1_buf[i] - rnlp.cc2_buf[i])^2 + 4*rnlp.σ[])^(3/2)
     end
     return H
 end
 
 function NLPModels.hprod!(
-    rnlp::FischerBurmeisterRelaxation{T, VT},
+    rnlp::NaturalResidualRelaxation{T, VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     v::AbstractVector{T},

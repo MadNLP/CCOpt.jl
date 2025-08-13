@@ -148,6 +148,7 @@ function MadNLPCSolver(
 ) where {T, VT}
     rnlp = solver_opts.relaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
+    rnlp.σ[] = ipm.opt.barrier.mu_init
 
     logger = MadNLP.MadNLPLogger(
         print_level=solver_opts.print_level,

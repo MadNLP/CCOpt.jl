@@ -861,3 +861,83 @@ function test_mpecopt(; range=:)
     )
     return solnames, names, stats
 end
+
+function test_fb(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    opts_scholtes = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    opts_fb = MadMPEC.MadNLPCOptions(
+        print_level=MadNLP.ERROR,
+        relaxation=MadMPEC.FischerBurmeisterRelaxation,
+    )
+    opts_cck = MadMPEC.MadNLPCOptions(
+        print_level=MadNLP.ERROR,
+        relaxation=MadMPEC.ChenChenKanzowRelaxation,
+    )
+    opts_nr = MadMPEC.MadNLPCOptions(
+        print_level=MadNLP.ERROR,
+        relaxation=MadMPEC.NaturalResidualRelaxation,
+    )
+
+    default_ipopt = (
+        "Ipopt Homotopy",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    scholtes = (
+        "madNLP-C scholtes",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_scholtes,
+        ((madnlpc_solver_options...,)),
+    )
+    fb = (
+        "madNLP-C fb",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_fb,
+        ((madnlpc_solver_options...,)),
+    )
+
+    cck = (
+        "madNLP-C cck",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_cck,
+        ((madnlpc_solver_options...,)),
+    )
+
+    nr = (
+        "madNLP-C nr",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_nr,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        nr,
+        cck,
+        fb,
+        scholtes,
+        default_ipopt,
+        #default_ipopt,
+        #default_madnlp,
+        range=range,
+    )
+    return solnames, names, stats
+end

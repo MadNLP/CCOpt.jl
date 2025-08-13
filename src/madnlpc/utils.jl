@@ -99,11 +99,13 @@ end
 function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
     return @views(
         mapreduce(
-            (a, b)->a*b,
-            max;
-            init=zero(T),
+            (a, la, b, lb)->(a-la)*(b-lb),
+            max,
             MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc1],
+            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc1],
             MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc2],
+            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2];
+            init=zero(T),
         )
     )
 end
