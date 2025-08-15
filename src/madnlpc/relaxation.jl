@@ -2,13 +2,11 @@ function update_sigma!(
     relax::ProportionalRelaxationUpdate{T},
     solver::MadNLPCSolver{T},
 ) where {T}
+    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     if relax.monotone
-        solver.rnlp.σ[] = max(
-            min(solver.rnlp.σ[], relax.sigma_mu_ratio*solver.ipm.mu),
-            solver.opts.sigma_min,
-        )
+        solver.rnlp.σ[] = max(min(solver.rnlp.σ[], sigma_candidate), solver.opts.sigma_min)
     else
-        solver.rnlp.σ[] = relax.sigma_mu_ratio*solver.ipm.mu
+        solver.rnlp.σ[] = max(sigma_candidate, solver.opts.sigma_min)
     end
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
