@@ -121,13 +121,16 @@ function solve_homotopy!(
                 "This is $(MadNLP.introduce()), using MadMPEC extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
             )
             MadNLP.print_init(ipm)
+            # Also reset sigma
+            update_sigma!(solver.opts.relaxation_update, solver)
             ipm.status = MadNLP.initialize!(ipm)
-            # Also reset sigma
-            ipm.nlp.σ[] = ipm.mu
+
+            solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
-            ipm.status = MadNLP.reinitialize!(ipm)
             # Also reset sigma
-            ipm.nlp.σ[] = ipm.mu
+            update_sigma!(solver.opts.relaxation_update, solver)
+            ipm.status = MadNLP.reinitialize!(ipm)
+            solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         end
         # possibly fix complementarity variable upper bounds:
         if solver.opts.respect_comp_bounds
@@ -236,10 +239,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
-        ipm.inf_pr = max(
-            MadNLP.get_inf_pr(@view(ipm.c[1:mpcc.meta.ncon])),
-            MadMPEC.get_inf_pr_cc(solver),
-        )
+        solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
+        ipm.inf_pr =
+            max(MadNLP.get_inf_pr(@view(ipm.c[1:mpcc.meta.ncon])), solver.inf_pr_cc)
         ipm.inf_du = MadNLP.get_inf_du(
             MadNLP.full(ipm.f),
             MadNLP.full(ipm.zl),
@@ -258,7 +260,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             sc,
         )
 
-        MadNLP.print_iter(ipm)
+        MadNLP.print_iter(solver)
         log_iter(solver.iterate_logger, solver)
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
