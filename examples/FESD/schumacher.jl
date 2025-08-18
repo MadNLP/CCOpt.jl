@@ -259,15 +259,16 @@ elseif solver_type == :madnlpc
         use_magic_step=false,
         #relaxation_update=MadMPEC.LOQORelaxationUpdate(gamma=0.05, mu_factor=0.9),
         relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_ratio=10.0),
+        #relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_ratio=1.0),
         use_specialized_barrier_update=true,
     )
     solver = MadMPEC.MadNLPCSolver(
         mpcc;
         solver_opts=madnlpc_opts,
         print_level=MadNLP.INFO,
-        #barrier=MadNLP.MonotoneUpdate(),
+        barrier=MadNLP.MonotoneUpdate(mu_init=0.1),
         #barrier=MadNLP.AdaptiveUpdate(mu_min=1e-9),
-        barrier=MadNLP.LOQOUpdate(gamma=0.05),
+        #barrier=MadNLP.LOQOUpdate(gamma=0.05),
         bound_relax_factor=0.0,
         tol=1e-8,
     )
