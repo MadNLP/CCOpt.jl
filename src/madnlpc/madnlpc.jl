@@ -115,6 +115,7 @@ function solve_homotopy!(
     end
 
     try
+        # TODO(@anton) Probably should specialize `initialize!` as order of initalizing things is important.
         if ipm.status == MadNLP.INITIAL
             MadNLP.@notice(
                 solver.logger,
@@ -122,9 +123,8 @@ function solve_homotopy!(
             )
             MadNLP.print_init(ipm)
             # Also reset sigma
-            update_sigma!(solver.opts.relaxation_update, solver)
             ipm.status = MadNLP.initialize!(ipm)
-
+            update_sigma!(solver.opts.relaxation_update, solver)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma

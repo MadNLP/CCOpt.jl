@@ -67,10 +67,183 @@ function MadNLP.set_cen_aug_rhs!(solver::MadNLPCSolver, kkt::MadNLP.AbstractKKTS
     pzu = MadNLP.dual_ub(ipm.p)
 
     px .= 0
-    py .= mu
+    py .= mu # TODO AHHHHHHHHH
     pzl .= mu
     pzu .= -mu
     return
+end
+
+function MadNLP._evaluate_quality_function(
+    solver::MadNLPCSolver,
+    sigma,
+    step_aff,
+    step_cen,
+    res_dual,
+    res_primal,
+)
+    ipm = solver.ipm
+    n, m = ipm.n, ipm.m
+    ncc = solver.mpcc.meta.ncc
+    ind_cc1 = solver.mpcc.meta.ind_cc1
+    ind_cc2 = solver.mpcc.meta.ind_cc2
+    nlb, nub = ipm.nlb, ipm.nub
+    tau = ipm.tau
+    d = ipm.d # Load buffer
+    x_pr = MadNLP.variable(ipm.x)
+    xl_pr = MadNLP.variable(ipm.xl)
+    dx_pr = MadNLP.primal(ipm.d)
+
+    # Δ(σ) = Δ(0) + σ (Δ(1) - Δ(0))
+    MadNLP.full(d) .=
+        MadNLP.full(step_aff) .+ sigma .* (MadNLP.full(step_cen) .- MadNLP.full(step_aff))
+    # Primal step
+    alpha_pr = MadNLP.get_alpha_max(
+        MadNLP.primal(ipm.x),
+        MadNLP.primal(ipm.xl),
+        MadNLP.primal(ipm.xu),
+        MadNLP.primal(d),
+        tau,
+    )
+    # Dual step
+    alpha_du =
+        MadNLP.get_alpha_z(ipm.zl_r, ipm.zu_r, MadNLP.dual_lb(d), MadNLP.dual_ub(d), tau)
+
+    # (x + αp Δx - xl)ᵀ (zl + αd Δzl)
+    inf_compl_lb = mapreduce(
+        (x, xl, dx, z, dz) -> ((x + alpha_pr * dx - xl) * (z + alpha_du * dz))^2,
+        +,
+        ipm.x_lr,
+        ipm.xl_r,
+        ipm.dx_lr,
+        ipm.zl_r,
+        MadNLP.dual_lb(d);
+        init=0.0,
+    )
+    # (xu - x - αp Δx)ᵀ (zu + αd Δzu)
+    inf_compl_ub = mapreduce(
+        (x, xu, dx, z, dz) -> ((xu - x - alpha_pr * dx) * (z + alpha_du * dz))^2,
+        +,
+        ipm.x_ur,
+        ipm.xu_r,
+        ipm.dx_ur,
+        ipm.zu_r,
+        MadNLP.dual_ub(d);
+        init=0.0,
+    )
+    @views begin
+        inf_compl_pr =
+            mapreduce(
+                (x1, x1l, x2, x2l, dx1, dx2) ->
+                    ((x1 + (alpha_pr * dx1) - x1l) * (x2 + (alpha_pr * dx2) - x2l))^2,
+                +,
+                x_pr[ind_cc1],
+                xl_pr[ind_cc1],
+                x_pr[ind_cc2],
+                xl_pr[ind_cc2],
+                dx_pr[ind_cc1],
+                dx_pr[ind_cc2];
+                init=0.0,
+            ) / ncc
+    end
+
+    # Primal infeasibility
+    inf_pr = (1.0 - alpha_pr)^2 * res_primal^2 / n
+    # Dual infeasibility
+    inf_du = (1.0 - alpha_du)^2 * res_dual^2 / (m-ncc)
+    # Complementarity infeasibility
+    inf_compl = (inf_compl_lb + inf_compl_ub) / (nlb + nub)
+
+    # Quality function qL defined in Eq. (4.2)
+    return inf_du + inf_pr + inf_compl + inf_compl_pr
+end
+
+function MadNLP._run_golden_search!(
+    solver::MadNLPCSolver,
+    barrier,
+    sigma_lb,
+    sigma_ub,
+    step_aff,
+    step_cen,
+    res_primal,
+    res_dual,
+)
+    ipm = solver.ipm
+    gfac = 0.5 * (3.0 - sqrt(5.0))
+
+    sigma_1, sigma_2 = sigma_lb, sigma_ub
+    phi_1 = MadNLP._evaluate_quality_function(
+        solver,
+        sigma_1,
+        step_aff,
+        step_cen,
+        res_primal,
+        res_dual,
+    )
+    phi_2 = MadNLP._evaluate_quality_function(
+        solver,
+        sigma_2,
+        step_aff,
+        step_cen,
+        res_primal,
+        res_dual,
+    )
+
+    sigma_mid1 = sigma_lb + gfac * (sigma_ub - sigma_lb)
+    sigma_mid2 = sigma_lb + (1.0 - gfac) * (sigma_ub - sigma_lb)
+    phi_mid1 = MadNLP._evaluate_quality_function(
+        solver,
+        sigma_mid1,
+        step_aff,
+        step_cen,
+        res_primal,
+        res_dual,
+    )
+    phi_mid2 = MadNLP._evaluate_quality_function(
+        solver,
+        sigma_mid2,
+        step_aff,
+        step_cen,
+        res_primal,
+        res_dual,
+    )
+
+    # Golden search
+    for i in 1:barrier.max_gs_iter
+        if phi_mid1 > phi_mid2
+            sigma_1 = sigma_mid1
+            phi_1 = phi_mid1
+            sigma_mid1 = sigma_mid2
+            sigma_mid2 = sigma_1 + (1.0 - gfac) * (sigma_2 - sigma_1)
+            phi_mid2 = MadNLP._evaluate_quality_function(
+                solver,
+                sigma_mid2,
+                step_aff,
+                step_cen,
+                res_primal,
+                res_dual,
+            )
+        else
+            sigma_2 = sigma_mid2
+            phi_2 = phi_mid2
+            sigma_mid2 = sigma_mid1
+            sigma_mid1 = sigma_1 + gfac * (sigma_2 - sigma_1)
+            phi_mid1 = MadNLP._evaluate_quality_function(
+                solver,
+                sigma_mid1,
+                step_aff,
+                step_cen,
+                res_primal,
+                res_dual,
+            )
+        end
+
+        if sigma_2 - sigma_1 < barrier.sigma_tol * sigma_2
+            break
+        end
+    end
+    # Compute final sigma
+    sigma, phi = phi_mid1 < phi_mid2 ? (sigma_mid1, phi_mid1) : (sigma_mid2, phi_mid2)
+    return sigma
 end
 
 function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveUpdate)
@@ -78,12 +251,11 @@ function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveU
     linear_solver = ipm.kkt.linear_solver
     step_aff = ipm._w1 # buffer 1
     step_cen = ipm._w2 # buffer 2
-
     # Affine step
     set_aug_rhs_aff!(solver, ipm.kkt, ipm.c)
     # Get primal and dual infeasibility directly 1from the values in RHS p
-    res_primal = norm(MadNLP.primal(ipm.p))
-    res_dual = norm(MadNLP.dual(ipm.p))
+    res_primal = norm(@view(MadNLP.dual(ipm.p)[1:solver.mpcc.meta.ncon]))
+    res_dual = norm(MadNLP.primal(ipm.p))
 
     # Get approximate solution without iterative refinement
     copyto!(MadNLP.full(step_aff), MadNLP.full(ipm.p))
@@ -108,7 +280,7 @@ function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveU
     # Refine the search interval using Ipopt's heuristics
     # First, check if sigma is greater than 1.
     phi1 = MadNLP._evaluate_quality_function(
-        ipm,
+        solver,
         1.0,
         step_aff,
         step_cen,
@@ -117,7 +289,7 @@ function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveU
     )
     sigma_1m = 1.0 - 1e-4
     phi1m = MadNLP._evaluate_quality_function(
-        ipm,
+        solver,
         sigma_1m,
         step_aff,
         step_cen,
@@ -135,7 +307,7 @@ function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveU
 
     # Run Golden-section search (assume the quality function is unimodal)
     sigma_opt = MadNLP._run_golden_search!(
-        ipm,
+        solver,
         barrier,
         sigma_min,
         sigma_max,

@@ -598,6 +598,7 @@ function test_adaptive(; range=:)
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
         :barrier=>MadNLP.QualityFunctionUpdate(),
+        :rethrow_error=>false,
     )
     opts_madnlpc_adaptive = MadMPEC.MadNLPCOptions()
     opts_madnlpc_adaptive_sigma = MadMPEC.MadNLPCOptions()
@@ -651,8 +652,8 @@ function test_adaptive(; range=:)
     )
 
     solnames, names, stats = run_macmpec(
-        loqo_madnlp_c,
-        #adaptive_madnlp_c,
+        #loqo_madnlp_c,
+        adaptive_madnlp_c,
         #adaptive_sigma_madnlp_c,
         monotone_madnlp_c,
         range=range,
