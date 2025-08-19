@@ -614,7 +614,7 @@ function test_adaptive(; range=:)
 
     madnlpc_monotone_solver_options = Dict(
         :bound_relax_factor=>0.0,
-        :print_level=>MadNLP.ERROR,
+        :print_level=>MadNLP.INFO,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
@@ -653,7 +653,7 @@ function test_adaptive(; range=:)
 
     solnames, names, stats = run_macmpec(
         #loqo_madnlp_c,
-        adaptive_madnlp_c,
+        #adaptive_madnlp_c,
         #adaptive_sigma_madnlp_c,
         monotone_madnlp_c,
         range=range,
@@ -1033,6 +1033,132 @@ function test_sigma_mu_ratio(; range=:)
         default_ipopt,
         #default_ipopt,
         #default_madnlp,
+        range=range,
+    )
+    return solnames, names, stats
+end
+
+function test_mu_init(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    madmpec_opts = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+
+    nlp_opts_1 = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.MonotoneUpdate(mu_init=1.0),
+    )
+    nlp_opts_01 = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.MonotoneUpdate(mu_init=0.1),
+    )
+    nlp_opts_10 = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.MonotoneUpdate(mu_init=10.0),
+    )
+
+    default_ipopt = (
+        "Ipopt Homotopy",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    mu_1 = (
+        "madNLP-C mu0 = 1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        madmpec_opts,
+        ((nlp_opts_1...,)),
+    )
+    mu_10 = (
+        "madNLP-C mu0 = 10",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        madmpec_opts,
+        ((nlp_opts_10...,)),
+    )
+
+    mu_01 = (
+        "madNLP-C mu0 = 0.1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        madmpec_opts,
+        ((nlp_opts_01...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #scholtes_sqrt,
+        mu_1,
+        mu_10,
+        mu_01,
+        default_ipopt,
+        #default_ipopt,
+        #default_madnlp,
+        range=range,
+    )
+    return solnames, names, stats
+end
+
+function test_slack_reset(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    opts_reset =
+        MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR, reset_slacks_on_update=true)
+    opts_default = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    default_ipopt = (
+        "Ipopt Homotopy",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    reset = (
+        "madNLP-C slack reset",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_reset,
+        ((madnlpc_solver_options...,)),
+    )
+
+    default_madnlpc = (
+        "madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_default,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #reset,
+        default_madnlpc,
+        default_ipopt,
         range=range,
     )
     return solnames, names, stats

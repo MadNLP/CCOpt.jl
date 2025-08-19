@@ -344,6 +344,7 @@ function solve_benchmark_problem(
 )
     solver = MadMPEC.MadNLPCSolver(mpcc; solver_opts=opts, sol_args...)
     stats = MadMPEC.solve_homotopy!(solver)
+    println(stats.options)
     return stats
 end
 

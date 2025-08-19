@@ -67,7 +67,7 @@ function MadNLP.set_cen_aug_rhs!(solver::MadNLPCSolver, kkt::MadNLP.AbstractKKTS
     pzu = MadNLP.dual_ub(ipm.p)
 
     px .= 0
-    py .= mu # TODO AHHHHHHHHH
+    py .= mu
     pzl .= mu
     pzu .= -mu
     return
