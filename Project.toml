@@ -1,7 +1,7 @@
 name = "MadMPEC"
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
-authors = ["Anton Edvinovich Pozharskiy <apozharski@gmail.com>"]
 version = "0.1.0"
+authors = ["Anton Edvinovich Pozharskiy <apozharski@gmail.com>"]
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
