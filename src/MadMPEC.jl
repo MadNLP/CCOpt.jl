@@ -1,5 +1,6 @@
 module MadMPEC
-using NLPModels, SolverCore, LinearAlgebra, SparseArrays, HiGHS, JuMP, Gurobi
+using NLPModels,
+    SolverCore, LinearAlgebra, SparseArrays, HiGHS, JuMP, Gurobi, QuadraticModels
 using MathOptInterface
 const MOI = MathOptInterface
 using Serialization
@@ -20,6 +21,7 @@ include("models/NaturalResidualRelaxation.jl")
 include("models/BranchNLP.jl")
 include("models/Ell1Relaxation.jl")
 include("models/LiftedNLPModel.jl")
+include("models/LPCCModel.jl")
 include("solver/AbstractMPCCSolver.jl")
 include("solver/HomotopySolver.jl")
 include("lpcc/LpccSolver.jl")

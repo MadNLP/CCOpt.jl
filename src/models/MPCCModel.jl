@@ -31,7 +31,7 @@ struct MPCCModel{T, VT} <: AbstractMPCCModel{T, VT}
 end
 
 ######################### Helper functions for MPCCModel #########################
-function is_vertical(mpcc::MPCCModel)
+function is_vertical(mpcc::AbstractMPCCModel)
     return all(map((x)->isa(x, VarVar), mpcc.meta.cc_types))
 end
 
