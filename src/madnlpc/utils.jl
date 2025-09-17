@@ -111,39 +111,20 @@ function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
 end
 
 function linearize_lpec!(solver::MadNLPCSolver, tr::Float64; presolve_binaries=true)
-    return solver.cnt.lpcc_init_time += @elapsed MadMPEC.linearize!(
-        solver.lpcc,
-        solver.x;
-        tr=tr,
-        presolve_binaries=presolve_binaries,
-    )
+    solver.cnt.lpcc_init_time += @elapsed MadMPEC.linearize!(solver, tr)
+    return nothing
 end
 
 function update_lpec_tr!(solver::MadNLPCSolver, tr::Float64; presolve_binaries=true)
-    return solver.cnt.lpcc_init_time +=
-        @elapsed MadMPEC.tr!(solver.lpcc, solver.x, tr, presolve_binaries=presolve_binaries)
+    solver.cnt.lpcc_init_time += @elapsed MadMPEC.tr!(solver, tr)
+    return nothing
 end
 
 function solve_lpec!(solver::MadNLPCSolver{T, VT}; x0=nothing) where {T, VT}
     solver.cnt.lpcc_solves += 1
-    solver.cnt.lpcc_init_time += @elapsed begin
-        model = MadMPEC.build(solver.lpcc, solver.opts.lpcc_solver_opts; x0=x0)
-    end
 
     solver.cnt.lpcc_solve_time += @elapsed begin
-        optimize!(model)
-
-        optimal = is_solved_and_feasible(model)
-        if optimal
-            vals = value.(model[:x])
-            y = vals[solver.lpcc.integrality .== one(Int32)] .> 0.5
-            obj = objective_value(model)
-        else
-            ncc = solver.mpcc.meta.ncc
-            vals = VT(undef, length(model[:x]))
-            y = BitVector(undef, ncc)
-            obj = typemax(T)
-        end
+        optimal, vals, y, obj = lpcc_oracle!(solver.lpcc_solver)
     end
     return optimal, vals, y, obj
 end
