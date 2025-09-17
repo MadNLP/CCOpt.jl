@@ -597,7 +597,7 @@ function test_adaptive(; range=:)
         :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
-        :barrier=>MadNLP.AdaptiveUpdate(),
+        :barrier=>MadNLP.QualityFunctionUpdate(),
     )
     opts_madnlpc_adaptive = MadMPEC.MadNLPCOptions()
     opts_madnlpc_adaptive_sigma = MadMPEC.MadNLPCOptions(monotone_sigma=false)
