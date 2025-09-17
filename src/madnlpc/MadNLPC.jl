@@ -105,7 +105,7 @@ end
     phase_II_tr_min::T = 1e-6
 
     # lpec solver options
-    lpcc_solver_opts::AbstractLpccSolverOptions{T} = LpccMILPOptions()
+    lpcc_solver_opts::AbstractLpccSolverOptions{T} = MilpSolverOptions()
 
     # Store Iterations
     iterates_fname::String = ""
@@ -137,7 +137,7 @@ mutable struct MadNLPCSolver{T, VT}
 
     status::Status
 
-    lpcc::LpccMILP{T, VT}
+    lpcc::AbstractLPCCModel{T, VT}
     bnlp_ipm::MadNLP.MadNLPSolver{T, VT}
     eps_proj::T
     inf_pr_cc::T
@@ -166,7 +166,7 @@ function MadNLPCSolver(
              open(solver_opts.iterates_fname, "w+"),
     )
 
-    lpcc = LpccMILP(mpcc; M=solver_opts.M_lpcc)
+    lpcc = linearize(mpcc, mpcc.meta.x0) # TODO(@anton) correct TR
     eps_proj = solver_opts.eps_proj
     x = VT(undef, mpcc.meta.nvar)
     b = Vector{Bool}(undef, mpcc.meta.ncc)
