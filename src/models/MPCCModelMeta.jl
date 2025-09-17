@@ -1,5 +1,5 @@
-struct MPCCModelMeta{T, VT, MT <: AbstractNLPModelMeta{T, VT}} <:
-       AbstractNLPModelMeta{T, VT}
+mutable struct MPCCModelMeta{T, VT, MT <: AbstractNLPModelMeta{T, VT}} <:
+               AbstractNLPModelMeta{T, VT}
     nlp_meta::Base.RefValue{MT}
 
     ncc::Int

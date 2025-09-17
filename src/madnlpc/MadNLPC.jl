@@ -96,6 +96,7 @@ end
         :bound_push=>1e-6,
         :bound_fac=>1e-6,
         :print_level=>print_level,
+        :bound_relax_factor=>0.0,
     )
     phase_I_tr_factor::T = 100.0
     s_stationarity_tol::T = 1e-8
