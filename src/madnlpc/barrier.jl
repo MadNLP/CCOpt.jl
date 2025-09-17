@@ -31,7 +31,7 @@ function MadNLP.update_barrier!(
 end
 
 function MadNLP.update_barrier!(
-    barrier::MadNLP.AdaptiveUpdate{T},
+    barrier::MadNLP.QualityFunctionUpdate{T},
     solver::MadNLPCSolver{T},
     sc::T,
 ) where {T}
