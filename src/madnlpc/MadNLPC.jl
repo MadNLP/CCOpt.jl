@@ -50,7 +50,7 @@ struct MadNLPCIterate{T, VT}
 end
 
 # Options struct
-@kwdef struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
+@kwdef mutable struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
     # Relaxation type
     relaxation::Type = ScholtesRelaxation
 
@@ -105,7 +105,8 @@ end
     phase_II_tr_min::T = 1e-6
 
     # lpec solver options
-    lpcc_solver_opts::AbstractLpccSolverOptions{T} = MilpSolverOptions()
+    lpcc_solver_opts::Union{MilpSolverOptions{T}, MadNLPCOptions{T}, Nothing} =
+        MilpSolverOptions()
 
     # Store Iterations
     iterates_fname::String = ""
@@ -138,12 +139,24 @@ mutable struct MadNLPCSolver{T, VT}
     status::Status
 
     lpcc::AbstractLPCCModel{T, VT}
+    lpcc_solver::Union{MadNLPCSolver{T, VT}, MilpSolver{T, VT}, Nothing}
     bnlp_ipm::MadNLP.MadNLPSolver{T, VT}
     eps_proj::T
     inf_pr_cc::T
 
     x::VT
     b::Vector{Bool} # TODO(@anton) is it actually better to have a Vector{Bool}
+end
+
+build_lpcc_solver(lpcc::AbstractLPCCModel, opts::Nothing) = nothing
+
+build_lpcc_solver(lpcc::AbstractLPCCModel, opts::MilpSolverOptions) = MilpSolver(lpcc, opts)
+
+function build_lpcc_solver(lpcc::AbstractLPCCModel, opts::MadNLPCOptions)
+    # Ensure we don't recurse
+    opts.use_mpecopt = false
+    opts.lpcc_solver_opts = nothing
+    return MadNLPCSolver(lpcc; solver_opts=opts)
 end
 
 function MadNLPCSolver(
@@ -166,7 +179,9 @@ function MadNLPCSolver(
              open(solver_opts.iterates_fname, "w+"),
     )
 
+    # lpcc for crossover
     lpcc = linearize(mpcc, mpcc.meta.x0) # TODO(@anton) correct TR
+    lpcc_solver = build_lpcc_solver(lpcc, solver_opts.lpcc_solver_opts)
     eps_proj = solver_opts.eps_proj
     x = VT(undef, mpcc.meta.nvar)
     b = Vector{Bool}(undef, mpcc.meta.ncc)
@@ -185,6 +200,7 @@ function MadNLPCSolver(
         cnt,
         INITIAL,
         lpcc,
+        lpcc_solver,
         bnlp_ipm,
         eps_proj,
         0.0,
