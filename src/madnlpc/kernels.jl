@@ -50,3 +50,59 @@ end
 @inline function update_c!(c, σ, σ_old, ncc)
     return c[(end-ncc+1):end] .+= σ_old - σ
 end
+
+function linearize!(solver::MadNLPCSolver{T}, tr::T) where {T}
+    # TODO(@anton) presolving at the LPCC level makes this questionable
+    MadMPEC.linearize!(solver.lpcc, solver.mpcc, solver.x; tr=tr)
+    return solver.lpcc_solver = build_lpcc_solver(solver.lpcc, solver.opts.lpcc_solver_opts)
+end
+
+function tr!(solver::MadNLPCSolver{T}, tr::T) where {T}
+    MadMPEC.tr!(solver.lpcc, solver.mpcc, solver.x; tr=tr)
+    return solver.lpcc_solver = build_lpcc_solver(solver.lpcc, solver.opts.lpcc_solver_opts)
+end
+
+function lpcc_oracle!(lpcc_solver::MadNLPCSolver{T, VT}) where {T, VT}
+    lpcc = lpcc_solver.lpcc
+    stat = solve_homotopy!(lpcc_solver)
+    ncc = length(lpcc.fixed_map)
+
+    optimal = stat.status == NLP_STATIONARY
+    if optimal
+        vals = stat.solution
+        y = BitVector(undef, ncc)
+        y[lpcc_solver.lpcc.fixed_map .== 0] .=
+            comp_res_left(lpcc, vals) .> comp_res_right(lpcc, vals)
+        y[lpcc_solver.lpcc.fixed_map .== 1] .= false
+        y[lpcc_solver.lpcc.fixed_map .== 2] .= true
+        obj = stat.stats.objective
+    else
+        vals = VT(undef, lpcc.meta.nvar)
+        y = BitVector(undef, ncc)
+        obj = typemax(T)
+    end
+    return optimal, vals, y, obj
+end
+
+function lpcc_oracle!(lpcc_solver::MilpSolver{T, VT}) where {T, VT}
+    model = lpcc_solver.model
+    lpcc = lpcc_solver.lpcc
+    ncc = length(lpcc.fixed_map)
+    optimize!(model)
+
+    optimal = is_solved_and_feasible(model)
+    if optimal
+        vals = value.(model[:x])
+        y = BitVector(undef, ncc)
+        y[lpcc_solver.lpcc.fixed_map .== 0] .= @views(vals[(lpcc.meta.nvar+1):end] .> 0.5)
+        y[lpcc_solver.lpcc.fixed_map .== 1] .= false
+        y[lpcc_solver.lpcc.fixed_map .== 2] .= true
+        obj = objective_value(model)
+    else
+        vals = VT(undef, length(model[:x]))
+        y = BitVector(undef, ncc)
+        obj = typemax(T)
+    end
+
+    return optimal, vals, y, obj
+end
