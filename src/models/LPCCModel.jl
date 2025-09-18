@@ -77,7 +77,6 @@ function linearize(mpcc::AbstractMPCCModel{T, VT}, x::VT; tr=0.0) where {T, VT}
         merge(mpcc.meta.ind_j_lin_row_map, mpcc.meta.ind_j_nln_row_map), # ind_j_lin_row_map TODO(@anton) merge?
         Dict{Int, Int}(), #ind_j_nln_row_map
     )
-    #println(fixed_map)
     return LPCCModel(lp, meta, fixed_map)
 end
 
@@ -95,7 +94,8 @@ function linearize!(
     QuadraticModels.linearize!(lpcc.nlp, mpcc.nlp, x; tr=tr)
     lp = lpcc.nlp
 
-    fixed_map = zeros(Int, mpcc.meta.ncc)
+    fixed_map = lpcc.fixed_map
+    fixed_map .= 0
     n_fixed = 0
     if tr > 0.0
         for ii in 1:mpcc.meta.ncc
@@ -117,7 +117,6 @@ function linearize!(
             end
         end
     end
-    println(fixed_map)
     # Prune the new ind_cc
     ind_cc1 = mpcc.meta.ind_cc1[fixed_map .== 0]
     ind_cc2 = mpcc.meta.ind_cc2[fixed_map .== 0]
@@ -129,8 +128,6 @@ function linearize!(
     lpcc.meta.ind_cc2 = ind_cc2
     lpcc.meta.cc_types = cc_types
     lpcc.meta.ind_x = ind_x
-    lpcc.fixed_map .= fixed_map
-
     return lpcc
 end
 
@@ -146,7 +143,8 @@ function tr!(
     lp.meta.lvar .= max.(mpcc.meta.lvar .- x, -tr)
     lp.meta.uvar .= max.(mpcc.meta.uvar .- x, tr)
 
-    fixed_map = zeros(Int, mpcc.meta.ncc)
+    fixed_map = lpcc.fixed_map
+    fixed_map .= 0
     n_fixed = 0
     if tr > 0.0
         for ii in 1:mpcc.meta.ncc
@@ -179,7 +177,6 @@ function tr!(
     lpcc.meta.ind_cc2 = ind_cc2
     lpcc.meta.cc_types = cc_types
     lpcc.meta.ind_x = ind_x
-    lpcc.fixed_map .= fixed_map
 
     return lpcc
 end
