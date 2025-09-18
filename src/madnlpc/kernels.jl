@@ -63,7 +63,7 @@ function tr!(solver::MadNLPCSolver{T}, tr::T) where {T}
 end
 
 function lpcc_oracle!(lpcc_solver::MadNLPCSolver{T, VT}) where {T, VT}
-    lpcc = lpcc_solver.lpcc
+    lpcc = lpcc_solver.mpcc
     stat = solve_homotopy!(lpcc_solver)
     ncc = length(lpcc.fixed_map)
 
@@ -71,16 +71,16 @@ function lpcc_oracle!(lpcc_solver::MadNLPCSolver{T, VT}) where {T, VT}
     if optimal
         vals = stat.solution
         y = BitVector(undef, ncc)
-        y[lpcc_solver.lpcc.fixed_map .== 0] .=
-            comp_res_left(lpcc, vals) .> comp_res_right(lpcc, vals)
-        y[lpcc_solver.lpcc.fixed_map .== 1] .= false
-        y[lpcc_solver.lpcc.fixed_map .== 2] .= true
+        y[lpcc.fixed_map .== 0] .= comp_res_left(lpcc, vals) .> comp_res_right(lpcc, vals)
+        y[lpcc.fixed_map .== 1] .= false
+        y[lpcc.fixed_map .== 2] .= true
         obj = stat.stats.objective
     else
         vals = VT(undef, lpcc.meta.nvar)
         y = BitVector(undef, ncc)
         obj = typemax(T)
     end
+    println("ncc=$(ncc) fm=$(lpcc.fixed_map), optimal=$(optimal) y=$(y)")
     return optimal, vals, y, obj
 end
 
