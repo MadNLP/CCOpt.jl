@@ -246,3 +246,31 @@ function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
     )
     return
 end
+
+function update_scale(solver::MadNLPCSolver, rnlp::ScholtesRelaxation)
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ind_cc1 = mpcc.meta.ind_cc1
+    ind_cc2 = mpcc.meta.ind_cc2
+    eps = solver.opts.dynamic_scaling_eps
+
+    # TODO(@anton) try different ways of doing this
+    @views begin
+        map!(
+            (a, la, b, lb)->max(eps/(sqrt((a-la)^2+(b-lb)^2)), 1.0),
+            #(a, la, b, lb)->max(eps/(min((a-la),(b-lb))), 1.0),
+            rnlp.scale,
+            MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_cc1],
+            solver.mpcc.meta.lvar[mpcc.meta.ind_cc1],
+            MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_cc2],
+            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2]
+        )
+    end
+    # TODO(@anton) is this the best way to do this?
+    #              when we do this we update already the c vector in
+    mpcc_ncon = rnlp.mpcc.meta.ncon
+    eval_relaxed_cons_wrapper!(solver,ipm.c,ipm.x)
+    return nothing
+end
+
+update_scale(solver::MadNLPCSolver, rnlp::AbstractMPCCRelaxation) = nothing

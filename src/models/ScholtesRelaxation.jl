@@ -3,6 +3,7 @@ struct ScholtesRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
     σ::Base.RefValue{T}
+    scale::VT
 end
 
 function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -44,7 +45,9 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nnzh=nnzh,
     )
     σ = zero(T)
-    return ScholtesRelaxation(mpcc, meta, Ref(σ))
+    scale = VT(undef, mpcc.meta.ncc)
+    scale .= T(1.0)
+    return ScholtesRelaxation(mpcc, meta, Ref(σ), scale)
 end
 
 # Counters should be forwarded
@@ -72,9 +75,9 @@ function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::Abstra
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
-    cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
-        (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
+    cx[(mpcc_ncon+1):(rnlp.meta.ncon)] .= rnlp.scale .*
+        ((comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[])
     return cx
 end
 
@@ -101,9 +104,9 @@ function NLPModels.cons_nln!(
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
     end
     # TODO(@anton) figure out if the intermediate outputs cause allocations
-    cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .=
-        (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
+    cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .= rnlp.scale .*
+        ((comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[])
     return cx
 end
 
@@ -181,6 +184,8 @@ function NLPModels.jac_coord!(
             j[(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nnzj+2*rnlp.mpcc.meta.ncc)]
         )
     )
+    j[(rnlp.mpcc.meta.nnzj+1):(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc)] .*= rnlp.scale
+    j[(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nnzj+2*rnlp.mpcc.meta.ncc)] .*= rnlp.scale
     return j
 end
 
@@ -213,6 +218,8 @@ function NLPModels.jac_nln_coord!(
             jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]
         )
     )
+    jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)] .*= rnlp.scale
+    jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)] .*= rnlp.scale
     return jac
 end
 
@@ -293,6 +300,7 @@ function NLPModels.hess_coord!(
         obj_weight=obj_weight,
     )
     for i in 1:rnlp.mpcc.meta.ncc
+        #H[i+rnlp.mpcc.meta.nnzh] = rnlp.scale[i] * y[i+rnlp.mpcc.meta.ncon]
         H[i+rnlp.mpcc.meta.nnzh] = y[i+rnlp.mpcc.meta.ncon]
     end
     return H
@@ -309,9 +317,21 @@ function NLPModels.hprod!(
     @views hprod!(rnlp.mpcc, x, y[1:rnlp.mpcc.meta.ncon], v, Hv; obj_weight=obj_weight)
     for i in 1:rnlp.mpcc.meta.ncc
         Hv[rnlp.mpcc.meta.ind_cc1[i]] +=
-            v[rnlp.mpcc.meta.ind_cc2[i]]*y[i+rnlp.mpcc.meta.ncon]
+            rnlp.scale[i]*v[rnlp.mpcc.meta.ind_cc2[i]]*y[i+rnlp.mpcc.meta.ncon]
         Hv[rnlp.mpcc.meta.ind_cc2[i]] +=
-            v[rnlp.mpcc.meta.ind_cc1[i]]*y[i+rnlp.mpcc.meta.ncon]
+            rnlp.scale[i]*v[rnlp.mpcc.meta.ind_cc1[i]]*y[i+rnlp.mpcc.meta.ncon]
     end
     return Hv
+end
+
+function relaxed_cons!(
+    rnlp::ScholtesRelaxation{T,VT},
+    x::AbstractVector{T},
+    cx::AbstractVector{T}
+) where {T, VT}
+    # TODO(@anton) l ncheck?
+    cx .= rnlp.scale .*
+        ((comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[])
+    return cx
 end

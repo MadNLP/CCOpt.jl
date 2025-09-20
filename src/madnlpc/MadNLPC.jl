@@ -105,6 +105,10 @@ end
     phase_II_alpha_tr::T = 1e-1
     phase_II_tr_min::T = 1e-6
 
+    # Scaling
+    use_dynamic_scaling::Bool = false
+    dynamic_scaling_eps::T = 1e0
+
     # lpec solver options
     lpcc_solver_opts::Union{MilpSolverOptions{T}, MadNLPCOptions{T}, Nothing} =
         MilpSolverOptions()

@@ -47,8 +47,8 @@ function MadNLP.get_min_complementarity(solver::MadNLPCSolver{T}) where {T}
     return min(cc_lb, cc_ub, cc_pr)
 end
 
-@inline function update_c!(c, σ, σ_old, ncc)
-    return c[(end-ncc+1):end] .+= σ_old - σ
+@inline function update_c!(c, σ, σ_old, ncc, scale)
+    return c[(end-ncc+1):end] .+= scale .* (σ_old - σ)
 end
 
 function linearize!(solver::MadNLPCSolver{T}, tr::T) where {T}
@@ -105,4 +105,22 @@ function lpcc_oracle!(lpcc_solver::MilpSolver{T, VT}) where {T, VT}
     end
 
     return optimal, vals, y, obj
+end
+
+function eval_relaxed_cons_wrapper!(solver::MadNLPCSolver{T}, c::AbstractVector{T}, x::MadNLP.PrimalVector{T}) where {T}
+    #TODO(@anton) correct counters here?
+    ipm = solver.ipm
+    rnlp = solver.rnlp
+    cnt = ipm.cnt
+    mpcc_ncon = rnlp.mpcc.meta.ncon
+    ncc = rnlp.mpcc.meta.ncc
+    MadNLP.@trace(solver.logger, "Evaluating relaxed complementarities.")
+    @views begin
+        cnt.eval_function_time += @elapsed relaxed_cons!(
+        rnlp,
+        MadNLP.variable(x),
+        c[(mpcc_ncon+1):(rnlp.meta.ncon)])
+        c[(mpcc_ncon+1):(rnlp.meta.ncon)] .-= MadNLP.slack(x)[end-ncc+1:end]
+        c[(mpcc_ncon+1):(rnlp.meta.ncon)] .-= ipm.rhs[end-ncc+1:end]
+    end
 end

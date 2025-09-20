@@ -343,8 +343,10 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         # Store old sigma in order to update
         σ_old = solver.rnlp.σ[]
         update_sigma!(solver.opts.relaxation_update, solver)
-        update_c!(ipm.c, solver.rnlp.σ[], σ_old, mpcc.meta.ncc)
-
+        #eval_relaxed_cons_wrapper!(solver,ipm.c,ipm.x)
+        #@views(relaxed_cons!(solver.rnlp, MadNLP.variable(ipm.x), ipm.c[(mpcc.meta.ncon+1):(solver.rnlp.meta.ncon)]))
+        update_c!(ipm.c, solver.rnlp.σ[], σ_old, mpcc.meta.ncc, solver.rnlp.scale)
+        
         if mu_updated && solver.opts.use_magic_step
             ncc = mpcc.meta.ncc
             𝜅 = solver.opts.magic_step_kappa
@@ -438,7 +440,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         )
 
         MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
-
+        if opts.use_dynamic_scaling
+            update_scale(solver, solver.rnlp)
+        end
+        #println(norm(MadNLP.primal(ipm.x))
+        #println(norm(MadNLP.primal(ipm.d)))
+        #println(norm(solver.rnlp.scale)*norm(MadNLP.dual(ipm.d)))
+        #println(norm(solver.rnlp.scale))
         ipm.cnt.k+=1
         MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
     end
