@@ -244,6 +244,20 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
 
         # Now go back to using relaxed inf_pr
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
+
+        MadNLP.@trace(solver.logger, "Get eta.")
+        eta_k = get_eta_heuristic(solver)
+
+        # Evaluate the hessian of the lagrangian
+        MadNLP.@trace(ipm.logger, "Evaluating nabla L.")
+        if (ipm.cnt.k!=0)
+            MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
+        end
+        MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
+        MadNLP.@trace(solver.logger, "Factorizing the KKT system.")
+        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) ||
+            return MadNLP.ROBUST, solver.status
+
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
         mu_old = ipm.mu
@@ -291,17 +305,8 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             log_iter(solver.iterate_logger, solver; magic=true)
         end
 
-        MadNLP.@trace(solver.logger, "Get eta.")
-        eta_k = get_eta_heuristic(solver)
-
-        # compute the newton step
-        MadNLP.@trace(ipm.logger, "Computing the newton step.")
-        if (ipm.cnt.k!=0)
-            MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
-        end
-
+        MadNLP.@trace(ipm.logger, "Calculating the newton step.")
         # TODO(@anton) update ipm.x ipm.zl, ipm.zu
-        MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
@@ -310,8 +315,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ipm.mu,
             ipm.opt.kappa_d,
         )
-
-        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
+        MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
