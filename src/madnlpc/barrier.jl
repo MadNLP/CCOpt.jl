@@ -1,33 +1,21 @@
 function MadNLP.update_barrier!(
-    barrier::MadNLP.LOQOUpdate{T},
-    solver::MadNLPCSolver{T},
-    sc::T,
-) where {T}
-    ipm = solver.ipm
-    if !solver.opts.use_specialized_barrier_update
-        return MadNLP.update_barrier!(barrier, ipm, sc)
-    end
-    mu = MadNLP.get_average_complementarity(solver) # get average complementarity.
-    ncc = ipm.nlb + ipm.nub
-    min_cc = MadNLP.get_min_complementarity(solver)
-    xi = min_cc/mu
-    sigma = barrier.gamma*min((1-barrier.r)*((1-xi)/xi), 2)^3
-    new_mu = max(sigma*mu, barrier.mu_min)
-    if ipm.mu != new_mu # Stop clearing if we reached mu_min
-        empty!(ipm.filter)
-        push!(ipm.filter, (ipm.theta_max, -Inf))
-    end
-    ipm.mu = max(sigma*mu, barrier.mu_min)
-
-    return nothing
-end
-
-function MadNLP.update_barrier!(
     barrier::MadNLP.MonotoneUpdate{T},
     solver::MadNLPCSolver{T},
     sc::T,
 ) where {T}
     return MadNLP.update_barrier!(barrier, solver.ipm, sc)
+end
+
+function MadNLP.get_adaptive_mu(
+    solver::MadNLPCSolver{T},
+    barrier::MadNLP.LOQOUpdate{T},
+) where {T}
+    ipm = solver.ipm
+    mu = MadNLP.get_average_complementarity(solver) # get average complementarity.
+    min_cc = MadNLP.get_min_complementarity(solver)
+    xi = min_cc/mu
+    sigma = barrier.gamma*min((1-barrier.r)*((1-xi)/xi), 2)^3
+    return clamp(sigma * mu, barrier.mu_min, barrier.mu_max)
 end
 
 # Set RHS
@@ -75,6 +63,35 @@ function MadNLP.set_centering_aug_rhs!(
     pzl .= mu
     pzu .= -mu
     return
+end
+
+function MadNLP._check_progress(
+    barrier::MadNLP.AbstractAdaptiveUpdate{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    # TODO(@anton): We need need to specialize the filter here if we want to be correct
+    #               for now we try without.
+    ipm = solver.ipm
+    if !barrier.globalization
+        return true
+    end
+    kappa_1 = T(1e-5) # filter margin width
+    kappa_2 = T(1.0)  # filter margin maximum width
+    # Check current progress using filter line search
+    theta = MadNLP.get_theta(ipm.c)
+    varphi = MadNLP.get_varphi(ipm.obj_val, ipm.x_lr, ipm.xl_r, ipm.xu_r, ipm.x_ur, ipm.mu)
+    kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
+    delta = kappa_1 * min(kappa_2, kkt_error)
+    return MadNLP.is_filter_acceptable(ipm.filter, theta + delta, varphi + delta)
+end
+
+function MadNLP.get_fixed_mu(
+    solver::MadNLPCSolver{T},
+    barrier::MadNLP.AbstractAdaptiveUpdate{T},
+) where {T}
+    # TODO(@anton) This maybe only makes sense if we have the proportional sigma update
+    mu = T(0.8) * MadNLP.get_average_complementarity(solver)
+    return clamp(mu, barrier.mu_min, barrier.mu_max)
 end
 
 function MadNLP._evaluate_quality_function(
@@ -323,49 +340,48 @@ function MadNLP.get_adaptive_mu(
         res_primal,
         res_dual,
     )
-    return sigma_opt * mu
+    return clamp(sigma_opt * mu, barrier.mu_min, barrier.mu_max)
 end
 
 function MadNLP.update_barrier!(
-    barrier::MadNLP.QualityFunctionUpdate{T},
+    barrier::MadNLP.AbstractAdaptiveUpdate{T},
     solver::MadNLPCSolver{T},
     sc::T,
 ) where {T}
-    # TODO(@anton) also specialize this for mpcc
     ipm = solver.ipm
-    kappa_1 = T(1e-5)
-    kappa_2 = T(1.0)
-
-    # TODO: implement fixed mode
-    mu = MadNLP.get_adaptive_mu(solver, barrier)
-    # TODO: check sufficient progress using filter line-search
-    # theta = NaN
-    # varphi = NaN
-    # delta = NaN
-    # progress = is_filter_acceptable(solver.filter, theta + delta, varphi + delta)
-
-    # Just a sketch for now
-    # if barrier.free_mode
-    #     if progress
-    #         mu = get_adaptive_mu(solver.mu)
-    #     else
-    #         barrier.free_mode = false
-    #         # Get initial fixed barrier
-    #         mu = barrier_fixed_mu(barrier)
-    #     end
-    # else
-    #     if progress
-    #         barrier.free_mode = true
-    #     else
-    #         # Monotone update
-    #         # TODO
-    #     end
-    # end
-
-    # Update tau
-    ipm.mu = max(mu, barrier.mu_min)
-    ipm.tau = MadNLP.get_tau(ipm.mu, ipm.opt.tau_min)
-    # Reset filter line-search
-    empty!(ipm.filter)
-    return push!(ipm.filter, (ipm.theta_max, -Inf))
+    if !solver.opts.use_specialized_barrier_update
+        return MadNLP.update_barrier!(barrier, ipm, sc)
+    end
+    is_barrier_updated = false
+    progress = MadNLP._check_progress(barrier, solver)
+    # Update state of barrier algorithm
+    if !barrier.free_mode
+        if progress
+            MadNLP.@trace(solver.logger, "Moving adaptive barrier back to free mode.")
+            barrier.free_mode = true
+        else
+            MadNLP._update_monotone!(barrier, ipm, sc)
+        end
+    else
+        if !progress
+            MadNLP.@trace(solver.logger, "Moving adaptive barrier to monotone mode.")
+            barrier.free_mode = false
+            # Reset barrier parameter using current average complementarity
+            ipm.mu = MadNLP.get_fixed_mu(solver, barrier)
+            is_barrier_updated = true
+        else
+            MadNLP.@trace(solver.logger, "Keeping adaptive barrier in free mode.")
+        end
+    end
+    if barrier.free_mode
+        ipm.mu = MadNLP.get_adaptive_mu(solver, barrier)
+        is_barrier_updated = true
+    end
+    # Update tau and reset filter is barrier has been updated
+    if is_barrier_updated
+        ipm.tau = MadNLP.get_tau(ipm.mu, ipm.opt.tau_min)
+        empty!(ipm.filter)
+        push!(ipm.filter, (ipm.theta_max, -Inf))
+    end
+    return
 end
