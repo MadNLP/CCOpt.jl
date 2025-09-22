@@ -3,6 +3,7 @@ using NLPModels, SolverCore, LinearAlgebra, SparseArrays, HiGHS, JuMP, Gurobi
 using MathOptInterface
 const MOI = MathOptInterface
 using Serialization
+using Printf
 using DataStructures: CircularBuffer
 import MadNLP
 
