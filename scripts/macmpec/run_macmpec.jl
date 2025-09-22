@@ -1163,3 +1163,116 @@ function test_slack_reset(; range=:)
     )
     return solnames, names, stats
 end
+
+function test_dynamic_scaling(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    opts_dynamic_scale_1 = MadMPEC.MadNLPCOptions(
+        print_level=MadNLP.ERROR,
+        use_dynamic_scaling=true,
+        dynamic_scaling_eps=1.0,
+    )
+    opts_dynamic_scale_3 = MadMPEC.MadNLPCOptions(
+        print_level=MadNLP.ERROR,
+        use_dynamic_scaling=true,
+        dynamic_scaling_eps=1e-3,
+    )
+    opts_dynamic_scale_5 = MadMPEC.MadNLPCOptions(
+        print_level=MadNLP.ERROR,
+        use_dynamic_scaling=true,
+        dynamic_scaling_eps=1e-5,
+    )
+    opts_default = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+    )
+    adaptive_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier=>MadNLP.AdaptiveUpdate(),
+    )
+
+    default_ipopt = (
+        "Ipopt Homotopy",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    ds1 = (
+        "madNLP-C ds eps=1e0",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_dynamic_scale_1,
+        ((madnlpc_solver_options...,)),
+    )
+
+    ds3 = (
+        "madNLP-C ds eps=1e-3",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_dynamic_scale_3,
+        ((madnlpc_solver_options...,)),
+    )
+
+    ds5 = (
+        "madNLP-C ds eps=1e-5",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_dynamic_scale_5,
+        ((madnlpc_solver_options...,)),
+    )
+    ads1 = (
+        "madNLP-C adaptive ds eps=1d0",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_dynamic_scale_1,
+        ((adaptive_solver_options...,)),
+    )
+    ads3 = (
+        "madNLP-C adaptive ds eps=1e-3",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_dynamic_scale_3,
+        ((adaptive_solver_options...,)),
+    )
+    ads5 = (
+        "madNLP-C adaptive ds eps=1e-5",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_dynamic_scale_5,
+        ((adaptive_solver_options...,)),
+    )
+
+    default_madnlpc = (
+        "madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_default,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #ds1,
+        #ds3,
+        #ds5,
+        ads1,
+        ads3,
+        ads5,
+        default_madnlpc,
+        #default_ipopt,
+        range=range,
+    )
+    return solnames, names, stats
+end

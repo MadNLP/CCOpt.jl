@@ -263,13 +263,15 @@ function update_scale(solver::MadNLPCSolver, rnlp::ScholtesRelaxation)
             MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_cc1],
             solver.mpcc.meta.lvar[mpcc.meta.ind_cc1],
             MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_cc2],
-            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2]
+            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2],
         )
     end
     # TODO(@anton) is this the best way to do this?
     #              when we do this we update already the c vector in
     mpcc_ncon = rnlp.mpcc.meta.ncon
-    eval_relaxed_cons_wrapper!(solver,ipm.c,ipm.x)
+    eval_relaxed_cons_wrapper!(solver, ipm.c, ipm.x)
+    #println(maximum(rnlp.scale))
+    #println(maximum(ipm.c))
     return nothing
 end
 

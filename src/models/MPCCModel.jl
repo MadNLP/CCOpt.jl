@@ -4,7 +4,7 @@
   s.t. lbc ≤ c(w) ≤ ubc
        0 ≤ G(w) ⟂ H(w) ≥ 0
 """
-abstract type AbstractMPCCModel{T, VT} end
+abstract type AbstractMPCCModel{T, VT} <: NLPModels.AbstractNLPModel{T, VT} end
 
 # TODO(@anton) For a prototype this is a bit of a hack to account for not having meta and counters
 #              In principle we want to have a MPCCModelMeta and MPCCModelCounters?
