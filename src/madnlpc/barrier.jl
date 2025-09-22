@@ -59,7 +59,11 @@ function set_aug_rhs_aff!(
     return
 end
 
-function MadNLP.set_cen_aug_rhs!(solver::MadNLPCSolver, kkt::MadNLP.AbstractKKTSystem, mu)
+function MadNLP.set_centering_aug_rhs!(
+    solver::MadNLPCSolver,
+    kkt::MadNLP.AbstractKKTSystem,
+    mu,
+)
     ipm = solver.ipm
     px = MadNLP.primal(ipm.p)
     py = MadNLP.dual(ipm.p)
@@ -246,7 +250,10 @@ function MadNLP._run_golden_search!(
     return sigma
 end
 
-function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveUpdate)
+function MadNLP.get_adaptive_mu(
+    solver::MadNLPCSolver,
+    barrier::MadNLP.QualityFunctionUpdate,
+)
     ipm = solver.ipm
     linear_solver = ipm.kkt.linear_solver
     step_aff = ipm._w1 # buffer 1
@@ -264,7 +271,7 @@ function MadNLP.get_adaptive_mu(solver::MadNLPCSolver, barrier::MadNLP.AdaptiveU
     # Get average complementarity
     mu = MadNLP.get_average_complementarity(solver)
     # Centering step
-    MadNLP.set_cen_aug_rhs!(solver, ipm.kkt, mu)
+    MadNLP.set_centering_aug_rhs!(solver, ipm.kkt, mu)
     # NOTE(@anton) Ipopt also applies the dual infeasibility perturbation for some reason???
     MadNLP.dual_inf_perturbation!(
         MadNLP.primal(ipm.p),
