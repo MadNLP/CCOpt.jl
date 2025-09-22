@@ -1,5 +1,3 @@
-# TODO(@anton) remove this
-using MadNLP, NLPModelsIpopt
 ######################### Types #########################
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
@@ -143,7 +141,7 @@ end
 function solve_rnlp(
     solver::HomotopySolver{M, S, T, VT},
     n::Int,
-) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
+) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
     # TODO(@anton) copying here seems expensiveish, perhaps store a "working settings" copy.
     nlp_opts_i = copy(solver.opts.nlp_solver_options)
 
@@ -190,7 +188,7 @@ end
 
 function set_silent!(
     solver::HomotopySolver{M, S, T, VT},
-) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
+) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
     return solver.opts.nlp_solver_options[:print_level] = 0
 end
 
@@ -270,7 +268,7 @@ end
 
 function reset_nlp_solver!(
     solver::HomotopySolver{M, S, T, VT},
-) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
+) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
     # Do nothing
 end
 
@@ -288,7 +286,7 @@ end
 function update_times!(
     solver::HomotopySolver{M, S, T, VT},
     nlp_stats::AbstractExecutionStats,
-) where {M, S <: NLPModelsIpopt.IpoptSolver, T, VT}
+) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
     # TODO(@anton) ipopt interface doesn't give detailed times
     return solver.stats.iter += nlp_stats.iter
 end
