@@ -64,7 +64,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     # add variable bounds for slacks and set initial value to the residual
     lvar = vcat(nlp.meta.lvar, nlp.meta.lcon[ind_lift])
     uvar = vcat(nlp.meta.uvar, nlp.meta.ucon[ind_lift])
-    x0 = vcat(nlp.meta.x0, .-NLPModels.cons(nlp, nlp.meta.x0)[ind_lift])
+    x0 = vcat(nlp.meta.x0, NLPModels.cons(nlp, nlp.meta.x0)[ind_lift])
 
     # Update the constraints to equality constraints.
     # TODO(@anton) also check if lifting equality constraints for some reason
