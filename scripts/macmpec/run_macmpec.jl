@@ -592,6 +592,20 @@ function test_magic_opts(; range=:)
 end
 
 function test_adaptive(; range=:)
+    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    default_ipopt = (
+        "Ipopt Homotopy",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
     madnlpc_adaptive_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -614,7 +628,7 @@ function test_adaptive(; range=:)
 
     madnlpc_monotone_solver_options = Dict(
         :bound_relax_factor=>0.0,
-        :print_level=>MadNLP.INFO,
+        :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
@@ -652,10 +666,11 @@ function test_adaptive(; range=:)
     )
 
     solnames, names, stats = run_macmpec(
-        #loqo_madnlp_c,
-        #adaptive_madnlp_c,
+        loqo_madnlp_c,
+        adaptive_madnlp_c,
         #adaptive_sigma_madnlp_c,
         monotone_madnlp_c,
+        default_ipopt,
         range=range,
     )
 

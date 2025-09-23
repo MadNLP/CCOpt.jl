@@ -58,8 +58,12 @@ function MadNLP.set_centering_aug_rhs!(
     pzl = MadNLP.dual_lb(ipm.p)
     pzu = MadNLP.dual_ub(ipm.p)
 
+    ncon = solver.mpcc.meta.ncon
+    ncc = solver.mpcc.meta.ncc
+
     px .= 0
-    py .= mu
+    py .= 0
+    py[(ncon+1):(ncon+ncc)] .+= mu
     pzl .= mu
     pzu .= -mu
     return
