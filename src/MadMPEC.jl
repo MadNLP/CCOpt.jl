@@ -1,6 +1,6 @@
 module MadMPEC
 using NLPModels, SolverCore
-using LinearAlgebra, SparseArrays, SparseArraysCOO
+using LinearAlgebra, SparseArrays, SparseMatricesCOO
 using HiGHS, JuMP, Gurobi, QuadraticModels
 using MathOptInterface
 const MOI = MathOptInterface
