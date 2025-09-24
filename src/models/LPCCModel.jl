@@ -1,3 +1,5 @@
+# TODO(@anton) this can actually in principle piggyback off of the already evaluated values
+#              in the solver. Think about efficiencies here.
 ######################### types #########################
 abstract type AbstractLPCCModel{T, VT} <: AbstractMPCCModel{T, VT} end
 
@@ -5,6 +7,11 @@ struct LPCCModel{T, VT} <: AbstractLPCCModel{T, VT}
     nlp::NLPModels.AbstractNLPModel{T, VT}
     meta::MPCCModelMeta{T, VT}
     fixed_map::Vector{Int}
+    A::SparseMatrixCOO{T}
+    klasttouch::Vector{Int}
+    csrrowptr::Vector{Int}
+    csrcolval::Vector{Int}
+    csrnzval::Vector{T}
 end
 
 ######################### linearize #########################
@@ -15,6 +22,21 @@ function linearize(mpcc::AbstractMPCCModel{T, VT}, x::VT; tr=0.0) where {T, VT}
     end
     # Linearize the underiyling nlp
     lp = QuadraticModels.linearize(mpcc.nlp, x; tr=tr)
+    # Build inplace COO matrix
+    A = SparseMatrixCOO(
+        m,
+        n,
+        Vector{Int}(undef, mpcc.meta.nnzj),
+        Vector{Int}(undef, mpcc.meta.nnzj),
+        VT(undef, mpcc.meta.nnzj),
+    )
+
+    # build inplace vectors
+    m, n = size(lp.data.A)
+    klasttouch = Vector{Int32}(undef, n)
+    csrrowptr = Vector{Int32}(undef, m + 1)
+    csrcolptr = Vector{Int32}(undef, length(A.rows))
+    csrnzval = VT(undef, length(A.rows))
 
     # Do trust region prunning
     fixed_map = zeros(Int, mpcc.meta.ncc)
@@ -77,7 +99,7 @@ function linearize(mpcc::AbstractMPCCModel{T, VT}, x::VT; tr=0.0) where {T, VT}
         merge(mpcc.meta.ind_j_lin_row_map, mpcc.meta.ind_j_nln_row_map), # ind_j_lin_row_map TODO(@anton) merge?
         Dict{Int, Int}(), #ind_j_nln_row_map
     )
-    return LPCCModel(lp, meta, fixed_map)
+    return LPCCModel(lp, meta, fixed_map, A, klasttouch, csrrowptr, csrcolval, csrnzval)
 end
 
 ######################### linearize! #########################
