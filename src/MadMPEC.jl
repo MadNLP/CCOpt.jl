@@ -11,7 +11,6 @@ import MadNLP
 
 include("Types.jl")
 include("enums.jl")
-include("MappedVector.jl")
 include("models/MPCCModelMeta.jl")
 include("models/MPCCModel.jl")
 include("models/MPCCRelaxationModel.jl")
