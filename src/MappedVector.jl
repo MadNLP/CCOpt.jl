@@ -3,9 +3,9 @@
 # TODO: limit type T to be numeric
 # TODO: This probably does not work well with @view
 
-struct MappedVector{T, VT <: AbstractVector{T}} <: AbstractVector{T}
+struct MappedVector{T, VT <: AbstractVector{T}, Ti} <: AbstractVector{T}
     par_vec::Base.RefValue{VT}
-    ind_set::AbstractDict{<:Integer, <:Integer}
+    ind_set::Dict{Ti, Ti}
     len::Int
 end
 
