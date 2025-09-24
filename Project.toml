@@ -17,6 +17,7 @@ QuadraticModels = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+SparseMatricesCOO = "fa32481b-f100-4b48-8dc8-c62f61b13870"
 
 [compat]
 DataStructures = "0.18.22"
@@ -31,4 +32,5 @@ Printf = "1.11.0"
 Serialization = "1.11.0"
 SolverCore = "0.3.8"
 SparseArrays = "1.11.0"
+SparseMatricesCOO = "0.2.5"
 julia = "1.10"
