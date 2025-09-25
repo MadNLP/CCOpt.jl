@@ -12,6 +12,13 @@ struct LPCCModel{T, VT} <: AbstractLPCCModel{T, VT}
     csrrowptr::Vector{Int}
     csrcolval::Vector{Int}
     csrnzval::Vector{T}
+
+    _c1::VT       # [nlp.ncon]
+    _j1::VT       # [nlp.nnzj]
+    _i1::IndexSet # [nlp.nnzj]
+    _i2::IndexSet # [nlp.nnzj]
+    _cc1::VT      # [ncc]
+    _cc2::VT      # [ncc]
 end
 
 ######################### linearize #########################
@@ -141,7 +148,29 @@ function linearize(mpcc::AbstractMPCCModel{T, VT}, x::VT; tr=0.0) where {T, VT}
         ind_j_lin_row_map,
         ind_j_nln_row_map,
     )
-    return LPCCModel(lp, meta, fixed_map, A, klasttouch, csrrowptr, csrcolval, csrnzval)
+
+    _c1 = VT(undef, lp.meta.ncon)
+    _j1 = VT(undef, lp.meta.nnzj)
+    _i1 = IndexSet(undef, lp.meta.nnzj)
+    _i2 = IndexSet(undef, lp.meta.nnzj)
+    _cc1 = VT(undef, ncc)
+    _cc2 = VT(undef, ncc)
+    return LPCCModel(
+        lp,
+        meta,
+        fixed_map,
+        A,
+        klasttouch,
+        csrrowptr,
+        csrcolval,
+        csrnzval,
+        _c1,
+        _j1,
+        _i1,
+        _i2,
+        _cc1,
+        _cc2,
+    )
 end
 
 ######################### linearize! #########################
