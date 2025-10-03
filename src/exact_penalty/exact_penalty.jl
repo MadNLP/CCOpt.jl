@@ -186,6 +186,14 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))
         end
+
+        MadNLP.@trace(solver.logger, "Factorizing the KKT system.")
+        if (ipm.cnt.k!=0)
+            MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
+        end
+        MadNLP.set_aug_diagonal!(ipm.kkt, ipm)
+
+        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
         mu_updated = false
@@ -193,6 +201,12 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         MadNLP.update_barrier!(ipm.opt.barrier, solver.ipm, sc)
         mu_updated = ipm.mu != mu_old
         # Standard check
+        # FIXME(@anton) This update happening _after_ the matrix has been factorized means
+        #               we are still using the old $\tau$ for one iteration. This in principle
+        #               does not impact convergence guarantees, but is inaccurate.
+        #               In principle this also means we need to possibly factorize twice in the case
+        #               of the QualityFunctionUpdate (though this may not even make sense and we may
+        #               only use the adaptive $\tau$ update in this case).
         if mu_updated
             # check for complementarity convergence when we decrease 𝜇
             # or if we already are at smallest mu increase penalty if we are not satisfying eps_pr_comp
@@ -221,10 +235,6 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
 
         # compute the newton step
         MadNLP.@trace(ipm.logger, "Computing the newton step.")
-        if (ipm.cnt.k!=0)
-            MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
-        end
-        MadNLP.set_aug_diagonal!(ipm.kkt, ipm)
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
@@ -233,8 +243,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             ipm.mu,
             ipm.opt.kappa_d,
         )
-
-        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
+        MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
