@@ -5,7 +5,6 @@ using DataStructures: CircularBuffer
 import MadNLP
 
 include("Types.jl")
-include("MappedVector.jl")
 include("MPCCModelMeta.jl")
 include("MPCCModel.jl")
 include("ScholtesRelaxation.jl")
