@@ -3,6 +3,7 @@ using NLPModels, SolverCore, LinearAlgebra, SparseArrays, HiGHS, JuMP, Gurobi
 using MathOptInterface
 const MOI = MathOptInterface
 using Serialization
+using Printf
 using DataStructures: CircularBuffer
 import MadNLP
 
@@ -10,7 +11,11 @@ include("Types.jl")
 include("enums.jl")
 include("MPCCModelMeta.jl")
 include("MPCCModel.jl")
+include("MPCCRelaxationModel.jl")
 include("ScholtesRelaxation.jl")
+include("FischerBurmeisterRelaxation.jl")
+include("ChenChenKanzowRelaxation.jl")
+include("NaturalResidualRelaxation.jl")
 include("BranchNLP.jl")
 include("models/Ell1Relaxation.jl")
 include("LiftedNLPModel.jl")

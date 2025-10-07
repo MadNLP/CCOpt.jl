@@ -7,13 +7,14 @@ abstract type AbstractRelaxationUpdate{T} end
 
 @kwdef struct ProportionalRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0
+    sigma_mu_exp::T = 1.0
     monotone::Bool = false
 end
 
 @kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
     gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
-    mu_factor::T = 1e-3 # smallest factor of reduction allowed
+    mu_factor::T = 1e-5 # smallest factor of reduction allowed
     r::T = 0.95 # Steplength param
 end
 
@@ -50,12 +51,15 @@ end
 
 # Options struct
 @kwdef struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
+    # Relaxation type
+    relaxation::Type = ScholtesRelaxation
+
     # adaptive mu update parameters
     use_specialized_barrier_update::Bool = true
 
     # complementarity homotopy options
     relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
-    sigma_min::T = 1e-9 # TODO(@anton) I think this should be probably be related to ipm tolerance
+    sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
@@ -121,7 +125,7 @@ end
 # MadNLP-C algorithm
 mutable struct MadNLPCSolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
-    scholtes::ScholtesRelaxation{T, VT}
+    rnlp::AbstractMPCCRelaxation{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
     iterate_logger::IterateLogger
@@ -133,6 +137,7 @@ mutable struct MadNLPCSolver{T, VT}
     lpcc::LpccMILP{T, VT}
     bnlp_ipm::MadNLP.MadNLPSolver{T, VT}
     eps_proj::T
+    inf_pr_cc::T
 
     x::VT
     b::Vector{Bool} # TODO(@anton) is it actually better to have a Vector{Bool}
@@ -143,8 +148,9 @@ function MadNLPCSolver(
     solver_opts=MadNLPCOptions(),
     ipm_options...,
 ) where {T, VT}
-    scholtes = ScholtesRelaxation(mpcc)
-    ipm = MadNLP.MadNLPSolver(scholtes; ipm_options...)
+    rnlp = solver_opts.relaxation(mpcc)
+    ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
+    rnlp.σ[] = ipm.opt.barrier.mu_init
 
     logger = MadNLP.MadNLPLogger(
         print_level=solver_opts.print_level,
@@ -166,9 +172,9 @@ function MadNLPCSolver(
     ipm.cnt.init_time += bnlp_ipm.cnt.init_time
     bnlp_ipm.cnt = ipm.cnt # WARNING: A HACK TO KEEP TIMING/ITERS CONSISTENT
     cnt = MadNLPCCounters(counters=ipm.cnt)
-    return MadNLPCSolver(
+    return solver = MadNLPCSolver(
         mpcc,
-        scholtes,
+        rnlp,
         ipm,
         logger,
         iterates_logger,
@@ -178,6 +184,7 @@ function MadNLPCSolver(
         lpcc,
         bnlp_ipm,
         eps_proj,
+        0.0,
         x,
         b,
     )

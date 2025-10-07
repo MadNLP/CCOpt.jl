@@ -64,17 +64,19 @@ function schumacher_fesd_model(N, nfe, rk::RKScheme; big_M=1e5, step_eq=:lcc)
     @variable(model, hmin <= h[1:nfe, 1:N] <= hmax, start=T_numerics/nh)
     @variable(model, sot_min <= sot <= sot_max, start=T_guess)
     # Stewart's multipliers
-    @variable(model, 0.0 <= θ[1:nh, 1:nc, 1:nf])
-    @variable(model, 0.0 <= λ[1:nh, 0:nc, 1:nf])
+    @variable(model, 0.0 <= θ[1:nh, 1:nc, 1:nf], start=0.5)
+    @variable(model, 0.0 <= λ[1:nh, 0:nc, 1:nf], start=1.0)
     @variable(model, μ[1:nh, 0:nc])
     # Switch detection
-    @variable(model, 0.0 <= λs[1:nh, 1:nf])
-    @variable(model, 0.0 <= θs[1:nh, 1:nf])
-    @variable(model, 0.0 <= πλ[1:(nh-1), 1:nf])
-    @variable(model, 0.0 <= πθ[1:(nh-1), 1:nf])
-    @variable(model, 0.0 <= τ1[1:(nh-1), 1:nf])
-    @variable(model, 0.0 <= τ2[1:(nh-1), 1:nf])
-    @variable(model, 0.0 <= v[1:(nh-1), 1:nf])
+    @variable(model, 0.0 <= λs[1:nh, 1:nf], start=0.5)
+    @variable(model, 0.0 <= θs[1:nh, 1:nf], start=1.0)
+    if step_eq == :lcc
+        @variable(model, 0.0 <= πλ[1:(nh-1), 1:nf])
+        @variable(model, 0.0 <= πθ[1:(nh-1), 1:nf])
+        @variable(model, 0.0 <= τ1[1:(nh-1), 1:nf])
+        @variable(model, 0.0 <= τ2[1:(nh-1), 1:nf])
+        @variable(model, 0.0 <= v[1:(nh-1), 1:nf])
+    end
 
     @expression(
         model,
@@ -182,7 +184,7 @@ function schumacher_fesd_model(N, nfe, rk::RKScheme; big_M=1e5, step_eq=:lcc)
         begin
             [t=1:nh, j=1:nf], sum(θ[t, i, j] for i in 1:nc) == θs[t, j]
             [t=1:nh, j=1:nf], sum(λ[t, i, j] for i in 0:nc) == λs[t, j]
-            [t=1:nh, i=1:nc, j=1:nf], [θ[t, i, j], λs[t, j]] ∈ MOI.Complements(2)
+            [t=1:nh, i=1:nc, j=1:nf], [θ[t, i, j], λs[t, i]] ∈ MOI.Complements(2)
         end
     )
 
@@ -241,7 +243,7 @@ solver_type = :madnlpc
 if solver_type == :homotopy
     opts = MadMPEC.HomotopySolverOptions()
     opts.print_level = MadNLP.INFO
-    opts.𝜎₀ = 1e-4
+    opts.σ₀ = 1
     opts.comp_tol = 1e-6
 
     solver = MadMPEC.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)
@@ -250,16 +252,24 @@ elseif solver_type == :madnlpc
     # MadNLPC
     madnlpc_opts = MadMPEC.MadNLPCOptions(;
         print_level=MadNLP.INFO,
-        use_mpecopt=true,
-        phase_I_oracle=:lpcc,
-        eps_proj=1e-3,
+        use_mpecopt=false,
+        phase_I_oracle=:naive,
+        eps_proj=1e-6,
+        relaxation=MadMPEC.ScholtesRelaxation,
+        use_magic_step=false,
+        #relaxation_update=MadMPEC.LOQORelaxationUpdate(gamma=0.05, mu_factor=0.9),
+        relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_ratio=10.0),
+        use_specialized_barrier_update=true,
     )
     solver = MadMPEC.MadNLPCSolver(
         mpcc;
         solver_opts=madnlpc_opts,
         print_level=MadNLP.INFO,
-        barrier=MadNLP.MonotoneUpdate(mu_init=1e-4),
-        tol=1e-6,
+        #barrier=MadNLP.MonotoneUpdate(),
+        #barrier=MadNLP.AdaptiveUpdate(mu_min=1e-9),
+        barrier=MadNLP.LOQOUpdate(gamma=0.05),
+        bound_relax_factor=0.0,
+        tol=1e-8,
     )
     #solver = MadMPEC.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.INFO, barrier=MadNLP.LOQOUpdate(gamma=0.05), tol=1e-6)
     stats = MadMPEC.solve_homotopy!(solver)
