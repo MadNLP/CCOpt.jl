@@ -2,13 +2,11 @@ function update_sigma!(
     relax::ProportionalRelaxationUpdate{T},
     solver::MadNLPCSolver{T},
 ) where {T}
+    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     if relax.monotone
-        solver.scholtes.𝜎[] = max(
-            min(solver.scholtes.𝜎[], relax.sigma_mu_ratio*solver.ipm.mu),
-            solver.opts.sigma_min,
-        )
+        solver.rnlp.σ[] = max(min(solver.rnlp.σ[], sigma_candidate), solver.opts.sigma_min)
     else
-        solver.scholtes.𝜎[] = relax.sigma_mu_ratio*solver.ipm.mu
+        solver.rnlp.σ[] = max(sigma_candidate, solver.opts.sigma_min)
     end
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
@@ -40,7 +38,7 @@ function update_sigma!(relax::LOQORelaxationUpdate{T}, solver::MadNLPCSolver{T})
     xi = min_cc_pr/mean_cc
     gamma_sigma = max(relax.gamma_min, relax.gamma*min((1-relax.r)*((1-xi)/xi), 2)^3)
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
-    solver.scholtes.𝜎[] =
+    solver.rnlp.σ[] =
         max(gamma_sigma*mean_cc, solver.opts.sigma_min, relax.mu_factor*ipm.mu)
     # Throw out the filter as the barrier problem has changed
     empty!(ipm.filter)

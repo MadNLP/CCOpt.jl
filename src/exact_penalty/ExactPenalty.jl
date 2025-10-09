@@ -1,7 +1,7 @@
 @kwdef struct ExactPenaltyOptions{T}
     # complementarity homotopy options
     tau_0::T = 1.0
-    tau_growth_rate::T = 10
+    tau_growth_rate::T = 10.0
     gamma::T = 0.4
 
     # Algorithm options

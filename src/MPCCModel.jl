@@ -383,8 +383,14 @@ end
 ######################### Implementing NLPModels API #########################
 NLPModels.obj(mpcc::AbstractMPCCModel, x::AbstractVector) = NLPModels.obj(mpcc.nlp, x)
 function NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector)
-    return NLPModels.grad!(mpcc.nlp, x, gx)
+    NLPModels.grad!(mpcc.nlp, x, gx)
+    return gx
 end
+function NLPModels.grad(mpcc::AbstractMPCCModel{T}, x::AbstractVector{T}) where {T}
+    g = Vector{T}(undef, mpcc.meta.nvar)
+    return grad!(mpcc, x, g)
+end
+
 function NLPModels.objgrad!(mpcc::AbstractMPCCModel, x::AbstractVector, g::AbstractVector)
     return NLPModels.objgrad!(mpcc.nlp, x, g)
 end
@@ -422,6 +428,12 @@ function NLPModels.jac_structure!(
         cols .= mpcc._i2[mpcc.meta.ind_j_triplets]
     end
     return rows, cols
+end
+
+function NLPModels.jac_structure(mpcc::AbstractMPCCModel)
+    rows = Vector{Int}(undef, mpcc.meta.nnzj)
+    cols = Vector{Int}(undef, mpcc.meta.nnzj)
+    return jac_structure!(mpcc, rows, cols)
 end
 
 function NLPModels.jac_lin_structure!(
@@ -464,6 +476,11 @@ function NLPModels.jac_coord!(mpcc::AbstractMPCCModel, x::AbstractVector, j::Abs
     jac_coord!(mpcc.nlp, x, mpcc._j1)
     @views j .= mpcc._j1[mpcc.meta.ind_j_triplets]
     return j
+end
+
+function NLPModels.jac_coord(mpcc::AbstractMPCCModel{T}, x::AbstractVector) where {T}
+    vals = Vector{T}(undef, mpcc.meta.nnzj)
+    return jac_coord!(mpcc, x, vals)
 end
 
 function NLPModels.jac_lin_coord!(
