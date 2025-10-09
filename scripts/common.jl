@@ -366,8 +366,6 @@ function solve_benchmark_problem(
 
     try
         stats = MadNCL.madncl(nlp, ncl_options=opts; sol_args...)
-        # print_level=MadNLP.ERROR,
-        # linear_solver=Ma27Solver,
 
         return stats
     catch

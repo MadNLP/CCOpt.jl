@@ -3,10 +3,7 @@ include("project.jl")
 function get_eta_heuristic(solver::MadNLPCSolver)
     if solver.ipm.mu ≤ solver.opts.mu_thresh
         return solver.opts.eta_factor*solver.ipm.mu/(
-            1+max(
-                maximum(MadNLP.slack(solver.ipm.zu)),
-                maximum(MadNLP.slack(solver.ipm.zl)),
-            )
+            1+max(maximum(MadNLP.full(solver.ipm.zu)), maximum(MadNLP.full(solver.ipm.zl)))
         )
     else
         return 0.0
@@ -115,6 +112,7 @@ function solve_homotopy!(
     end
 
     try
+        # TODO(@anton) Probably should specialize `initialize!` as order of initalizing things is important.
         if ipm.status == MadNLP.INITIAL
             MadNLP.@notice(
                 solver.logger,
@@ -122,9 +120,8 @@ function solve_homotopy!(
             )
             MadNLP.print_init(ipm)
             # Also reset sigma
-            update_sigma!(solver.opts.relaxation_update, solver)
             ipm.status = MadNLP.initialize!(ipm)
-
+            update_sigma!(solver.opts.relaxation_update, solver)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma
@@ -340,7 +337,10 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
         MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
+        # Store old sigma in order to update
+        σ_old = solver.rnlp.σ[]
         update_sigma!(solver.opts.relaxation_update, solver)
+        update_c!(ipm.c, solver.rnlp.σ[], σ_old, mpcc.meta.ncc)
 
         if mu_updated && solver.opts.use_magic_step
             ncc = mpcc.meta.ncc
@@ -375,6 +375,17 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
             end
             log_iter(solver.iterate_logger, solver; magic=true)
+        end
+        if mu_updated && solver.opts.reset_slacks_on_update
+            ind_cc1 = mpcc.meta.ind_cc1
+            ind_cc2 = mpcc.meta.ind_cc2
+            ncc = mpcc.meta.ncc
+            @views begin
+                x1 = MadNLP.variable(solver.ipm.x)[ind_cc1]
+                x2 = MadNLP.variable(solver.ipm.x)[ind_cc2]
+                MadNLP.slack(solver.ipm.x)[(end-ncc+1):end] .=
+                    min.(.-(x1 .* x2 .- solver.rnlp.σ[]), -ipm.mu)
+            end
         end
 
         MadNLP.@trace(ipm.logger, "Calculating the newton step.")

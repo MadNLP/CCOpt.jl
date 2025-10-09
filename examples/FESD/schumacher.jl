@@ -257,26 +257,18 @@ elseif solver_type == :madnlpc
         eps_proj=1e-6,
         relaxation=MadMPEC.ScholtesRelaxation,
         use_magic_step=false,
-        #relaxation_update=MadMPEC.LOQORelaxationUpdate(gamma=0.05, mu_factor=0.9),
-        relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_ratio=10.0),
-        use_specialized_barrier_update=true,
+        use_specialized_barrier_update=false,
     )
     solver = MadMPEC.MadNLPCSolver(
         mpcc;
         solver_opts=madnlpc_opts,
         print_level=MadNLP.INFO,
-        #barrier=MadNLP.MonotoneUpdate(),
-        #barrier=MadNLP.AdaptiveUpdate(mu_min=1e-9),
-        barrier=MadNLP.LOQOUpdate(gamma=0.05),
+        barrier=MadNLP.MonotoneUpdate(mu_init=1.0),
         bound_relax_factor=0.0,
         tol=1e-8,
     )
-    #solver = MadMPEC.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.INFO, barrier=MadNLP.LOQOUpdate(gamma=0.05), tol=1e-6)
     stats = MadMPEC.solve_homotopy!(solver)
 end
-# scholtes = MadMPEC.ScholtesRelaxation(mpcc)
-# solver = MadNLP.MadNLPSolver(scholtes; print_level=MadNLP.DEBUG, linear_solver=Ma57Solver, max_iter=1000)
-# stats = MadMPEC.solve_homotopy!(solver)
 
 plot()
 nh = N * nfe

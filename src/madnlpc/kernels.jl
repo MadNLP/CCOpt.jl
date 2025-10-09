@@ -46,3 +46,7 @@ function MadNLP.get_min_complementarity(solver::MadNLPCSolver{T}) where {T}
     )
     return min(cc_lb, cc_ub, cc_pr)
 end
+
+@inline function update_c!(c, σ, σ_old, ncc)
+    return c[(end-ncc+1):end] .+= σ_old - σ
+end

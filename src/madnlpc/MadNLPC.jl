@@ -77,6 +77,9 @@ end
     magic_step_slack::Bool = true
     magic_step_slack_dual::Bool = true
 
+    # Reset slacks
+    reset_slacks_on_update::Bool = false
+
     # Output options
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
