@@ -42,3 +42,44 @@ function analyze_kkt(solver)
     println("Σx: $(minimum(Σx)) $(maximum(Σx))")
     return println("Σs: $(minimum(Σs)) $(maximum(Σs))")
 end
+
+function get_unregularized_hessian(solver)
+    Ii = solver.ind_ineq
+    Ie = setdiff(1:solver.m, Ii)
+    m = solver.m
+    nx = NLPModels.get_nvar(solver.nlp)
+    ns = length(solver.ind_ineq)
+
+    Ji = solver.kkt.jac_com[Ii, 1:nx]
+    W = solver.kkt.hess_com[1:nx, 1:nx]
+
+    δ = solver.kkt.reg[1]
+    Σx = spdiagm(solver.kkt.pr_diag[1:nx] .- δ)
+    Σs = spdiagm(solver.kkt.pr_diag[(nx+1):(nx+ns)] .- δ)
+    K = Symmetric(W, :L) + Σx + Ji' * Σs * Ji
+
+    return K
+end
+
+function get_reduced_hessian(solver)
+    Ii = solver.ind_ineq
+    Ie = setdiff(1:solver.m, Ii)
+    m = solver.m
+    nx = NLPModels.get_nvar(solver.nlp)
+    ns = length(solver.ind_ineq)
+
+    Ji = solver.kkt.jac_com[Ii, 1:nx]
+    Je = solver.kkt.jac_com[Ie, 1:nx]
+    W = solver.kkt.hess_com[1:nx, 1:nx]
+    Σ = solver.kkt.hess_com[(nx+1):(nx+ns), (nx+1):(nx+ns)]
+
+    δ = solver.kkt.reg[1]
+    Σx = spdiagm(solver.kkt.pr_diag[1:nx] .- δ)
+    Σs = spdiagm(solver.kkt.pr_diag[(nx+1):(nx+ns)] .- δ)
+    K = Symmetric(W, :L) + Σx + Ji' * Σs * Ji
+
+    Jd = Array(Je)
+    Z = nullspace(Jd)
+    H = Z' * K * Z
+    return H
+end
