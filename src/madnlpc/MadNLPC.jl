@@ -113,20 +113,6 @@ end
     iterates_fname::String = ""
 end
 
-@kwdef mutable struct MadNLPCCounters
-    counters::MadNLP.MadNLPCounters
-
-    lpcc_solves::Int = 0
-    bnlp_solves::Int = 0
-
-    lpcc_init_time::Float64 = 0
-    lpcc_solve_time::Float64 = 0
-    bnlp_init_time::Float64 = 0
-    bnlp_solve_time::Float64 = 0
-
-    solver_time::Float64 = 0
-end
-
 # MadNLP-C algorithm
 mutable struct MadNLPCSolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
