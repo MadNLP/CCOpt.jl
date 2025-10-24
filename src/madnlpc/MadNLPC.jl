@@ -18,6 +18,12 @@ end
     r::T = 0.95 # Steplength param
 end
 
+@kwdef struct TwoSidedScholtesUpdate{T} <: AbstractRelaxationUpdate{T}
+    kappa::T = 0.9
+    tau::T = 0.3
+    monotone::Bool = false
+end
+
 # Iterate saving structure
 struct MadNLPCIterate{T, VT}
     k::Int
@@ -60,6 +66,7 @@ end
     # complementarity homotopy options
     relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
     sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
+    delta_init::T = 1e-1
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
@@ -156,7 +163,7 @@ function MadNLPCSolver(
 ) where {T, VT}
     rnlp = solver_opts.relaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
-    rnlp.σ[] = ipm.opt.barrier.mu_init
+    initialize_relaxation(rnlp, ipm.opt.barrier.mu_init, solver_opts.delta_init)
 
     logger = MadNLP.MadNLPLogger(
         print_level=solver_opts.print_level,

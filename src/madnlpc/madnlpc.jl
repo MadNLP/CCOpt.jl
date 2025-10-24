@@ -138,11 +138,11 @@ function solve_homotopy!(
             MadNLP.print_init(ipm)
             # Also reset sigma
             ipm.status = MadNLP.initialize!(ipm)
-            update_sigma!(solver.opts.relaxation_update, solver)
+            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma
-            update_sigma!(solver.opts.relaxation_update, solver)
+            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             ipm.status = MadNLP.reinitialize!(ipm)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         end
@@ -249,7 +249,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         end
 
         # Set σ to zero for constraint infeasibility calculations
-        σ = ipm.nlp.σ[]
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
@@ -354,10 +353,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
         MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
-        # Store old sigma in order to update
-        σ_old = solver.rnlp.σ[]
-        update_sigma!(solver.opts.relaxation_update, solver)
-        update_c!(ipm.c, solver.rnlp.σ[], σ_old, mpcc.meta.ncc)
+        update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
 
         if mu_updated && solver.opts.use_magic_step
             ncc = mpcc.meta.ncc
