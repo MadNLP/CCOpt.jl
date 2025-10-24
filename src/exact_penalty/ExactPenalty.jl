@@ -1,14 +1,20 @@
 @kwdef struct ExactPenaltyOptions{T}
     # complementarity homotopy options
     tau_0::T = 1.0
+    tau_max::T = 1e8
     tau_growth_rate::T = 10.0
     gamma::T = 0.4
 
     # Algorithm options
     dynamic_tau_update::Bool = false # Switch between classic and dynamic algorithm from
     # Leyffer2006 paper
-    comp_history_length::Int = 3 # Length of history buffer (default from Leyffer2006)
-    eta_dynamic_update::T = 0.9 # "sufficient decrease" parameter (default from Leyffer2006)
+    comp_history_length::Int = 5 # Length of history buffer (default from Leyffer2006)
+    eta_dynamic_update::T = 0.99 # "sufficient decrease" parameter (default from Leyffer2006)
+
+    # regularization
+    kkt_regularization::Symbol = :none
+    min_eig_value::T = 1e-4
+    critical_rho_factor::T = 0.9
 
     # Output options
     output_file::String = ""
@@ -16,12 +22,14 @@
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
 end
 
-struct ExactPenaltySolver{T, VT}
+mutable struct ExactPenaltySolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     ell1::Ell1Relaxation{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
     opts::ExactPenaltyOptions{T}
+
+    inf_pr_cc::T
 
     pr_comp_hist::CircularBuffer{T} # Complementarity history
 end
@@ -48,7 +56,8 @@ function ExactPenaltySolver(
     )
 
     pr_comp_hist = CircularBuffer{T}(solver_opts.comp_history_length)
-    return ExactPenaltySolver(mpcc, ell1, ipm, logger, solver_opts, pr_comp_hist)
+    return ExactPenaltySolver(mpcc, ell1, ipm, logger, solver_opts, T(0.0), pr_comp_hist)
 end
 
+include("utils.jl")
 include("exact_penalty.jl")

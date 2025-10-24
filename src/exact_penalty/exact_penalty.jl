@@ -1,3 +1,26 @@
+function MadNLP.set_aug_diagonal!(
+    kkt::MadNLP.AbstractKKTSystem{T},
+    solver::ExactPenaltySolver{T, VT},
+) where {T, VT}
+    ipm = solver.ipm
+    n = length(ipm.x_ur)
+    ncc = solver.mpcc.meta.ncc
+    nnzh = solver.mpcc.meta.nnzh
+
+    fill!(kkt.reg, zero(T))
+    fill!(kkt.du_diag, zero(T))
+    kkt.l_diag .= ipm.xl_r .- ipm.x_lr   # (Xˡ - X)
+    kkt.u_diag .= ipm.x_ur .- ipm.xu_r   # (X - Xᵘ)
+    copyto!(kkt.l_lower, ipm.zl_r)
+    copyto!(kkt.u_lower, ipm.zu_r)
+
+    MadNLP._set_aug_diagonal!(kkt)
+
+    #display(kkt.hess_raw)
+    #display(kkt.pr_diag)
+    return
+end
+
 function solve_homotopy!(nlp::MadMPEC.Ell1Relaxation, solver::ExactPenaltySolver; kwargs...)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
@@ -150,9 +173,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         inf_pr_comp = MadMPEC.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
         inf_pr_comp_prod = MadMPEC.comp_residual_product(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
         inf_pr_comp_sum = MadMPEC.comp_residual_sum(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
+        solver.inf_pr_cc = inf_pr_comp
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
-        MadNLP.print_iter(ipm)
+        MadNLP.print_iter(solver)
 
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
@@ -174,8 +198,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         # First calculate primal comp epsilon
         eps_pr_comp = ipm.mu^solver.opts.gamma
         if solver.opts.dynamic_tau_update &&
+           isfull(solver.pr_comp_hist) &&
            inf_pr_comp > eps_pr_comp &&
-           inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist)
+           inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist) &&
+           nlp.tau[] < solver.opts.tau_max
             nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
             MadNLP.@trace(
                 solver.logger,
@@ -183,17 +209,15 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             )
             ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
             # Also clear the filter
+            #empty!(solver.pr_comp_hist)
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))
         end
 
-        MadNLP.@trace(solver.logger, "Factorizing the KKT system.")
+        MadNLP.@trace(solver.logger, "Evaluating the lagrangian hessian.")
         if (ipm.cnt.k!=0)
             MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
         end
-        MadNLP.set_aug_diagonal!(ipm.kkt, ipm)
-
-        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
         mu_updated = false
@@ -217,6 +241,14 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                     "Updating the penalty parameter to $(nlp.tau[])."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
+                MadNLP.@trace(
+                    solver.logger,
+                    "Evaluating the lagrangian hessian (again because penalty was updated."
+                )
+                # TODO(@anton) we can do this as a vector assignment
+                if (ipm.cnt.k!=0)
+                    MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
+                end
             end
         elseif ipm.mu ≤ max(ipm.opt.barrier.mu_min, ipm.opt.tol/10) &&
                max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
@@ -230,11 +262,20 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 empty!(ipm.filter)
                 push!(ipm.filter, (ipm.theta_max, -Inf))
+                MadNLP.@trace(
+                    solver.logger,
+                    "Evaluating the lagrangian hessian (again because penalty was updated."
+                )
+                # TODO(@anton) we can do this as a vector assignment
+                if (ipm.cnt.k!=0)
+                    MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
+                end
             end
         end
 
         # compute the newton step
         MadNLP.@trace(ipm.logger, "Computing the newton step.")
+        MadNLP.set_aug_diagonal!(ipm.kkt, solver)
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
@@ -243,7 +284,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             ipm.mu,
             ipm.opt.kappa_d,
         )
-        MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
+        MadNLP.inertia_correction!(ipm.inertia_corrector, solver) || return MadNLP.ROBUST
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
@@ -288,4 +329,171 @@ function update!(stats::MadNLP.MadNLPExecutionStats, solver::ExactPenaltySolver)
     MadNLP.update!(stats, solver.ipm)
     stats.objective = MadMPEC.obj(solver.mpcc, stats.solution)
     return stats
+end
+
+function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
+    if solver.opts.kkt_regularization == :none
+        return false
+    end
+
+    ipm = solver.ipm
+    rnlp = solver.ell1
+    kkt = solver.ipm.kkt
+    n = length(ipm.x_ur)
+    ncc = solver.mpcc.meta.ncc
+    nnzh = solver.mpcc.meta.nnzh
+    tau = solver.ell1.tau[]
+    ind_cc1 = solver.mpcc.meta.ind_cc1
+    ind_cc2 = solver.mpcc.meta.ind_cc2
+    A = Array{T}(undef, 2, 2)
+    regularized = false
+    for i in 1:ncc
+        cc1 = ind_cc1[i]
+        cc2 = ind_cc2[i]
+
+        # TODO(@anton) figure out numerical stability here
+        # tr = kkt.pr_diag[cc1] + kkt.pr_diag[cc2]
+        # det = kkt.pr_diag[cc1] * kkt.pr_diag[cc2] - tau^2
+        # lam1 = (tr + sqrt(tr^2 - 4*det))/2
+        # lam2 = 2*det/((tr - sqrt(tr^2 - 4*det)))
+        # v11 = (lam2 - kkt.pr_diag[cc2])/tau
+        # v21 = (lam1 - kkt.pr_diag[cc2])/tau
+        if solver.opts.kkt_regularization == :eigenvalue_decomposition
+            A[1, 1] = kkt.pr_diag[cc1]
+            A[2, 2] = kkt.pr_diag[cc2]
+            A[2, 1] = tau
+            A[1, 2] = tau
+            E = eigen(Symmetric(A))
+            if E.values[1] < 0
+                E.values[1] = solver.opts.min_eig_value
+                A .= Symmetric(Matrix(E))
+                kkt.reg[cc1] = A[1, 1] - kkt.pr_diag[cc1]
+                kkt.reg[cc2] = A[2, 2] - kkt.pr_diag[cc2]
+                kkt.pr_diag[cc1] = A[1, 1]
+                kkt.pr_diag[cc2] = A[2, 2]
+                kkt.hess_raw.V[nnzh+i] = A[1, 2]
+                regularized = true
+            end
+        elseif solver.opts.kkt_regularization == :critical_rho
+            rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
+            if tau > rho_max
+                #kkt.hess_raw.V[nnzh+i] = solver.opts.critical_rho_factor*rho_max*(rnlp.meta.minimize ? one(T) : -one(T))
+                kkt.hess_raw.V[nnzh+i] =
+                    (1-ipm.mu)*rho_max*(rnlp.meta.minimize ? one(T) : -one(T))
+                regularized = true
+            end
+        end
+    end
+    # We modify hess_raw so need to compress_hessian again.
+    MadNLP.compress_hessian!(kkt)
+    return regularized
+end
+
+function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
+    ipm = solver.ipm
+    rnlp = solver.ell1
+    kkt = solver.ipm.kkt
+    n = length(ipm.x_ur)
+    ncc = solver.mpcc.meta.ncc
+    nnzh = solver.mpcc.meta.nnzh
+    tau = solver.ell1.tau[]
+    ind_cc1 = solver.mpcc.meta.ind_cc1
+    ind_cc2 = solver.mpcc.meta.ind_cc2
+    A = Array{T}(undef, 2, 2)
+    regularized = false
+    kkt.pr_diag[ind_cc1] .-= kkt.reg[ind_cc1]
+    kkt.pr_diag[ind_cc2] .-= kkt.reg[ind_cc2]
+    kkt.reg[ind_cc1] .= 0
+    kkt.reg[ind_cc2] .= 0
+    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= rnlp.meta.minimize ? tau : -tau
+    # We modify hess_raw so need to compress_hessian again.
+    MadNLP.compress_hessian!(kkt)
+    return regularized
+end
+
+function MadNLP.inertia_correction!(
+    inertia_corrector::MadNLP.InertiaBased,
+    solver::ExactPenaltySolver{T},
+) where {T}
+    ipm = solver.ipm
+    n_trial = 0
+    ipm.del_w = del_w_prev = zero(T)
+    ipm.del_c = del_c_prev = zero(T)
+
+    MadNLP.@trace(ipm.logger, "Inertia-based regularization started.")
+
+    MadNLP.factorize_wrapper!(ipm)
+    num_pos, num_zero, num_neg = MadNLP.inertia(ipm.kkt.linear_solver)
+
+    solve_status = if MadNLP.is_inertia_correct(ipm.kkt, num_pos, num_zero, num_neg)
+        # Try a backsolve. If the factorization has failed, solve_refine_wrapper returns false.
+        MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
+    else
+        false
+    end
+
+    # Try to regularize
+    if !solve_status && regularize_Q!(solver)
+        MadNLP.@trace(ipm.logger, "Trying to regularize out penalty.")
+        MadNLP.factorize_wrapper!(ipm)
+        num_pos, num_zero, num_neg = MadNLP.inertia(ipm.kkt.linear_solver)
+
+        solve_status = if MadNLP.is_inertia_correct(ipm.kkt, num_pos, num_zero, num_neg)
+            # Try a backsolve. If the factorization has failed, solve_refine_wrapper returns false.
+            MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
+        else
+            false
+        end
+
+        if !solve_status
+            # undo what we did and just do inertia correction
+            unregularize_Q!(solver)
+        end
+    end
+    #println(solve_status)
+    while !solve_status
+        MadNLP.@debug(ipm.logger, "Primal-dual perturbed.")
+
+        if n_trial == 0
+            ipm.del_w =
+                ipm.del_w_last==zero(T) ? ipm.opt.first_hessian_perturbation :
+                max(
+                    ipm.opt.min_hessian_perturbation,
+                    ipm.opt.perturb_dec_fact*ipm.del_w_last,
+                )
+        else
+            ipm.del_w *=
+                ipm.del_w_last==zero(T) ? ipm.opt.perturb_inc_fact_first :
+                ipm.opt.perturb_inc_fact
+            if ipm.del_w>ipm.opt.max_hessian_perturbation
+                ipm.cnt.k+=1
+                MadNLP.@debug(
+                    ipm.logger,
+                    "Primal regularization is too big. Switching to restoration phase."
+                )
+                return false
+            end
+        end
+        ipm.del_c =
+            num_zero == 0 ? zero(T) :
+            ipm.opt.jacobian_regularization_value *
+            ipm.mu^(ipm.opt.jacobian_regularization_exponent)
+        MadNLP.regularize_diagonal!(ipm.kkt, ipm.del_w - del_w_prev, ipm.del_c - del_c_prev)
+        del_w_prev = ipm.del_w
+        del_c_prev = ipm.del_c
+
+        MadNLP.factorize_wrapper!(ipm)
+        num_pos, num_zero, num_neg = MadNLP.inertia(ipm.kkt.linear_solver)
+
+        solve_status = if MadNLP.is_inertia_correct(ipm.kkt, num_pos, num_zero, num_neg)
+            MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
+        else
+            false
+        end
+
+        n_trial += 1
+    end
+
+    ipm.del_w != 0 && (ipm.del_w_last = ipm.del_w)
+    return true
 end

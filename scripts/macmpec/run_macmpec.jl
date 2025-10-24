@@ -350,11 +350,11 @@ function test_vs_madnlp_c(; range=:)
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
-        :max_iter=>3000,
+        :max_iter=>1000,
         :linear_solver=>Ma27Solver,
     )
 
-    opts_ncl = MadNCL.NCLOptions(feas_tol=1e-8) # Match tolerance
+    #opts_ncl = MadNCL.NCLOptions(feas_tol=1e-8) # Match tolerance
     #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
     opts_madnlp_c =
@@ -362,7 +362,7 @@ function test_vs_madnlp_c(; range=:)
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
-        :max_iter=>3000,
+        :max_iter=>1000,
         :linear_solver=>Ma27Solver,
     )
 
@@ -372,13 +372,13 @@ function test_vs_madnlp_c(; range=:)
         print_level=MadNLP.ERROR,
     )
 
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
     opts_exact_penalty_dynamic =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
-        :max_iter=>3000,
+        :max_iter=>1000,
         :linear_solver=>Ma27Solver,
     )
 
@@ -396,7 +396,7 @@ function test_vs_madnlp_c(; range=:)
         opts_madnlp,
         (MadNLP.MadNLPSolver,),
     )
-    default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
+    #default_madncl = ("ma27 madNCL", solve_benchmark_problem, save_ncl_df, opts_ncl, ())
     default_madnlp_c = (
         "ma27 madNLP-C",
         solve_benchmark_problem,
@@ -435,10 +435,10 @@ function test_vs_madnlp_c(; range=:)
     #     range=range,
     # )
     solnames, names, stats = run_macmpec(
-        default_exact_penalty,
-        #dynamic_exact_penalty,
+        #default_exact_penalty,
+        dynamic_exact_penalty,
         default_madnlp_c,
-        #default_ipopt,
+        default_ipopt,
         #default_madnlp,
         range=range,
     )
@@ -1176,5 +1176,111 @@ function test_slack_reset(; range=:)
         default_ipopt,
         range=range,
     )
+    return solnames, names, stats
+end
+
+function test_eigenvalue_decomp(; range=:)
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+    opts_exact_penalty_eig_8 = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        kkt_regularization=:eigenvalue_decomposition,
+        min_eig_value=1e-8,
+    )
+    opts_exact_penalty_eig_6 = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        kkt_regularization=:eigenvalue_decomposition,
+        min_eig_value=1e-6,
+    )
+    opts_exact_penalty_eig_4 = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        kkt_regularization=:eigenvalue_decomposition,
+        min_eig_value=1e-4,
+    )
+    opts_exact_penalty_eig_2 = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        kkt_regularization=:eigenvalue_decomposition,
+        min_eig_value=1e-2,
+    )
+    opts_exact_penalty_eig_1 = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        kkt_regularization=:eigenvalue_decomposition,
+        min_eig_value=1e-1,
+    )
+    opts_exact_penalty_critical_rho = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        kkt_regularization=:critical_rho,
+    )
+    # opts_exact_penalty_dynamic =
+    #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+    exact_penalty_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+    )
+
+    default_exact_penalty = (
+        "ma27 exact penalty",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty,
+        ((exact_penalty_solver_options...,)),
+    )
+    eig_exact_penalty_8 = (
+        "ma27 exact penalty lam_min = 1e-8",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_eig_8,
+        ((exact_penalty_solver_options...,)),
+    )
+    eig_exact_penalty_6 = (
+        "ma27 exact penalty lam_min = 1e-6",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_eig_6,
+        ((exact_penalty_solver_options...,)),
+    )
+    eig_exact_penalty_4 = (
+        "ma27 exact penalty lam_min = 1e-4",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_eig_4,
+        ((exact_penalty_solver_options...,)),
+    )
+    eig_exact_penalty_2 = (
+        "ma27 exact penalty lam_min = 1e-2",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_eig_2,
+        ((exact_penalty_solver_options...,)),
+    )
+    eig_exact_penalty_1 = (
+        "ma27 exact penalty lam_min = 1e-1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_eig_1,
+        ((exact_penalty_solver_options...,)),
+    )
+
+    critical_rho_exact_penalty = (
+        "ma27 exact penalty critical rho",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_critical_rho,
+        ((exact_penalty_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #eig_exact_penalty_8,
+        #eig_exact_penalty_6,
+        critical_rho_exact_penalty,
+        #eig_exact_penalty_4,
+        #eig_exact_penalty_2,
+        #eig_exact_penalty_1,
+        default_exact_penalty,
+        #default_madnlp,
+        range=range,
+    )
+
     return solnames, names, stats
 end
