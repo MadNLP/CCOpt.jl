@@ -1194,6 +1194,7 @@ function test_eigenvalue_decomp(; range=:)
     opts_exact_penalty_eig_4 = MadMPEC.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
+        barrier=MadNLP.MonotoneUpdate(),
         min_eig_value=1e-4,
     )
     opts_exact_penalty_eig_2 = MadMPEC.ExactPenaltyOptions(;
@@ -1274,7 +1275,7 @@ function test_eigenvalue_decomp(; range=:)
         #eig_exact_penalty_8,
         #eig_exact_penalty_6,
         critical_rho_exact_penalty,
-        #eig_exact_penalty_4,
+        eig_exact_penalty_4,
         #eig_exact_penalty_2,
         #eig_exact_penalty_1,
         default_exact_penalty,

@@ -14,7 +14,9 @@
     # regularization
     kkt_regularization::Symbol = :none
     min_eig_value::T = 1e-4
+    max_eig_value::T = Inf
     critical_rho_factor::T = 0.9
+    min_reg_mu::T = 1e-5
 
     # Output options
     output_file::String = ""

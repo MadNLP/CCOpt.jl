@@ -16,8 +16,6 @@ function MadNLP.set_aug_diagonal!(
 
     MadNLP._set_aug_diagonal!(kkt)
 
-    #display(kkt.hess_raw)
-    #display(kkt.pr_diag)
     return
 end
 
@@ -330,7 +328,7 @@ function update!(stats::MadNLP.MadNLPExecutionStats, solver::ExactPenaltySolver)
 end
 
 function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
-    if solver.opts.kkt_regularization == :none
+    if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
     end
 
@@ -362,8 +360,9 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
             A[2, 1] = tau
             A[1, 2] = tau
             E = eigen(Symmetric(A))
-            if E.values[1] < 0
+            if E.values[1] < 0 || E.values[2] > solver.opts.max_eig_value
                 E.values[1] = solver.opts.min_eig_value
+                E.values[2] = min(solver.opts.max_eig_value, E.values[2])
                 A .= Symmetric(Matrix(E))
                 kkt.reg[cc1] = A[1, 1] - kkt.pr_diag[cc1]
                 kkt.reg[cc2] = A[2, 2] - kkt.pr_diag[cc2]
@@ -375,9 +374,11 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
         elseif solver.opts.kkt_regularization == :critical_rho
             rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
             if tau > rho_max
-                #kkt.hess_raw.V[nnzh+i] = solver.opts.critical_rho_factor*rho_max*(rnlp.meta.minimize ? one(T) : -one(T))
                 kkt.hess_raw.V[nnzh+i] =
-                    (1-ipm.mu)*rho_max*(rnlp.meta.minimize ? one(T) : -one(T))
+                    solver.opts.critical_rho_factor*rho_max*(
+                        rnlp.meta.minimize ? one(T) : -one(T)
+                    )
+                #kkt.hess_raw.V[nnzh+i] = (1-ipm.mu)*rho_max*(rnlp.meta.minimize ? one(T) : -one(T))
                 regularized = true
             end
         end
@@ -448,7 +449,6 @@ function MadNLP.inertia_correction!(
             unregularize_Q!(solver)
         end
     end
-    #println(solve_status)
     while !solve_status
         MadNLP.@debug(ipm.logger, "Primal-dual perturbed.")
 
@@ -494,4 +494,11 @@ function MadNLP.inertia_correction!(
 
     ipm.del_w != 0 && (ipm.del_w_last = ipm.del_w)
     return true
+end
+
+function MadNLP.inertia_correction!(
+    inertia_corrector::MadNLP.AbstractInertiaCorrector,
+    solver::ExactPenaltySolver{T},
+) where {T}
+    return MadNLP.inertia_correction!(inertia_corrector, solver.ipm)
 end
