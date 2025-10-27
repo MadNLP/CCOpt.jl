@@ -41,6 +41,18 @@ function MadNLP.set_aug_diagonal!(
         kkt.l_lower[solver.ind_cc2_lb] .= @views max.(kkt.l_lower[solver.ind_cc2_lb], eta)
     end
 
+    if solver.opts.kkt_regularization == :vicente_wright_sum
+        MadNLP.@debug(
+            solver.logger,
+            "Applying regularization to complementarity slacks eta = $(eta)"
+        )
+        kkt.u_diag[(n-ncc+1):n] .-= @views eta .* kkt.u_lower[(n-ncc+1):n]
+
+        # Lower bounds
+        kkt.l_diag[solver.ind_cc1_lb] .-= @views eta .* kkt.l_lower[solver.ind_cc1_lb]
+        kkt.l_diag[solver.ind_cc2_lb] .-= @views eta .* kkt.l_lower[solver.ind_cc2_lb]
+    end
+
     MadNLP._set_aug_diagonal!(kkt)
     return
 end

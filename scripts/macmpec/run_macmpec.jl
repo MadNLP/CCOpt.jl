@@ -1186,16 +1186,21 @@ function test_madnlp_c_reg(; range=:)
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = MadMPEC.MadNLPCOptions()
-    opts_madnlp_c_reg = MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright)
-    opts_madnlp_c_reg_larger_eta =
-        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, eta_factor=10.0)
+    opts_madnlp_c_no_reg =
+        MadMPEC.MadNLPCOptions(kkt_regularization=:none, print_level=MadNLP.ERROR)
+    opts_madnlp_c_reg =
+        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
+    opts_madnlp_c_reg_larger_eta = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:vicente_wright,
+        eta_factor=10.0,
+        print_level=MadNLP.ERROR,
+    )
 
-    default_madnlp_c = (
-        "ma27 madNLP-C default",
+    no_reg_madnlp_c = (
+        "ma27 madNLP-C no vw",
         solve_benchmark_problem,
         save_madnlp_c_df,
-        opts_madnlp_c,
+        opts_madnlp_c_no_reg,
         ((madnlpc_solver_options...,)),
     )
     reg_madnlp_c = (
@@ -1213,7 +1218,8 @@ function test_madnlp_c_reg(; range=:)
         ((madnlpc_solver_options...,)),
     )
 
-    solnames, names, stats = run_macmpec(reg_madnlp_c, default_madnlp_c, range=range)
+    solnames, names, stats =
+        run_macmpec(reg_madnlp_c, no_reg_madnlp_c, reg_madnlp_c_larger_eta; range=range)
 
     return solnames, names, stats
 end
