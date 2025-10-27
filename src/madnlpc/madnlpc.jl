@@ -34,6 +34,11 @@ function MadNLP.set_aug_diagonal!(
         )
         kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
         kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
+        # Lower bounds
+        kkt.l_diag[solver.ind_cc1_lb] .= @views min.(kkt.l_diag[solver.ind_cc1_lb], -eta)
+        kkt.l_lower[solver.ind_cc1_lb] .= @views max.(kkt.l_lower[solver.ind_cc1_lb], eta)
+        kkt.l_diag[solver.ind_cc2_lb] .= @views min.(kkt.l_diag[solver.ind_cc2_lb], -eta)
+        kkt.l_lower[solver.ind_cc2_lb] .= @views max.(kkt.l_lower[solver.ind_cc2_lb], eta)
     end
 
     MadNLP._set_aug_diagonal!(kkt)
