@@ -272,6 +272,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             zero(T),
             sc,
         )
+        estimate_mpec_multipliers(solver)
 
         MadNLP.print_iter(solver)
         log_iter(solver.iterate_logger, solver)

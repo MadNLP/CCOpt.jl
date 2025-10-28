@@ -95,19 +95,14 @@ function kkt_residual_norm(
 
     px .= .-f .+ zl .- zu .- ipm.jacl
     py .= .-c
-    py[(ncon+1):(ncon+ncc)] .-= σ
-    pzl .= min.((ipm.x_lr .- ipm.xl_r), ipm.zl_r) # TODO(@anton) probably inefficient replace with map
-    pzu .= min.((ipm.xu_r .- ipm.x_ur), ipm.zu_r)
-    println("px")
-    println.(px)
-    println("py")
-    println.(py)
-    println("pzl")
-    println.(pzl)
-    println("pzu")
-    println.(pzu)
+    #py[(ncon+1):(ncon+ncc)] .-= σ
+    pzl .= (ipm.xl_r .- ipm.x_lr) .* ipm.zl_r
+    pzu .= (ipm.xu_r .- ipm.x_ur) .* ipm.zu_r
+    #println("|px|=$(norm(px, 2)), |py|=$(norm(py, 2)), |pzl|=$(norm(pzl, 2)), |pzu|=$(norm(pzu, 2)),")
+
     #println(MadNLP.full(ipm.p))
-    return norm(ipm.p, 2)
+    r = norm(ipm.p, 2)
+    return r
 end
 
 function update_sigma!(
@@ -125,30 +120,24 @@ function update_sigma!(
     r = kkt_residual_norm(rnlp, solver, rnlp.δ1opt, rnlp.δ2opt, rnlp.σopt) # kkt norm
     rl = r^(1+relax.tau)
     ru = r^(1-relax.tau)
-
+    MadNLP.variable(ipm.xl)[ind_cc1] .= @view(rnlp.meta.lvar[ind_cc1]) .- rnlp.δ1
+    MadNLP.variable(ipm.xl)[ind_cc2] .= @view(rnlp.meta.lvar[ind_cc2]) .- rnlp.δ2
+    updated = false
+    ipm.c[(end-ncc+1):end] .+= rnlp.σ
     for ii in 1:ncc
         cc1 = ind_cc1[ii]
         cc2 = ind_cc2[ii]
-        #x1 = MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
-        x1 = MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1]
-        z1 = MadNLP.variable(ipm.zl)[cc1]
-        #x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
-        x2 = MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2]
-        z2 = MadNLP.variable(ipm.zl)[cc2]
-        zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
 
-        nu1 = z1 - zs*x2
-        nu2 = z2 - zs*x1
-        println("x1=$(MadNLP.variable(ipm.x)[cc1]), x2=$(MadNLP.variable(ipm.x)[cc2])")
-        println("s1=$(x1), s1=$(x2)")
-        println("z1=$(z1), z2=$(z2), zs=$(zs)")
-        println("nu1=$(nu1), nu2=$(nu2)")
-        println("r=$(r), rl=$(rl), ru=$(ru)")
-        println("opt = $((rnlp.σopt[ii],rnlp.δ1opt[ii], rnlp.δ2opt[ii]))")
+        nu1 = solver.multipliers_cc1[ii]
+        nu2 = solver.multipliers_cc2[ii]
+        #println("rl=$(rl), ru=$(ru), r=$(r), nu1=$(nu1), nu2=$(nu2)")
+        # These are the rules from
         if nu1 > ru
             rnlp.δ1[ii] = min(relax.kappa*rnlp.δ1[ii], rl)
             MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1] - rnlp.δ1[ii]
             rnlp.δ1opt[ii] = 0.0
+            #println("updated δ1[$(ii)]")
+            updated = true
         else
             rnlp.δ1opt[ii] = rnlp.δ1[ii]
         end
@@ -157,15 +146,80 @@ function update_sigma!(
             rnlp.δ2[ii] = min(relax.kappa*rnlp.δ2[ii], rl)
             MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2] - rnlp.δ2[ii]
             rnlp.δ2opt[ii] = 0.0
+            #println("updated δ2[$(ii)]")
+            updated = true
         else
             rnlp.δ2opt[ii] = rnlp.δ2[ii]
         end
 
-        if nu1 < ru || nu1 < ru
-            rnlp.σ[ii] = min(relax.kappa*rnlp.σ[ii], rl)
-            rnlp.σopt[ii] = 0.0
+        if nu1 < -ru || nu2 < -ru
+            if min(relax.kappa*rnlp.σ[ii], rl) >= solver.opts.sigma_min
+                rnlp.σ[ii] = max(min(relax.kappa*rnlp.σ[ii], rl), solver.opts.sigma_min)
+                rnlp.σopt[ii] = 0.0
+                #println("updated σ[$(ii)]")
+                updated = true
+            end
         else
             rnlp.σopt[ii] = rnlp.σ[ii]
         end
+    end
+    #println("updated=$(!updated) && r<=1e-7 = $(r <= 1e-7)")
+    if !updated && ipm.mu <= 1e-4 # Standard rules make no progress
+        for ii in 1:ncc
+            cc1 = ind_cc1[ii]
+            cc2 = ind_cc2[ii]
+            x1 = MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1]
+            x2 = MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2]
+
+            if x1 <= 0 # we are lower bound infeasible:
+                max_decrease =
+                    (
+                        relax.k_ftb
+                    )*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
+                #println("x1 = $(x1)")
+                #println("δ1[$(ii)] = $(mpcc.meta.lvar[cc1] - MadNLP.variable(ipm.xl)[cc1])")
+                #println("δ1[$(ii)] = $(rnlp.δ1[ii])")
+                #println("max_decrease = $(max_decrease)")
+                #println("max($(relax.kappa*rnlp.δ1[ii]), $(rnlp.δ1[ii]-max_decrease))")
+                rnlp.δ1[ii] = max(relax.kappa*rnlp.δ1[ii], rnlp.δ1[ii]-max_decrease)
+                #println("Distance to bound before: $(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])")
+                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1] - rnlp.δ1[ii]
+                #println("AHHHHHHH stalling, pushing δ1[$(ii)] = $(rnlp.δ1[ii])")
+                #println("Distance to bound now: $(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])")
+                #println()
+                updated = true
+            end
+            if x2 <= 0 # we are lower bound infeasible:
+                max_decrease =
+                    (
+                        relax.k_ftb
+                    )*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
+                #println("x2 = $(x2)")
+                #println("δ2[$(ii)] = $(mpcc.meta.lvar[cc2] - MadNLP.variable(ipm.xl)[cc2])")
+                #println("δ2[$(ii)] = $(rnlp.δ2[ii])")
+                #println("max_decrease = $(max_decrease)")
+                #println("max($(relax.kappa*rnlp.δ2[ii]), $(rnlp.δ2[ii]-max_decrease))")
+                rnlp.δ2[ii] = max(relax.kappa*rnlp.δ2[ii], rnlp.δ2[ii]-max_decrease)
+                #println("Distance to bound before: $(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])")
+                #println("MadNLP.variable(ipm.xl)[cc2] = $(MadNLP.variable(ipm.xl)[cc2])")
+                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2] - rnlp.δ2[ii]
+                #println("MadNLP.variable(ipm.xl)[cc2] = $(MadNLP.variable(ipm.xl)[cc2])")
+                #println("AHHHHHHH stalling, pushing δ2[$(ii)] = $(rnlp.δ2[ii])")
+                #println("Distance to bound now: $(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])")
+                #println()
+                updated = true
+            end
+            if x1 >= 0 && x2 >= 0 && x1*x2 >= solver.ipm.opt.tol
+                rnlp.σ[ii] = max(relax.kappa*rnlp.σ[ii], solver.opts.sigma_min)
+                #println("AHHHHHHH stalling, pushing σ[$(ii)] = $(rnlp.σ[ii])")
+                #println()
+                updated = true
+            end
+        end
+    end
+    ipm.c[(end-ncc+1):end] .-= rnlp.σ
+    if updated
+        empty!(ipm.filter)
+        push!(ipm.filter, (ipm.theta_max, -Inf))
     end
 end

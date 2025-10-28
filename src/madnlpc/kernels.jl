@@ -50,3 +50,25 @@ end
 @inline function update_c!(c, σ, σ_old, ncc)
     return c[(end-ncc+1):end] .+= σ_old - σ
 end
+
+function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    ncon = mpcc.meta.ncon
+    ind_cc1 = mpcc.meta.ind_cc1
+    ind_cc2 = mpcc.meta.ind_cc2
+
+    for ii in 1:ncc
+        cc1 = ind_cc1[ii]
+        cc2 = ind_cc2[ii]
+        x1 = MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
+        z1 = MadNLP.variable(ipm.zl)[cc1]
+        x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
+        z2 = MadNLP.variable(ipm.zl)[cc2]
+        zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
+
+        solver.multipliers_cc1[ii] = z1 - zs*x2
+        solver.multipliers_cc2[ii] = z2 - zs*x1
+    end
+end

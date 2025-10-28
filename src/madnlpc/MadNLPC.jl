@@ -19,9 +19,9 @@ end
 end
 
 @kwdef struct TwoSidedScholtesUpdate{T} <: AbstractRelaxationUpdate{T}
-    kappa::T = 0.9
+    kappa::T = 0.1
+    k_ftb::T = 0.9
     tau::T = 0.3
-    monotone::Bool = false
 end
 
 # Iterate saving structure
@@ -66,7 +66,7 @@ end
     # complementarity homotopy options
     relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
     sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
-    delta_init::T = 1e-1
+    delta_init::T = 1e-4
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
@@ -149,6 +149,9 @@ mutable struct MadNLPCSolver{T, VT}
     eps_proj::T
     inf_pr_cc::T
 
+    multipliers_cc1::VT
+    multipliers_cc2::VT
+
     ind_cc1_lb::Vector{Int}
     ind_cc2_lb::Vector{Int}
 
@@ -179,6 +182,8 @@ function MadNLPCSolver(
     lpcc = LpccMILP(mpcc; M=solver_opts.M_lpcc)
     eps_proj = solver_opts.eps_proj
     x = VT(undef, mpcc.meta.nvar)
+    multipliers_cc1 = VT(undef, mpcc.meta.ncc)
+    multipliers_cc2 = VT(undef, mpcc.meta.ncc)
     b = Vector{Bool}(undef, mpcc.meta.ncc)
     bnlp = BranchNLP(mpcc, b)
     bnlp_ipm = MadNLP.MadNLPSolver(bnlp) # TODO(@anton) also pass the bnlp options somehow
@@ -201,6 +206,8 @@ function MadNLPCSolver(
         bnlp_ipm,
         eps_proj,
         0.0,
+        multipliers_cc1,
+        multipliers_cc2,
         ind_cc1_lb,
         ind_cc2_lb,
         x,

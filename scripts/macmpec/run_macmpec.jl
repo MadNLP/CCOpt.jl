@@ -1223,3 +1223,37 @@ function test_madnlp_c_reg(; range=:)
 
     return solnames, names, stats
 end
+
+function test_two_sided(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>2000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c_two_sided = MadMPEC.MadNLPCOptions(
+        relaxation=MadMPEC.ScholtesMultiRelaxation,
+        relaxation_update=MadMPEC.TwoSidedScholtesUpdate(),
+    )
+
+    default_madnlp_c = (
+        "ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options...,)),
+    )
+    two_sided_madnlp_c = (
+        "ma27 madNLP-C two_sided",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_two_sided,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(two_sided_madnlp_c, default_madnlp_c; range=range)
+
+    return solnames, names, stats
+end
