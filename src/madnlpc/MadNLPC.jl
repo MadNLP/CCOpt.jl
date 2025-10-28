@@ -142,6 +142,9 @@ mutable struct MadNLPCSolver{T, VT}
     eps_proj::T
     inf_pr_cc::T
 
+    ind_cc1_lb::Vector{Int}
+    ind_cc2_lb::Vector{Int}
+
     x::VT
     b::Vector{Bool} # TODO(@anton) is it actually better to have a Vector{Bool}
 end
@@ -175,6 +178,9 @@ function MadNLPCSolver(
     ipm.cnt.init_time += bnlp_ipm.cnt.init_time
     bnlp_ipm.cnt = ipm.cnt # WARNING: A HACK TO KEEP TIMING/ITERS CONSISTENT
     cnt = MadNLPCCounters(counters=ipm.cnt)
+    # TODO(@anton) Can we do this nonquadratically
+    ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), mpcc.meta.ind_cc1)
+    ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), mpcc.meta.ind_cc2)
     return solver = MadNLPCSolver(
         mpcc,
         rnlp,
@@ -188,6 +194,8 @@ function MadNLPCSolver(
         bnlp_ipm,
         eps_proj,
         0.0,
+        ind_cc1_lb,
+        ind_cc2_lb,
         x,
         b,
     )
