@@ -24,6 +24,17 @@ end
     tau::T = 0.3
 end
 
+@kwdef struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
+    sigma_mu_ratio::T = 1.0
+    sigma_mu_exp::T = 1.0
+    monotone::Bool = false
+    mu_factor::T = 1.0
+    tau::T = 0.5
+    relax_threshold::T = 1e-6
+    k_ftb::T = 0.9
+    unrelax::Bool = false
+end
+
 # Iterate saving structure
 struct MadNLPCIterate{T, VT}
     k::Int
@@ -70,6 +81,7 @@ end
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
+    center_complementarities::Bool = false
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright

@@ -95,13 +95,9 @@ function kkt_residual_norm(
 
     px .= .-f .+ zl .- zu .- ipm.jacl
     py .= .-c
-    #py[(ncon+1):(ncon+ncc)] .-= σ
     pzl .= (ipm.xl_r .- ipm.x_lr) .* ipm.zl_r
     pzu .= (ipm.xu_r .- ipm.x_ur) .* ipm.zu_r
-    #println("|px|=$(norm(px, 2)), |py|=$(norm(py, 2)), |pzl|=$(norm(pzl, 2)), |pzu|=$(norm(pzu, 2)),")
 
-    #println(MadNLP.full(ipm.p))
-    r = norm(ipm.p, 2)
     return r
 end
 
@@ -176,17 +172,8 @@ function update_sigma!(
                     (
                         relax.k_ftb
                     )*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
-                #println("x1 = $(x1)")
-                #println("δ1[$(ii)] = $(mpcc.meta.lvar[cc1] - MadNLP.variable(ipm.xl)[cc1])")
-                #println("δ1[$(ii)] = $(rnlp.δ1[ii])")
-                #println("max_decrease = $(max_decrease)")
-                #println("max($(relax.kappa*rnlp.δ1[ii]), $(rnlp.δ1[ii]-max_decrease))")
                 rnlp.δ1[ii] = max(relax.kappa*rnlp.δ1[ii], rnlp.δ1[ii]-max_decrease)
-                #println("Distance to bound before: $(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])")
                 MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1] - rnlp.δ1[ii]
-                #println("AHHHHHHH stalling, pushing δ1[$(ii)] = $(rnlp.δ1[ii])")
-                #println("Distance to bound now: $(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])")
-                #println()
                 updated = true
             end
             if x2 <= 0 # we are lower bound infeasible:
@@ -194,25 +181,12 @@ function update_sigma!(
                     (
                         relax.k_ftb
                     )*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
-                #println("x2 = $(x2)")
-                #println("δ2[$(ii)] = $(mpcc.meta.lvar[cc2] - MadNLP.variable(ipm.xl)[cc2])")
-                #println("δ2[$(ii)] = $(rnlp.δ2[ii])")
-                #println("max_decrease = $(max_decrease)")
-                #println("max($(relax.kappa*rnlp.δ2[ii]), $(rnlp.δ2[ii]-max_decrease))")
                 rnlp.δ2[ii] = max(relax.kappa*rnlp.δ2[ii], rnlp.δ2[ii]-max_decrease)
-                #println("Distance to bound before: $(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])")
-                #println("MadNLP.variable(ipm.xl)[cc2] = $(MadNLP.variable(ipm.xl)[cc2])")
                 MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2] - rnlp.δ2[ii]
-                #println("MadNLP.variable(ipm.xl)[cc2] = $(MadNLP.variable(ipm.xl)[cc2])")
-                #println("AHHHHHHH stalling, pushing δ2[$(ii)] = $(rnlp.δ2[ii])")
-                #println("Distance to bound now: $(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])")
-                #println()
                 updated = true
             end
             if x1 >= 0 && x2 >= 0 && x1*x2 >= solver.ipm.opt.tol
                 rnlp.σ[ii] = max(relax.kappa*rnlp.σ[ii], solver.opts.sigma_min)
-                #println("AHHHHHHH stalling, pushing σ[$(ii)] = $(rnlp.σ[ii])")
-                #println()
                 updated = true
             end
         end
@@ -222,4 +196,59 @@ function update_sigma!(
         empty!(ipm.filter)
         push!(ipm.filter, (ipm.theta_max, -Inf))
     end
+end
+
+function update_sigma!(
+    relax::RelaxLBUpdate{T},
+    rnlp::ScholtesMultiRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    ncon = mpcc.meta.ncon
+    ind_cc1 = mpcc.meta.ind_cc1
+    ind_cc2 = mpcc.meta.ind_cc2
+    # update c
+    ipm.c[(end-ncc+1):end] .+= rnlp.σ
+    # calculate new sigma
+    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
+    if relax.monotone
+        rnlp.σ .= max.(min.(solver.rnlp.σ, sigma_candidate), solver.opts.sigma_min) # TODO(@anton) inefficient
+    else
+        rnlp.σ .= max(sigma_candidate, solver.opts.sigma_min)
+    end
+    # update c
+    ipm.c[(end-ncc+1):end] .-= rnlp.σ
+
+    if ipm.mu <= relax.relax_threshold # check if we need to relax bounds
+        for ii in 1:ncc
+            cc1 = ind_cc1[ii]
+            cc2 = ind_cc2[ii]
+            nu1 = solver.multipliers_cc1[ii]
+            nu2 = solver.multipliers_cc2[ii]
+
+            if nu1 <= -((ipm.mu)^relax.tau)
+                rnlp.δ1[ii] = relax.mu_factor*ipm.mu
+                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1] - rnlp.δ1[ii]
+            elseif relax.unrelax && rnlp.δ1[ii] > 0 && nu1 >= ((ipm.mu)^relax.tau)
+                max_decrease =
+                    relax.k_ftb*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
+                rnlp.δ1[ii] = max(0.0, rnlp.δ1[ii]-max_decrease)
+                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1] - rnlp.δ1[ii]
+            end
+            if nu2 <= -((ipm.mu)^relax.tau)
+                rnlp.δ2[ii] = relax.mu_factor*ipm.mu
+                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2] - rnlp.δ2[ii]
+            elseif relax.unrelax && rnlp.δ2[ii] > 0 && nu2 >= ((ipm.mu)^relax.tau)
+                max_decrease =
+                    relax.k_ftb*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
+                rnlp.δ2[ii] = max(0.0, rnlp.δ2[ii]-max_decrease)
+                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2] - rnlp.δ2[ii]
+            end
+        end
+    end
+
+    # Here we assume the barrier update handles whether we throw out the filter.
+    return nothing
 end

@@ -3,6 +3,7 @@ mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
     status::Status
     solution::VT
     counters::MadNLPCCounters
+    inf_pr_cc::T
     stats::MadNLP.MadNLPExecutionStats{T, VT}
 end
 
@@ -12,6 +13,7 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
         solver.status,
         solver.x,
         solver.cnt,
+        solver.inf_pr_cc,
         MadNLP.MadNLPExecutionStats(solver.bnlp_ipm),
     )
 end
