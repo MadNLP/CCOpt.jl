@@ -126,13 +126,11 @@ function update_sigma!(
 
         nu1 = solver.multipliers_cc1[ii]
         nu2 = solver.multipliers_cc2[ii]
-        #println("rl=$(rl), ru=$(ru), r=$(r), nu1=$(nu1), nu2=$(nu2)")
         # These are the rules from
         if nu1 > ru
             rnlp.δ1[ii] = min(relax.kappa*rnlp.δ1[ii], rl)
             MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1] - rnlp.δ1[ii]
             rnlp.δ1opt[ii] = 0.0
-            #println("updated δ1[$(ii)]")
             updated = true
         else
             rnlp.δ1opt[ii] = rnlp.δ1[ii]
@@ -142,7 +140,6 @@ function update_sigma!(
             rnlp.δ2[ii] = min(relax.kappa*rnlp.δ2[ii], rl)
             MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2] - rnlp.δ2[ii]
             rnlp.δ2opt[ii] = 0.0
-            #println("updated δ2[$(ii)]")
             updated = true
         else
             rnlp.δ2opt[ii] = rnlp.δ2[ii]
@@ -152,14 +149,12 @@ function update_sigma!(
             if min(relax.kappa*rnlp.σ[ii], rl) >= solver.opts.sigma_min
                 rnlp.σ[ii] = max(min(relax.kappa*rnlp.σ[ii], rl), solver.opts.sigma_min)
                 rnlp.σopt[ii] = 0.0
-                #println("updated σ[$(ii)]")
                 updated = true
             end
         else
             rnlp.σopt[ii] = rnlp.σ[ii]
         end
     end
-    #println("updated=$(!updated) && r<=1e-7 = $(r <= 1e-7)")
     if !updated && ipm.mu <= 1e-4 # Standard rules make no progress
         for ii in 1:ncc
             cc1 = ind_cc1[ii]

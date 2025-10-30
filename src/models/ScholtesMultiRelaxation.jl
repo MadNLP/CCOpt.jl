@@ -340,6 +340,10 @@ function NLPModels.hprod!(
     return Hv
 end
 
+function get_relaxation(rnlp::ScholtesMultiRelaxation)
+    return rnlp.σ
+end
+
 function set_relaxation(rnlp::ScholtesMultiRelaxation{T}, σ::T) where {T}
     rnlp.σ .= σ
     return nothing

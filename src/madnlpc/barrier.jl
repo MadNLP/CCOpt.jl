@@ -41,7 +41,7 @@ function set_aug_rhs_aff!(
 
     px .= .-f .+ zl .- zu .- ipm.jacl
     py .= .-c
-    py[(ncon+1):(ncon+ncc)] .-= solver.rnlp.σ[]
+    py[(ncon+1):(ncon+ncc)] .-= get_relaxation(solver.rnlp)
     pzl .= (ipm.xl_r .- ipm.x_lr) .* ipm.zl_r
     pzu .= (ipm.xu_r .- ipm.x_ur) .* ipm.zu_r
     return
