@@ -256,9 +256,9 @@ function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
         ind_cc1 = mpcc.meta.ind_cc1
         ind_cc2 = mpcc.meta.ind_cc2
         ncc = mpcc.meta.ncc
-        x_vec[ind_cc1] .= 0.5*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc1]
-        x_vec[ind_cc2] .= 0.5*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc2]
-        s_vec[(end-ncc+1):end] .= -sqrt(2)*0.5*sqrt(sigma_0)
+        x_vec[ind_cc1] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc1]
+        x_vec[ind_cc2] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc2]
+        s_vec[(end-ncc+1):end] .= -sqrt(2*(1-opts.centering_factor*sigma_0))
     end
 end
 

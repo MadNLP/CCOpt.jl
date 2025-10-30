@@ -82,6 +82,7 @@ end
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
     center_complementarities::Bool = false
+    centering_factor::T = 0.5
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
