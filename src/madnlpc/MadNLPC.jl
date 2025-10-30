@@ -5,9 +5,12 @@ end
 # Relaxation updates
 abstract type AbstractRelaxationUpdate{T} end
 
+"""
+  Proportional Relaxation update which updates σ = aμ^b
+"""
 @kwdef struct ProportionalRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
-    sigma_mu_ratio::T = 1.0
-    sigma_mu_exp::T = 1.0
+    sigma_mu_ratio::T = 1.0 # a
+    sigma_mu_exp::T = 1.0 # b
     monotone::Bool = false
 end
 
@@ -18,12 +21,28 @@ end
     r::T = 0.95 # Steplength param
 end
 
+"""
+  Two-sided Scholtes relaxation attempts to drive either the scholtes bound x1*x2 - σ ≤ 0 to zero
+  or the lower bounds of x1 and x2 choosing which to decrease by inspecting the estimated mpcc
+  lagrange multipliers.
+"""
 @kwdef struct TwoSidedScholtesUpdate{T} <: AbstractRelaxationUpdate{T}
     kappa::T = 0.1
     k_ftb::T = 0.9
     tau::T = 0.3
 end
 
+"""
+  Propotional Relaxation update which updates σ = aμ^b
+  Also relaxes the complementarity lower bounds by mu_factor*μ when:
+    μ ≤ relax_threshold
+    the corresponding estimated mpec multiplier is negative (the scholtes bound is active)
+    identified by the multiplier being smaller than μ^tau
+
+  When unrelax is set to true we try to recover erroneously relaxed lower bounds (identified by the lower bound being active)
+  this is done by taking steps which push the bound towards zero while making sure to reduce the distance from the iterate
+  to the boundary by a factor of k_ftb.
+"""
 @kwdef struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0
     sigma_mu_exp::T = 1.0

@@ -41,7 +41,7 @@ function project_scholtes_explicit!(
     xl::AbstractVector{T},
     yl::AbstractVector{T},
     𝜅::T,
-    σ::T;
+    σ::AbstractVector{T};
     heuristic=:min_f,
 ) where {T <: Real}
     @assert length(x_target) ==
@@ -54,11 +54,11 @@ function project_scholtes_explicit!(
         # Hack for very small cases:
         if xk[ii]-xl[ii] ≤ 1e-6
             y_target[ii] = yk[ii]
-            x_target[ii] = (𝜅*σ)/(yk[ii]-yl[ii])
+            x_target[ii] = (𝜅*σ[ii])/(yk[ii]-yl[ii])
             continue
         elseif yk[ii]-yl[ii] ≤ 1e-6
             x_target[ii] = xk[ii]
-            y_target[ii] = (𝜅*σ)/(xk[ii]-xl[ii])
+            y_target[ii] = (𝜅*σ[ii])/(xk[ii]-xl[ii])
             continue
         end
         if xk[ii]-xl[ii] < yk[ii]-yl[ii]
@@ -68,7 +68,7 @@ function project_scholtes_explicit!(
                 xl[ii],
                 yl[ii],
                 𝜅,
-                σ;
+                σ[ii];
                 heuristic=heuristic,
             )
         else
@@ -78,7 +78,7 @@ function project_scholtes_explicit!(
                 yl[ii],
                 xl[ii],
                 𝜅,
-                σ;
+                σ[ii];
                 heuristic=heuristic,
             )
         end
