@@ -2,7 +2,12 @@
 struct ScholtesRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
-    σ::Base.RefValue{T}
+    σ::VT
+    σopt::VT
+    δ1::VT
+    δ1opt::VT
+    δ2::VT
+    δ2opt::VT
 end
 
 function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -43,8 +48,13 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
     )
-    σ = zero(T)
-    return ScholtesRelaxation(mpcc, meta, Ref(σ))
+    σ = zeros(T, mpcc.meta.ncc)
+    σopt = zeros(T, mpcc.meta.ncc)
+    δ1 = zeros(T, mpcc.meta.ncc)
+    δ1opt = zeros(T, mpcc.meta.ncc)
+    δ2 = zeros(T, mpcc.meta.ncc)
+    δ2opt = zeros(T, mpcc.meta.ncc)
+    return ScholtesRelaxation(mpcc, meta, σ, σopt, δ1, δ1opt, δ2, δ2opt)
 end
 
 # Counters should be forwarded
@@ -74,7 +84,7 @@ function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::Abstra
     end
     cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ
     return cx
 end
 
@@ -103,7 +113,7 @@ function NLPModels.cons_nln!(
     # TODO(@anton) figure out if the intermediate outputs cause allocations
     cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .=
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ[]
+        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ
     return cx
 end
 
@@ -314,4 +324,36 @@ function NLPModels.hprod!(
             v[rnlp.mpcc.meta.ind_cc1[i]]*y[i+rnlp.mpcc.meta.ncon]
     end
     return Hv
+end
+
+function get_relaxation(rnlp::ScholtesRelaxation)
+    return rnlp.σ
+end
+
+function set_relaxation(rnlp::ScholtesRelaxation{T}, σ::T) where {T}
+    rnlp.σ .= σ
+    return nothing
+end
+
+function initialize_relaxation(rnlp::ScholtesRelaxation{T}, σ::T, δ::T) where {T}
+    rnlp.σ .= σ
+    rnlp.σopt .= σ
+    rnlp.δ1 .= δ
+    rnlp.δ1opt .= δ
+    rnlp.δ2 .= δ
+    rnlp.δ2opt .= δ
+    return nothing
+end
+
+function get_log_relaxation(rnlp::ScholtesRelaxation{T}) where {T}
+    return log(
+        10,
+        mapreduce(
+            (a, b, c) -> min(a, b == 0.0 ? Inf : b, c == 0.0 ? Inf : c),
+            max,
+            rnlp.σ,
+            rnlp.δ1,
+            rnlp.δ2,
+        ),
+    )
 end

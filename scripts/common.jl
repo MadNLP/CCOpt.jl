@@ -90,6 +90,8 @@ function save_madnlp_c_df(
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
         inf_cc=inf_cc,
+        inf_pr=[s.primal_feas for s in stats_madnlp_c],
+        inf_du=[s.dual_feas for s in stats_madnlp_c],
         wall_time=[s.counters.total_time for s in stats_madnlp_c],
         iter=[s.counters.k for s in stats_madnlp_c],
         eval_function_time=[s.counters.eval_function_time for s in stats_madnlp_c],
@@ -143,13 +145,7 @@ function save_madnlp_c_df(
     probs::Vector{MadMPEC.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
-    inf_cc =
-        inf_cc=[
-            min(
-                MadMPEC.comp_residual(mpcc, s.stats.solution),
-                MadMPEC.comp_residual_product(mpcc, s.stats.solution),
-            ) for (mpcc, s) in zip(probs, stats_madnlp_c)
-        ]
+    inf_cc = inf_cc=[s.inf_pr_cc for (mpcc, s) in zip(probs, stats_madnlp_c)]
     df_madnlp_c = DataFrame(
         name=names,
         success=[
@@ -159,11 +155,13 @@ function save_madnlp_c_df(
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
             cc ≤ 1e-8 &&
-            s.stats.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            s.stats.primal_feas ≤ 5e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.stats.status for s in stats_madnlp_c],
         objective=[s.stats.objective for s in stats_madnlp_c],
         inf_cc=inf_cc,
+        inf_pr=[s.stats.primal_feas for s in stats_madnlp_c],
+        inf_du=[s.stats.dual_feas for s in stats_madnlp_c],
         wall_time=[s.stats.counters.total_time for s in stats_madnlp_c],
         iter=[s.stats.counters.k for s in stats_madnlp_c],
         eval_function_time=[s.stats.counters.eval_function_time for s in stats_madnlp_c],

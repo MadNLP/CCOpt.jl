@@ -1223,3 +1223,143 @@ function test_madnlp_c_reg(; range=:)
 
     return solnames, names, stats
 end
+
+function test_two_sided(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=true)
+    opts_madnlp_c_two_sided = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.TwoSidedScholtesUpdate(),
+        center_complementarities=true,
+        centering_factor=0.9,
+    )
+    opts_madnlp_c_lb = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=MadMPEC.RelaxLBUpdate(),
+        center_complementarities=true,
+        centering_factor=0.9,
+    )
+
+    default_madnlp_c = (
+        "ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options...,)),
+    )
+    two_sided_madnlp_c = (
+        "ma27 madNLP-C two_sided",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_two_sided,
+        ((madnlpc_solver_options...,)),
+    )
+
+    lb_madnlp_c = (
+        "ma27 madNLP-C lb kappa=1.0",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_lb,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        lb_madnlp_c,
+        #two_sided_madnlp_c,
+        default_madnlp_c;
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_bound_push(; range=:)
+    madnlpc_solver_options_bp1 = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    madnlpc_solver_options_bp2 = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    madnlpc_solver_options_bp3 = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c_center = MadMPEC.MadNLPCOptions(center_complementarities=true)
+
+    default_madnlp_c = (
+        "ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options...,)),
+    )
+    bp1_madnlp_c = (
+        "ma27 madNLP-C bp=1e-1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options_bp1...,)),
+    )
+    bp2_madnlp_c = (
+        "ma27 madNLP-C bp=1e0",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options_bp2...,)),
+    )
+    bp3_madnlp_c = (
+        "ma27 madNLP-C bp=1e1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options_bp3...,)),
+    )
+
+    center_madnlp_c = (
+        "ma27 madNLP-C center bp=1e-1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_center,
+        ((madnlpc_solver_options_bp1...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #bp1_madnlp_c,
+        #bp2_madnlp_c,
+        #bp3_madnlp_c,
+        center_madnlp_c,
+        #two_sided_madnlp_c,
+        default_madnlp_c;
+        range=range,
+    )
+
+    return solnames, names, stats
+end

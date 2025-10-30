@@ -5,9 +5,12 @@ end
 # Relaxation updates
 abstract type AbstractRelaxationUpdate{T} end
 
+"""
+  Proportional Relaxation update which updates σ = aμ^b
+"""
 @kwdef struct ProportionalRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
-    sigma_mu_ratio::T = 1.0
-    sigma_mu_exp::T = 1.0
+    sigma_mu_ratio::T = 1.0 # a
+    sigma_mu_exp::T = 1.0 # b
     monotone::Bool = false
 end
 
@@ -16,6 +19,39 @@ end
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
     mu_factor::T = 1e-5 # smallest factor of reduction allowed
     r::T = 0.95 # Steplength param
+end
+
+"""
+  Two-sided Scholtes relaxation attempts to drive either the scholtes bound x1*x2 - σ ≤ 0 to zero
+  or the lower bounds of x1 and x2 choosing which to decrease by inspecting the estimated mpcc
+  lagrange multipliers.
+"""
+@kwdef struct TwoSidedScholtesUpdate{T} <: AbstractRelaxationUpdate{T}
+    kappa::T = 0.1
+    k_ftb::T = 0.9
+    tau::T = 0.3
+end
+
+"""
+  Propotional Relaxation update which updates σ = aμ^b
+  Also relaxes the complementarity lower bounds by mu_factor*μ when:
+    μ ≤ relax_threshold
+    the corresponding estimated mpec multiplier is negative (the scholtes bound is active)
+    identified by the multiplier being smaller than μ^tau
+
+  When unrelax is set to true we try to recover erroneously relaxed lower bounds (identified by the lower bound being active)
+  this is done by taking steps which push the bound towards zero while making sure to reduce the distance from the iterate
+  to the boundary by a factor of k_ftb.
+"""
+@kwdef struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
+    sigma_mu_ratio::T = 1.0
+    sigma_mu_exp::T = 1.0
+    monotone::Bool = false
+    mu_factor::T = 1.0
+    tau::T = 0.5
+    relax_threshold::T = 1e-6
+    k_ftb::T = 0.9
+    unrelax::Bool = false
 end
 
 # Iterate saving structure
@@ -55,14 +91,17 @@ end
     relaxation::Type = ScholtesRelaxation
 
     # adaptive mu update parameters
-    use_specialized_barrier_update::Bool = true
+    use_specialized_barrier_update::Bool = false
 
     # complementarity homotopy options
     relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
     sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
+    delta_init::T = 0.0
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
+    center_complementarities::Bool = false
+    centering_factor::T = 0.5
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
@@ -142,6 +181,9 @@ mutable struct MadNLPCSolver{T, VT}
     eps_proj::T
     inf_pr_cc::T
 
+    multipliers_cc1::VT
+    multipliers_cc2::VT
+
     ind_cc1_lb::Vector{Int}
     ind_cc2_lb::Vector{Int}
 
@@ -156,7 +198,7 @@ function MadNLPCSolver(
 ) where {T, VT}
     rnlp = solver_opts.relaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
-    rnlp.σ[] = ipm.opt.barrier.mu_init
+    initialize_relaxation(rnlp, ipm.opt.barrier.mu_init, solver_opts.delta_init)
 
     logger = MadNLP.MadNLPLogger(
         print_level=solver_opts.print_level,
@@ -172,6 +214,8 @@ function MadNLPCSolver(
     lpcc = LpccMILP(mpcc; M=solver_opts.M_lpcc)
     eps_proj = solver_opts.eps_proj
     x = VT(undef, mpcc.meta.nvar)
+    multipliers_cc1 = VT(undef, mpcc.meta.ncc)
+    multipliers_cc2 = VT(undef, mpcc.meta.ncc)
     b = Vector{Bool}(undef, mpcc.meta.ncc)
     bnlp = BranchNLP(mpcc, b)
     bnlp_ipm = MadNLP.MadNLPSolver(bnlp) # TODO(@anton) also pass the bnlp options somehow
@@ -194,6 +238,8 @@ function MadNLPCSolver(
         bnlp_ipm,
         eps_proj,
         0.0,
+        multipliers_cc1,
+        multipliers_cc2,
         ind_cc1_lb,
         ind_cc2_lb,
         x,

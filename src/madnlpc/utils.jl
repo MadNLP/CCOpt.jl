@@ -3,6 +3,7 @@ mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
     status::Status
     solution::VT
     counters::MadNLPCCounters
+    inf_pr_cc::T
     stats::MadNLP.MadNLPExecutionStats{T, VT}
 end
 
@@ -12,6 +13,7 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
         solver.status,
         solver.x,
         solver.cnt,
+        solver.inf_pr_cc,
         MadNLP.MadNLPExecutionStats(solver.bnlp_ipm),
     )
 end
@@ -99,7 +101,7 @@ end
 function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
     return @views(
         mapreduce(
-            (a, la, b, lb)->(a-la)*(b-lb),
+            (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
             max,
             MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc1],
             solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc1],
@@ -259,7 +261,7 @@ function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
             ipm.alpha,
             ipm.ftype,
             ipm.cnt.l,
-            log(10, solver.rnlp.σ[]),
+            get_log_relaxation(solver.rnlp),
             solver.inf_pr_cc
         )
     )

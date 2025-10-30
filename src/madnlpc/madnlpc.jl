@@ -137,12 +137,12 @@ function solve_homotopy!(
             )
             MadNLP.print_init(ipm)
             # Also reset sigma
-            ipm.status = MadNLP.initialize!(ipm)
-            update_sigma!(solver.opts.relaxation_update, solver)
+            ipm.status = MadNLP.initialize!(solver)
+            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma
-            update_sigma!(solver.opts.relaxation_update, solver)
+            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             ipm.status = MadNLP.reinitialize!(ipm)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         end
@@ -238,6 +238,104 @@ function solve_homotopy!(
     return stats
 end
 
+function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    nlp = ipm.nlp
+    opts = solver.opts
+
+    if opts.center_complementarities
+        # TODO(@anton): There are a lot of options here, for now lets assume proportional.
+        #               The correct way is probably to do this at the first iterate or call
+        #               update_mu! and update_sigma!, in initialize! (though this is maybe
+        #               difficult due to the circular dependency of it all (particularly
+        #               in the case of the quality function.
+
+        # We initialize here by moving the initial values of the two complementarities and
+        # the initial slack to be on the x1=x2 line and a factor (centering_factor) away
+        # from the inequality constraint.
+        x_vec = MadNLP.variable(ipm.x)
+        s_vec = MadNLP.slack(ipm.x)
+        sigma_0 = ipm.opt.barrier.mu_init
+        ind_cc1 = mpcc.meta.ind_cc1
+        ind_cc2 = mpcc.meta.ind_cc2
+        ncc = mpcc.meta.ncc
+        x_vec[ind_cc1] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc1]
+        x_vec[ind_cc2] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc2]
+        s_vec[(end-ncc+1):end] .= -sqrt(2*(1-opts.centering_factor*sigma_0))
+    end
+end
+
+function MadNLP.initialize!(solver::MadNLPCSolver{T}) where {T}
+    ipm = solver.ipm
+    nlp = ipm.nlp
+    opt = ipm.opt
+
+    # Initializing variables
+    MadNLP.@trace(ipm.logger, "Initializing variables.")
+    MadNLP.initialize!(
+        ipm.cb,
+        ipm.x,
+        ipm.xl,
+        ipm.xu,
+        ipm.y,
+        ipm.rhs,
+        ipm.ind_ineq;
+        tol=opt.bound_relax_factor,
+        bound_push=opt.bound_push,
+        bound_fac=opt.bound_fac,
+    )
+
+    # Do custom initialization of the complementarity variables
+    initialize_comps!(solver)
+
+    fill!(ipm.jacl, zero(T))
+    fill!(ipm.zl_r, one(T))
+    fill!(ipm.zu_r, one(T))
+
+    # Initializing scaling factors
+    if opt.nlp_scaling
+        MadNLP.set_scaling!(
+            ipm.cb,
+            ipm.x,
+            ipm.xl,
+            ipm.xu,
+            ipm.y,
+            ipm.rhs,
+            ipm.ind_ineq,
+            opt.nlp_scaling_max_gradient,
+        )
+    end
+
+    # Initializing KKT system
+    MadNLP.initialize!(ipm.kkt)
+
+    # Initializing jacobian and gradient
+    MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
+    MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
+
+    MadNLP.@trace(ipm.logger, "Initializing constraint duals.")
+    if !ipm.opt.dual_initialized
+        MadNLP.initialize_dual(ipm, opt.dual_initialization_method)
+    end
+
+    # Initializing
+    ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
+    MadNLP.eval_cons_wrapper!(ipm, ipm.c, ipm.x)
+    MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
+
+    theta = MadNLP.get_theta(ipm.c)
+    ipm.theta_max = 1e4*max(1, theta)
+    ipm.theta_min = 1e-4*max(1, theta)
+
+    mu_init = ipm.opt.barrier.mu_init
+    ipm.mu = mu_init
+    ipm.tau = max(ipm.opt.tau_min, 1-mu_init)
+    push!(ipm.filter, (ipm.theta_max, -Inf))
+
+    return MadNLP.REGULAR
+end
+
 function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     opts = solver.opts
     ipm = solver.ipm
@@ -249,7 +347,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         end
 
         # Set σ to zero for constraint infeasibility calculations
-        σ = ipm.nlp.σ[]
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
@@ -273,6 +370,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             zero(T),
             sc,
         )
+        estimate_mpec_multipliers(solver)
 
         MadNLP.print_iter(solver)
         log_iter(solver.iterate_logger, solver)
@@ -354,10 +452,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
         MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
-        # Store old sigma in order to update
-        σ_old = solver.rnlp.σ[]
-        update_sigma!(solver.opts.relaxation_update, solver)
-        update_c!(ipm.c, solver.rnlp.σ[], σ_old, mpcc.meta.ncc)
+        update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
 
         if mu_updated && solver.opts.use_magic_step
             ncc = mpcc.meta.ncc
@@ -370,7 +465,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
                 MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
                 𝜅,
-                ipm.nlp.σ[],
+                get_relaxation(solver.rnlp),
             )
             # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
             # TODO(@anton) throwing away the multiplier information is probably incorrect
@@ -401,7 +496,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 x1 = MadNLP.variable(solver.ipm.x)[ind_cc1]
                 x2 = MadNLP.variable(solver.ipm.x)[ind_cc2]
                 MadNLP.slack(solver.ipm.x)[(end-ncc+1):end] .=
-                    min.(.-(x1 .* x2 .- solver.rnlp.σ[]), -ipm.mu)
+                    min.(.-(x1 .* x2 .- get_relaxation(solver.rnlp)), -ipm.mu)
             end
         end
 
@@ -593,6 +688,7 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     end
     stats.status = solver.status
     stats.solution = solver.x
+    stats.inf_pr_cc = solver.inf_pr_cc
     stats.counters.solver_time =
         stats.counters.counters.total_time - stats.counters.counters.linear_solver_time -
         stats.counters.counters.eval_function_time - stats.counters.lpcc_init_time -
