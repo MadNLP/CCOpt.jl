@@ -67,6 +67,8 @@ struct MadNLPCIterate{T, VT}
     z2::VT
     zs::VT
 
+    y::VT
+
     alpha_pr::T
     alpha_du::T
 
@@ -78,7 +80,13 @@ struct MadNLPCIterate{T, VT}
     theta::T
     varphi::T
     mu::T
-    sigma::T
+    sigma::VT
+    nu1::VT
+    nu2::VT
+    nu1_filt::VT
+    nu2_filt::VT
+    delta1::VT
+    delta2::VT
 
     KKT_s::VT
 
@@ -119,6 +127,9 @@ end
     # Reset slacks
     reset_slacks_on_update::Bool = false
 
+    # MPEC multiplier estimation
+    mpec_multiplier_filter_history::T = 1.01
+
     # Output options
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
@@ -151,6 +162,8 @@ mutable struct MadNLPCSolver{
     inf_pr_cc::T
     const multipliers_cc1::VT
     const multipliers_cc2::VT
+    const multipliers_cc1_filt::VT
+    const multipliers_cc2_filt::VT
     const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc1_lb::Vector{Int}
@@ -194,6 +207,8 @@ function MadNLPCSolver(
     x = VT(undef, get_nvar(mpcc))
     multipliers_cc1 = VT(undef, get_ncc(mpcc))
     multipliers_cc2 = VT(undef, get_ncc(mpcc))
+    multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
+    multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
@@ -217,6 +232,8 @@ function MadNLPCSolver(
         0.0,
         multipliers_cc1,
         multipliers_cc2,
+        multipliers_cc1_filt,
+        multipliers_cc2_filt,
         ind_cc1,
         ind_cc2,
         ind_cc1_lb,

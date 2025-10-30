@@ -182,31 +182,17 @@ function plot_solver_traj(
     return nothing
 end
 
-function calculate_mpcc_multiplier_estimate(iters_fname::AbstractString; range=:)
+function calculate_mpcc_multiplier_estimate(iters_fname::AbstractString; range=:, filt=true)
     iters = readlog(iters_fname)
-    z1 = [i.z1 for i in iters[range] if !i.magic]
-    x1 = [i.x1 for i in iters[range] if !i.magic]
-    z2 = [i.z2 for i in iters[range] if !i.magic]
-    x2 = [i.x2 for i in iters[range] if !i.magic]
-    zs = [i.zs for i in iters[range] if !i.magic]
+    if filt
+        nu1 = [i.nu1_filt for i in iters[range] if !i.magic]
+        nu2 = [i.nu2_filt for i in iters[range] if !i.magic]
+    else
+        nu1 = [i.nu1 for i in iters[range] if !i.magic]
+        nu2 = [i.nu2 for i in iters[range] if !i.magic]
+    end
 
-    nu = map(
-        (x1, x2, z1, z2, zs) -> -z1 .+ zs .* (x2 ./ (sqrt.(x1 .^ 2 .+ x2 .^ 2))),
-        x1,
-        x2,
-        z1,
-        z2,
-        zs,
-    )
-    xi = map(
-        (x1, x2, z1, z2, zs) -> -z2 .+ zs .* (x1 ./ (sqrt.(x1 .^ 2 .+ x2 .^ 2))),
-        x1,
-        x2,
-        z1,
-        z2,
-        zs,
-    )
-    return iters, nu, xi
+    return iters, hcat(nu1...)', hcat(nu2...)'
 end
 
 function plot_mpcc_multiplier_estimate_error(
@@ -215,17 +201,17 @@ function plot_mpcc_multiplier_estimate_error(
     iters_fname::AbstractString;
     range=:,
 )
-    iters, nu, xi = calculate_mpcc_multiplier_estimate(iters_fname; range=range)
+    iters, nu, nu2 = calculate_mpcc_multiplier_estimate(iters_fname; range=range)
     k_newton = [i.k for i in iters[range] if !i.magic]
     k_magic = [i.k for i in iters[range] if i.magic]
     k_mu = [iters[i].k for i in 1:(length(iters)-1) if iters[i+1].mu < iters[i].mu]
 
-    nu_star, xi_star = nu[end], xi[end]
+    nu_star, nu2_star = nu[end], nu2[end]
 
     nu_error = map((nu) -> norm(nu-nu_star), nu)
-    xi_error = map((xi) -> norm(xi-xi_star), xi)
+    nu2_error = map((nu2) -> norm(nu2-nu2_star), nu2)
     println(nu)
-    println(xi)
+    println(nu2)
 
     nu_err_plt = plot(
         k_newton[1:(end-1)],
@@ -267,6 +253,56 @@ function plot_mpcc_multiplier_estimate_error(
     return display(err_plt)
 end
 
+symlog(x, n=-12) = sign(x)*(log(10, 1+abs(x)/(10.0^n)))
+
+function symlogformatter(x, n=-12)
+    if sign(x) == 0
+        "\$0\$"
+    else
+        s = sign(x)==1 ? "+" : "-"
+        nexp = sign(x)*(abs(x) + n)
+        if sign(x) == -1
+            nexp = -nexp
+        end
+        "\$$(s)10^{$(nexp)}\$"
+    end
+end
+
+function plot_mpcc_multipliers(
+    name::AbstractString,
+    prob::MadMPEC.MPCCModel,
+    iters_fname::AbstractString;
+    range=:,
+    tau=0.5,
+    filt=true,
+)
+    iters, nu1, nu2 =
+        calculate_mpcc_multiplier_estimate(iters_fname; range=range, filt=filt)
+    mu = [i.mu for i in iters[range] if !i.magic]
+    inf_pr = [i.inf_pr for i in iters[range] if !i.magic]
+    inf_du = [i.inf_du for i in iters[range] if !i.magic]
+    δ1 = hcat([i.delta1 for i in iters[range] if !i.magic]...)'
+    δ2 = hcat([i.delta2 for i in iters[range] if !i.magic]...)'
+
+    fmt_tup =
+        (markershape=:circle, markersize=1, yformatter=symlogformatter, tickfontsize=4)
+    nuticks = -10:2:10
+    nu1plt = plot(symlog.(nu1); yticks=nuticks, legend=:none, fmt_tup...)
+    plot!(nu1plt, symlog.((mu) .^ tau); linestyle=:dash)
+    plot!(nu1plt, -symlog.((mu) .^ tau); linestyle=:dash)
+    nu2plt = plot(symlog.(nu2); yticks=nuticks, legend=:none, fmt_tup...)
+    plot!(nu2plt, symlog.((mu) .^ tau); linestyle=:dash)
+    plot!(nu2plt, -symlog.((mu) .^ tau); linestyle=:dash)
+    delta1plt = plot(symlog.(δ1); legend=:none, fmt_tup...)
+    delta2plt = plot(symlog.(δ2); legend=:none, fmt_tup...)
+
+    muplt =
+        plot(symlog.(mu); label=L"\mu", legend=:bottomleft, legendfontsize=4, fmt_tup...)
+    plot!(muplt, symlog.(inf_pr); label=L"||c(x)||")
+    plot!(muplt, symlog.(inf_du); label=L"||\nabla\mathcal{L}||")
+    mainplt = plot(nu1plt, nu2plt, delta1plt, delta2plt, layout=(2, 2))
+    return display(plot(mainplt, muplt, layout=grid(2, 1, heights=[0.8, 0.2])))
+end
 function diagonal_kkt_entries(
     name::AbstractString,
     prob::MadMPEC.MPCCModel,

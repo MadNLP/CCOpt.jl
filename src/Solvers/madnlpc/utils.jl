@@ -79,6 +79,8 @@ function log_iter(
     z2 = MadNLP.variable(ipm.zl)[solver.ind_cc2]
     zs = MadNLP.slack(ipm.zu)[(end-ncc+1):end]
 
+    y = ipm.y
+
     alpha_pr = ipm.alpha
     alpha_du = ipm.alpha_z
 
@@ -92,11 +94,17 @@ function log_iter(
     varphi = MadNLP.get_varphi(ipm.obj_val, ipm.x_lr, ipm.xl_r, ipm.xu_r, ipm.x_ur, ipm.mu)
 
     mu = ipm.mu
-    sigma = solver.rnlp.mu
+    sigma = get_relaxation(solver.rnlp)
+    nu1 = solver.multipliers_cc1
+    nu2 = solver.multipliers_cc2
+    nu1_filt = solver.multipliers_cc1_filt
+    nu2_filt = solver.multipliers_cc2_filt
+    delta1 = solver.rnlp.δ1
+    delta2 = solver.rnlp.δ2
 
     W = ipm.kkt.aug_com
-    K = Array(Symmetric(W, :L))
-    KKT_s = eigvals(K)
+    #K = Array(Symmetric(W, :L))
+    KKT_s = VT()#eigvals(K)
 
     iter = MadNLPCIterate(
         k,
@@ -107,6 +115,7 @@ function log_iter(
         z1,
         z2,
         zs,
+        y,
         alpha_pr,
         alpha_du,
         ls,
@@ -117,6 +126,12 @@ function log_iter(
         varphi,
         mu,
         sigma,
+        nu1,
+        nu2,
+        nu1_filt,
+        nu2_filt,
+        delta1,
+        delta2,
         KKT_s,
         magic,
     )
