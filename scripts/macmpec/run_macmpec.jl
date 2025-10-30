@@ -1233,15 +1233,17 @@ function test_two_sided(; range=:)
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )
-    opts_madnlp_c_default = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=true)
     opts_madnlp_c_two_sided = MadMPEC.MadNLPCOptions(
-        relaxation=MadMPEC.ScholtesMultiRelaxation,
         relaxation_update=MadMPEC.TwoSidedScholtesUpdate(),
+        center_complementarities=true,
+        centering_factor=0.9,
     )
     opts_madnlp_c_lb = MadMPEC.MadNLPCOptions(
         kkt_regularization=:none,
-        relaxation=MadMPEC.ScholtesMultiRelaxation,
         relaxation_update=MadMPEC.RelaxLBUpdate(),
+        center_complementarities=true,
+        centering_factor=0.9,
     )
 
     default_madnlp_c = (
@@ -1350,7 +1352,7 @@ function test_bound_push(; range=:)
     )
 
     solnames, names, stats = run_macmpec(
-        bp1_madnlp_c,
+        #bp1_madnlp_c,
         #bp2_madnlp_c,
         #bp3_madnlp_c,
         center_madnlp_c,

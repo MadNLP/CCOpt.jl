@@ -7,17 +7,19 @@ function update_sigma!(
     mpcc = solver.mpcc
     ncc = mpcc.meta.ncc
     # update c
-    sigma_old = rnlp.σ[]
-    ipm.c[(end-ncc+1):end] .+= sigma_old
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     if relax.monotone
-        solver.rnlp.σ[] = max(min(solver.rnlp.σ[], sigma_candidate), solver.opts.sigma_min)
+        set_relaxation(
+            rnlp,
+            max(min(solver.rnlp.σ[1], sigma_candidate), solver.opts.sigma_min),
+        )
     else
-        solver.rnlp.σ[] = max(sigma_candidate, solver.opts.sigma_min)
+        set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
     end
     # update c
-    ipm.c[(end-ncc+1):end] .-= rnlp.σ[]
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
 end
@@ -31,8 +33,7 @@ function update_sigma!(
     mpcc = solver.mpcc
     ncc = mpcc.meta.ncc
     # update c
-    sigma_old = rnlp.σ[]
-    ipm.c[(end-ncc+1):end] .+= sigma_old
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # Calculate mean primal complementarity
     cc_pr = @views dot(
         MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] -
@@ -55,10 +56,12 @@ function update_sigma!(
     xi = min_cc_pr/mean_cc
     gamma_sigma = max(relax.gamma_min, relax.gamma*min((1-relax.r)*((1-xi)/xi), 2)^3)
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
-    solver.rnlp.σ[] =
-        max(gamma_sigma*mean_cc, solver.opts.sigma_min, relax.mu_factor*ipm.mu)
+    set_relaxation(
+        rnlp,
+        max(gamma_sigma*mean_cc, solver.opts.sigma_min, relax.mu_factor*ipm.mu),
+    )
     # update c
-    c[(end-ncc+1):end] .-= rnlp.σ[]
+    c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Throw out the filter as the barrier problem has changed
     empty!(ipm.filter)
     push!(ipm.filter, (ipm.theta_max, -Inf))
@@ -66,7 +69,7 @@ function update_sigma!(
 end
 
 function kkt_residual_norm(
-    rnlp::ScholtesMultiRelaxation{T},
+    rnlp::ScholtesRelaxation{T},
     solver::MadNLPCSolver{T},
     δ1,
     δ2,
@@ -103,7 +106,7 @@ end
 
 function update_sigma!(
     relax::TwoSidedScholtesUpdate{T},
-    rnlp::ScholtesMultiRelaxation{T},
+    rnlp::ScholtesRelaxation{T},
     solver::MadNLPCSolver{T},
 ) where {T}
     ipm = solver.ipm
@@ -195,7 +198,7 @@ end
 
 function update_sigma!(
     relax::RelaxLBUpdate{T},
-    rnlp::ScholtesMultiRelaxation{T},
+    rnlp::ScholtesRelaxation{T},
     solver::MadNLPCSolver{T},
 ) where {T}
     ipm = solver.ipm
@@ -205,13 +208,16 @@ function update_sigma!(
     ind_cc1 = mpcc.meta.ind_cc1
     ind_cc2 = mpcc.meta.ind_cc2
     # update c
-    ipm.c[(end-ncc+1):end] .+= rnlp.σ
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     if relax.monotone
-        rnlp.σ .= max.(min.(solver.rnlp.σ, sigma_candidate), solver.opts.sigma_min) # TODO(@anton) inefficient
+        set_relaxation(
+            rnlp,
+            max(min(solver.rnlp.σ[1], sigma_candidate), solver.opts.sigma_min),
+        )
     else
-        rnlp.σ .= max(sigma_candidate, solver.opts.sigma_min)
+        set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
     end
     # update c
     ipm.c[(end-ncc+1):end] .-= rnlp.σ

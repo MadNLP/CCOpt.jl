@@ -250,6 +250,10 @@ function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
         #               update_mu! and update_sigma!, in initialize! (though this is maybe
         #               difficult due to the circular dependency of it all (particularly
         #               in the case of the quality function.
+
+        # We initialize here by moving the initial values of the two complementarities and
+        # the initial slack to be on the x1=x2 line and a factor (centering_factor) away
+        # from the inequality constraint.
         x_vec = MadNLP.variable(ipm.x)
         s_vec = MadNLP.slack(ipm.x)
         sigma_0 = ipm.opt.barrier.mu_init
@@ -461,7 +465,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
                 MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
                 𝜅,
-                ipm.nlp.σ[],
+                get_relaxation(solver.rnlp),
             )
             # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
             # TODO(@anton) throwing away the multiplier information is probably incorrect
@@ -492,7 +496,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                 x1 = MadNLP.variable(solver.ipm.x)[ind_cc1]
                 x2 = MadNLP.variable(solver.ipm.x)[ind_cc2]
                 MadNLP.slack(solver.ipm.x)[(end-ncc+1):end] .=
-                    min.(.-(x1 .* x2 .- solver.rnlp.σ[]), -ipm.mu)
+                    min.(.-(x1 .* x2 .- get_relaxation(solver.rnlp)), -ipm.mu)
             end
         end
 
