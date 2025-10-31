@@ -333,7 +333,7 @@ function solve!(
     converged = false
     timeout = false
     max_inner_iter_reached = false
-    solver.nlp.σ[] = solver.σ
+    set_relaxation(solver.nlp, solver.σ)
     ii = 1
     while ii ≤ opts.N_homotopy
         solver.k = ii
@@ -361,7 +361,7 @@ function solve!(
 
         # 𝛽 > 1 decreases σ superlinearly when close to convergence
         solver.σ = min(opts.𝛼*solver.σ, solver.σ^opts.𝛽)
-        solver.nlp.σ[] = solver.σ
+        set_relaxation(solver.nlp, solver.σ)
         ii += 1
         reset_nlp_solver!(solver)
     end
