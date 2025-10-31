@@ -206,11 +206,13 @@ function update_sigma!(
     solver::MadNLPCSolver{T},
 ) where {T}
     ipm = solver.ipm
+    cb = ipm.cb
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     ncon = get_ncon(mpcc)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
+    mu = ipm.mu
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
@@ -235,18 +237,76 @@ function update_sigma!(
             nu1 = solver.multipliers_cc1[ii]
             nu2 = solver.multipliers_cc2[ii]
 
-            if nu1 <= -((ipm.mu)^relax.tau)
+            nu1_filt = solver.multipliers_cc1_filt[ii]
+            nu2_filt = solver.multipliers_cc2_filt[ii]
+
+            x1 = MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
+            z1 = MadNLP.variable(ipm.zl)[cc1]
+            x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
+            z2 = MadNLP.variable(ipm.zl)[cc2]
+            zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
+
+            if nu1_filt <= -((ipm.mu)^relax.tau) && rnlp.δ1[ii] < relax.mu_factor*ipm.mu
+                # Relax the lower bound, and take a magic step in the multipliers
+
                 rnlp.δ1[ii] = relax.mu_factor*ipm.mu
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
+
+                # Calculate new values
+                z1_hat = inv(x1+rnlp.δ1[ii])*mu # TODO(@anton): maybe do mu+r where r is the old residual
+                zs_hat = inv(x2)*(-nu1 + z1_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
+                z2_hat = x1*zs_hat + nu2 # TODO(@anton) same here
+                delta_zs = zs_hat - zs
+
+                # Set new values
+                ## Set the new duals
+                MadNLP.variable(ipm.zl)[cc1] = z1_hat
+                MadNLP.variable(ipm.zl)[cc2] = z2_hat
+                MadNLP.slack(ipm.zu)[end-ncc+ii] = zs_hat
+                ipm.y[end-ncc+ii] = zs_hat
+
+                ## Set the new J'y_c
+                ipm.jacl[cc1] += x2*delta_zs*cb.con_scale[end-ncc+ii]
+                ipm.jacl[cc2] += x1*delta_zs*cb.con_scale[end-ncc+ii]
+                ipm.jacl[end-ncc+ii] -= delta_zs*cb.con_scale[end-ncc+ii]
+
+                ## Set the multiplier contribution in the Hessian of the Lagrangian
+                nnzh = get_nnzh(mpcc)
+                ipm.kkt.hess[nnzh+ii] = zs_hat*cb.con_scale[end-ncc+ii]
+
             elseif relax.unrelax && rnlp.δ1[ii] > 0 && nu1 >= ((ipm.mu)^relax.tau)
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
                 rnlp.δ1[ii] = max(0.0, rnlp.δ1[ii]-max_decrease)
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
             end
-            if nu2 <= -((ipm.mu)^relax.tau)
+
+            if nu2_filt <= -((ipm.mu)^relax.tau)
                 rnlp.δ2[ii] = relax.mu_factor*ipm.mu
                 MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
+
+                # Calculate new values
+                z2_hat = inv(x2+rnlp.δ2[ii])*mu # TODO(@anton): maybe do mu+r where r is the old residual
+                zs_hat = inv(x1)*(-nu2 + z2_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
+                z1_hat = x2*zs_hat + nu1 # TODO(@anton) same here
+                delta_zs = zs_hat - zs
+
+                # Set new values
+                ## Set the new duals
+                MadNLP.variable(ipm.zl)[cc1] = z1_hat
+                MadNLP.variable(ipm.zl)[cc2] = z2_hat
+                MadNLP.slack(ipm.zu)[end-ncc+ii] = zs_hat
+                ipm.y[end-ncc+ii] = zs_hat
+
+                ## Set the new J'y_c
+                ipm.jacl[cc1] += x2*delta_zs
+                ipm.jacl[cc2] += x1*delta_zs
+                ipm.jacl[end-ncc+ii] -= delta_zs
+
+                ## Set the multiplier contribution in the Hessian of the Lagrangian
+                nnzh = get_nnzh(mpcc)
+                ipm.kkt.hess[nnzh+ii] = zs_hat*cb.con_scale[end-ncc+ii]
+
             elseif relax.unrelax && rnlp.δ2[ii] > 0 && nu2 >= ((ipm.mu)^relax.tau)
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
