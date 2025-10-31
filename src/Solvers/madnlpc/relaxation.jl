@@ -281,7 +281,7 @@ function update_sigma!(
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
             end
 
-            if nu2_filt <= -((ipm.mu)^relax.tau)
+            if nu2_filt <= -((ipm.mu)^relax.tau) && rnlp.δ2[ii] < relax.mu_factor*ipm.mu
                 rnlp.δ2[ii] = relax.mu_factor*ipm.mu
                 MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
 
@@ -299,9 +299,9 @@ function update_sigma!(
                 ipm.y[end-ncc+ii] = zs_hat
 
                 ## Set the new J'y_c
-                ipm.jacl[cc1] += x2*delta_zs
-                ipm.jacl[cc2] += x1*delta_zs
-                ipm.jacl[end-ncc+ii] -= delta_zs
+                ipm.jacl[cc1] += x2*delta_zs*cb.con_scale[end-ncc+ii]
+                ipm.jacl[cc2] += x1*delta_zs*cb.con_scale[end-ncc+ii]
+                ipm.jacl[end-ncc+ii] -= delta_zs*cb.con_scale[end-ncc+ii]
 
                 ## Set the multiplier contribution in the Hessian of the Lagrangian
                 nnzh = get_nnzh(mpcc)
