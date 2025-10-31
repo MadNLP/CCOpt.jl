@@ -81,6 +81,8 @@ function log_iter(
 
     y = ipm.y
 
+    p = ipm.p
+
     alpha_pr = ipm.alpha
     alpha_du = ipm.alpha_z
 
@@ -116,6 +118,7 @@ function log_iter(
         z2,
         zs,
         y,
+        p,
         alpha_pr,
         alpha_du,
         ls,
