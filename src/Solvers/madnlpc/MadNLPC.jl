@@ -69,6 +69,8 @@ struct MadNLPCIterate{T, VT}
 
     y::VT
 
+    p::MadNLP.UnreducedKKTVector{T, VT}
+
     alpha_pr::T
     alpha_du::T
 
