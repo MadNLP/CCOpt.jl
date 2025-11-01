@@ -69,7 +69,7 @@ function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     nnzj = mpcc.meta.nnzj
     nln_nnzj = mpcc.meta.nln_nnzj
 
-    nnzh = mpcc.meta.nnzh + mpcc.meta.ncc
+    nnzh = mpcc.meta.nnzh + 3*mpcc.meta.ncc
     # TODO(@anton) We may need to change how nlv(b,o,c) are handled because we actually cannot
     #              backcalculate how these need to change necessarily.
     #              However these seem to not be used anywhere in the NLPModels API so I am ignoring them.
@@ -84,10 +84,9 @@ function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
     )
-    ρ = zero(T)
     β = zero(T)
     λ = zero(T)
-    return LasryLionsPenalty(mpcc, meta, Ref(ρ), Ref(β), Ref(λ))
+    return LasryLionsPenalty(mpcc, meta, Ref(β), Ref(λ))
 end
 
 # Counters should be forwarded
@@ -381,11 +380,11 @@ function NLPModels.hprod!(
 end
 
 
-function get_penalty(rnlp::M) where {M <: AbstractMPCCPenaltyModel}
+function get_penalty(rnlp::LasryLionsPenalty)
     return inv(rnlp.λ[])
 end
 
-function set_penalty(rnlp::M, ρ::T) where {T, M <: AbstractMPCCPenaltyModel{T}}
+function set_penalty(rnlp::LasryLionsPenalty{T}, ρ::T) where {T}
     rnlp.λ[] = inv(ρ)
     return nothing
 end
