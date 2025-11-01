@@ -25,6 +25,6 @@ include("Solvers/AbstractMPCCSolver.jl")
 include("Solvers/homotopy_solver.jl")
 include("Solvers/lpcc_solver.jl")
 include("Solvers/madnlpc/MadNLPC.jl")
-include("Solvers/exact_penalty.jl")
+include("Solvers/exact_penalty/ExactPenalty.jl")
 
 end # module MadMPEC
