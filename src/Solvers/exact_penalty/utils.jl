@@ -36,7 +36,7 @@ function MadNLP.print_iter(solver::ExactPenaltySolver; is_resto=false)
             ipm.alpha,
             ipm.ftype,
             ipm.cnt.l,
-            log(10, solver.ell1.tau[]),
+            get_log_penalty(solver.pnlp),
             solver.inf_pr_cc
         )
     )

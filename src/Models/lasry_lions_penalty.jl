@@ -24,18 +24,18 @@ function dlasrylions(x1::T,x2::T,λ::T,β::T) where T
         return (inv(λ)*(inv(β*(T(2)-β))*(x1+x2) - inv(β)*x1),
                 inv(λ)*(inv(β*(T(2)-β))*(x1+x2) - inv(β)*x2))
     elseif x2 >= inv(T(1)-β)*x1
-        return (inv(λ)*inv((T(1)-β))*x2,
+        return (inv(λ)*inv((T(1)-β))*x1,
                 T(0))
     else
         return (T(0),
-                inv(λ)*inv((T(1)-β))*x1) 
+                inv(λ)*inv((T(1)-β))*x2) 
     end
 end
 
 function ddlasrylions(x1::T,x2::T,λ::T,β::T) where T
     if x1 < 0 && x2 < 0
-        return (inv(λ)*inv(1-b),
-                inv(λ)*inv(1-b),
+        return (inv(λ)*inv(1-β),
+                inv(λ)*inv(1-β),
                 0)
     elseif (T(1)-β)*x1 <= x2  && x2 <= inv(T(1)-β)*x1
         return (inv(λ)*(inv(β*(T(2)-β)) - inv(β)),
@@ -84,7 +84,7 @@ function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
     )
-    β = zero(T)
+    β = T(0.3)
     λ = zero(T)
     return LasryLionsPenalty(mpcc, meta, Ref(β), Ref(λ))
 end

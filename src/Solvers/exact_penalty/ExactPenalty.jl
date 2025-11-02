@@ -1,13 +1,13 @@
 @kwdef struct ExactPenaltyOptions{T}
     penalty::Type = Ell1Relaxation
     # complementarity homotopy options
-    tau_0::T = 1.0
-    tau_max::T = 1e8
-    tau_growth_rate::T = 10.0
+    rho_0::T = 1.0
+    rho_max::T = 1e8
+    rho_growth_rate::T = 10.0
     gamma::T = 0.4
 
     # Algorithm options
-    dynamic_tau_update::Bool = false # Switch between classic and dynamic algorithm from
+    dynamic_rho_update::Bool = false # Switch between classic and dynamic algorithm from
     # Leyffer2006 paper
     comp_history_length::Int = 5 # Length of history buffer (default from Leyffer2006)
     eta_dynamic_update::T = 0.99 # "sufficient decrease" parameter (default from Leyffer2006)
@@ -27,7 +27,7 @@ end
 
 mutable struct ExactPenaltySolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
-    ell1::AbstractMPCCPenaltyModel{T, VT}
+    pnlp::AbstractMPCCPenaltyModel{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
     opts::ExactPenaltyOptions{T}
