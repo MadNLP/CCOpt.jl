@@ -321,10 +321,6 @@ function NLPModels.hess_structure!(
         cols[i+nnzh+2*ncc], rows[i+nnzh+2*ncc] =
             rnlp.mpcc.meta.ind_cc2[i], rnlp.mpcc.meta.ind_cc2[i]
     end
-    for i in 1:rnlp.mpcc.meta.ncc
-        cols[i+rnlp.mpcc.meta.nnzh], rows[i+rnlp.mpcc.meta.nnzh] =
-            minmax(rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc2[i])
-    end
     return rows, cols
 end
 function NLPModels.hess_coord!(
