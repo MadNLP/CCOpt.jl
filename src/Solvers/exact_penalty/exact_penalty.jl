@@ -1,24 +1,3 @@
-function MadNLP.set_aug_diagonal!(
-    kkt::MadNLP.AbstractKKTSystem{T},
-    solver::ExactPenaltySolver{T, VT},
-) where {T, VT}
-    ipm = solver.ipm
-    n = length(ipm.x_ur)
-    ncc = solver.mpcc.meta.ncc
-    nnzh = solver.mpcc.meta.nnzh
-
-    fill!(kkt.reg, zero(T))
-    fill!(kkt.du_diag, zero(T))
-    kkt.l_diag .= ipm.xl_r .- ipm.x_lr   # (Xˡ - X)
-    kkt.u_diag .= ipm.x_ur .- ipm.xu_r   # (X - Xᵘ)
-    copyto!(kkt.l_lower, ipm.zl_r)
-    copyto!(kkt.u_lower, ipm.zu_r)
-
-    MadNLP._set_aug_diagonal!(kkt)
-
-    return
-end
-
 function solve_homotopy!(nlp::MadMPEC.Ell1Relaxation, solver::ExactPenaltySolver; kwargs...)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
@@ -271,7 +250,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
 
         # compute the newton step
         MadNLP.@trace(ipm.logger, "Computing the newton step.")
-        MadNLP.set_aug_diagonal!(ipm.kkt, solver)
+        MadNLP.set_aug_diagonal!(ipm.kkt, solver.ipm)
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
