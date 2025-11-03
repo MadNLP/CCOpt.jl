@@ -150,24 +150,27 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             sc,
         )
         inf_pr_comp = MadMPEC.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        inf_pr_comp_prod = MadMPEC.comp_residual_product(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        inf_pr_comp_sum = MadMPEC.comp_residual_sum(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        solver.inf_pr_cc = inf_pr_comp
+        inf_pr_comp_sum = get_inf_pr_cc_sum(solver) # Primal complementarity residual
+        solver.inf_pr_cc = get_inf_pr_cc(solver)
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
         MadNLP.print_iter(solver)
 
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) <= ipm.opt.tol &&
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc) <= ipm.opt.tol &&
             return MadNLP.SOLVE_SUCCEEDED
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp_prod) <=
-        ipm.opt.acceptable_tol ?
+        max(
+            ipm.inf_pr,
+            ipm.inf_du,
+            ipm.inf_compl,
+            min(solver.inf_pr_cc, get_inf_pr_cc_prod(solver)),
+        ) <= ipm.opt.acceptable_tol ?
         (
             ipm.cnt.acceptable_cnt < ipm.opt.acceptable_iter ? ipm.cnt.acceptable_cnt+=1 :
             return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
         ) : (ipm.cnt.acceptable_cnt = 0)
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) >=
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc) >=
         ipm.opt.diverging_iterates_tol && return MadNLP.DIVERGING_ITERATES
         ipm.cnt.k>=ipm.opt.max_iter && return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
         time()-ipm.cnt.start_time>=ipm.opt.max_wall_time &&
@@ -178,7 +181,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         eps_pr_comp = ipm.mu^solver.opts.gamma
         if solver.opts.dynamic_rho_update &&
            isfull(solver.pr_comp_hist) &&
-           inf_pr_comp > eps_pr_comp &&
+           solver.inf_pr_cc > eps_pr_comp &&
            inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist) &&
            get_penalty(solver.pnlp) < solver.opts.rho_max
             set_penalty(solver.pnlp, solver.opts.rho_growth_rate*get_penalty(solver.pnlp))
@@ -212,7 +215,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         if mu_updated
             # check for complementarity convergence when we decrease 𝜇
             # or if we already are at smallest mu increase penalty if we are not satisfying eps_pr_comp
-            if inf_pr_comp > eps_pr_comp
+            if solver.inf_pr_cc > eps_pr_comp
                 set_penalty(
                     solver.pnlp,
                     solver.opts.rho_growth_rate*get_penalty(solver.pnlp),
@@ -234,7 +237,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         elseif ipm.mu ≤ max(ipm.opt.barrier.mu_min, ipm.opt.tol/10) &&
                max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
                ipm.opt.barrier_tol_factor*ipm.mu
-            if inf_pr_comp > ipm.opt.tol
+            if solver.inf_pr_cc > ipm.opt.tol
                 set_penalty(
                     solver.pnlp,
                     solver.opts.rho_growth_rate*get_penalty(solver.pnlp),

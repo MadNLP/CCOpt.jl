@@ -1579,11 +1579,12 @@ function test_dynamic_reg(; range=:)
 end
 
 function test_ll(; range=:)
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+    opts_exact_penalty =
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
     opts_exact_penalty_ll = MadMPEC.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         penalty=MadMPEC.LasryLionsPenalty,
-        dynamic_rho_update=true,
+        dynamic_rho_update=false,
     )
     # opts_exact_penalty_dynamic =
     #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
@@ -1593,6 +1594,15 @@ function test_ll(; range=:)
         :max_iter=>1000,
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
+    )
+
+    exact_penalty_solver_options_noscale = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+        :nlp_scaling=>false,
     )
 
     default_exact_penalty = (
@@ -1609,9 +1619,17 @@ function test_ll(; range=:)
         opts_exact_penalty_ll,
         ((exact_penalty_solver_options...,)),
     )
+    exact_penalty_ll_noscale = (
+        "lasry-lions no scaling",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_ll,
+        ((exact_penalty_solver_options_noscale...,)),
+    )
 
     solnames, names, stats = run_macmpec(
         exact_penalty_ll,
+        exact_penalty_ll_noscale,
         default_exact_penalty,
         #default_madnlp,
         range=range,
