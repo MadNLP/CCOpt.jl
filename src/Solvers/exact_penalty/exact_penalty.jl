@@ -1,4 +1,8 @@
-function solve_homotopy!(nlp::AbstractMPCCPenaltyModel, solver::ExactPenaltySolver; kwargs...)
+function solve_homotopy!(
+    nlp::AbstractMPCCPenaltyModel,
+    solver::ExactPenaltySolver;
+    kwargs...,
+)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
 
@@ -209,7 +213,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             # check for complementarity convergence when we decrease 𝜇
             # or if we already are at smallest mu increase penalty if we are not satisfying eps_pr_comp
             if inf_pr_comp > eps_pr_comp
-                set_penalty(solver.pnlp, solver.opts.rho_growth_rate*get_penalty(solver.pnlp))
+                set_penalty(
+                    solver.pnlp,
+                    solver.opts.rho_growth_rate*get_penalty(solver.pnlp),
+                )
                 MadNLP.@trace(
                     solver.logger,
                     "Updating the penalty parameter to $(nlp.rho[])."
@@ -228,7 +235,10 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
                ipm.opt.barrier_tol_factor*ipm.mu
             if inf_pr_comp > ipm.opt.tol
-                set_penalty(solver.pnlp, solver.opts.rho_growth_rate*get_penalty(solver.pnlp))
+                set_penalty(
+                    solver.pnlp,
+                    solver.opts.rho_growth_rate*get_penalty(solver.pnlp),
+                )
                 MadNLP.@trace(
                     solver.logger,
                     "Updating the penalty parameter to $(nlp.rho[])."

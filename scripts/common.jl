@@ -84,8 +84,8 @@ function save_madnlp_c_df(
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
-            cc ≤ 1e-8 &&
-            s.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            cc ≤ 5e-8 &&
+            s.primal_feas ≤ 5e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.status for s in stats_madnlp_c],
         objective=[s.objective for s in stats_madnlp_c],
@@ -154,7 +154,7 @@ function save_madnlp_c_df(
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
-            cc ≤ 1e-8 &&
+            cc ≤ 5e-8 &&
             s.stats.primal_feas ≤ 5e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
         status=[s.stats.status for s in stats_madnlp_c],

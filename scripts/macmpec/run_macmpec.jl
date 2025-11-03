@@ -374,7 +374,7 @@ function test_vs_madnlp_c(; range=:)
 
     opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
     opts_exact_penalty_dynamic =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -438,7 +438,7 @@ function test_vs_madnlp_c(; range=:)
         #default_exact_penalty,
         dynamic_exact_penalty,
         default_madnlp_c,
-        default_ipopt,
+        #default_ipopt,
         #default_madnlp,
         range=range,
     )
@@ -1570,6 +1570,48 @@ function test_dynamic_reg(; range=:)
         #eig_exact_penalty_4,
         #eig_exact_penalty_2,
         #eig_exact_penalty_1,
+        default_exact_penalty,
+        #default_madnlp,
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_ll(; range=:)
+    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+    opts_exact_penalty_ll = MadMPEC.ExactPenaltyOptions(;
+        print_level=MadNLP.ERROR,
+        penalty=MadMPEC.LasryLionsPenalty,
+        dynamic_rho_update=true,
+    )
+    # opts_exact_penalty_dynamic =
+    #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+    exact_penalty_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+
+    default_exact_penalty = (
+        "ell1",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty,
+        ((exact_penalty_solver_options...,)),
+    )
+    exact_penalty_ll = (
+        "lasry-lions",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty_ll,
+        ((exact_penalty_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        exact_penalty_ll,
         default_exact_penalty,
         #default_madnlp,
         range=range,

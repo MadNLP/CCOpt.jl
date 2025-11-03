@@ -6,49 +6,44 @@ struct LasryLionsPenalty{T, VT} <: AbstractMPCCPenaltyModel{T, VT}
     λ::Base.RefValue{T}
 end
 
-function lasrylions(x1::T,x2::T,λ::T,β::T) where T
+function lasrylions(x1::T, x2::T, λ::T, β::T) where {T}
     if x1 < 0 && x2 < 0
         return inv(λ)*inv(T(2)*(T(1)-β))*(x1^2 + x2^2)
-    elseif (1-β)*x1 <= x2  && x2 <= inv(1-β)*x1
-        return inv(λ)*(inv(β*(T(2)-β))*(x1+x2)^2 - inv(T(2)*β)*(x1^2 + x2^2))
+    elseif (1-β)*x1 <= x2 && x2 <= inv(1-β)*x1
+        return inv(λ)*(inv(T(2)*β*(T(2)-β))*(x1+x2)^2 - inv(T(2)*β)*(x1^2 + x2^2))
     else
-        return inv(λ)*inv(T(2.0)*(1-β))*min(x1,x2)^2
+        return inv(λ)*inv(T(2)*(T(1)-β))*min(x1, x2)^2
     end
 end
 
-function dlasrylions(x1::T,x2::T,λ::T,β::T) where T
+function dlasrylions(x1::T, x2::T, λ::T, β::T) where {T}
     if x1 < 0 && x2 < 0
-        return (inv(λ)*inv(1-b)*x1,
-                inv(λ)*inv(1-b)*x2)
-    elseif (T(1)-β)*x1 <= x2  && x2 <= inv(T(1)-β)*x1
-        return (inv(λ)*(inv(β*(T(2)-β))*(x1+x2) - inv(β)*x1),
-                inv(λ)*(inv(β*(T(2)-β))*(x1+x2) - inv(β)*x2))
+        return (inv(λ)*inv(1-β)*x1, inv(λ)*inv(1-β)*x2)
+    elseif (T(1)-β)*x1 <= x2 && x2 <= inv(T(1)-β)*x1
+        return (
+            inv(λ)*(inv(β*(T(2)-β))*(x1+x2) - inv(β)*x1),
+            inv(λ)*(inv(β*(T(2)-β))*(x1+x2) - inv(β)*x2),
+        )
     elseif x2 >= inv(T(1)-β)*x1
-        return (inv(λ)*inv((T(1)-β))*x1,
-                T(0))
+        return (inv(λ)*inv((T(1)-β))*x1, T(0))
     else
-        return (T(0),
-                inv(λ)*inv((T(1)-β))*x2) 
+        return (T(0), inv(λ)*inv((T(1)-β))*x2)
     end
 end
 
-function ddlasrylions(x1::T,x2::T,λ::T,β::T) where T
+function ddlasrylions(x1::T, x2::T, λ::T, β::T) where {T}
     if x1 < 0 && x2 < 0
-        return (inv(λ)*inv(1-β),
-                inv(λ)*inv(1-β),
-                0)
-    elseif (T(1)-β)*x1 <= x2  && x2 <= inv(T(1)-β)*x1
-        return (inv(λ)*(inv(β*(T(2)-β)) - inv(β)),
-                inv(λ)*(inv(β*(T(2)-β)) - inv(β)),
-                inv(λ)*(inv(β*(T(2)-β))))
+        return (inv(λ)*inv(1-β), inv(λ)*inv(1-β), 0)
+    elseif (T(1)-β)*x1 <= x2 && x2 <= inv(T(1)-β)*x1
+        return (
+            inv(λ)*(inv(β*(T(2)-β)) - inv(β)),
+            inv(λ)*(inv(β*(T(2)-β)) - inv(β)),
+            inv(λ)*(inv(β*(T(2)-β))),
+        )
     elseif x2 >= inv(T(1)-β)*x1
-        return (inv(λ)*inv((T(1)-β)),
-                T(0),
-                T(0))
+        return (inv(λ)*inv((T(1)-β)), T(0), T(0))
     else
-        return (T(0),
-                inv(λ)*inv((T(1)-β)),
-                T(0)) 
+        return (T(0), inv(λ)*inv((T(1)-β)), T(0))
     end
 end
 
@@ -74,6 +69,10 @@ function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     #              backcalculate how these need to change necessarily.
     #              However these seem to not be used anywhere in the NLPModels API so I am ignoring them.
 
+    lvar = copy(mpcc.meta.lvar)
+    lvar[mpcc.meta.ind_cc1] .= T(-Inf)
+    lvar[mpcc.meta.ind_cc2] .= T(-Inf)
+
     meta = NLPModels.NLPModelMeta(
         mpcc.nlp.meta,
         ncon=ncon,
@@ -83,8 +82,9 @@ function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nnzj=nnzj,
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
+        lvar=lvar,
     )
-    β = T(0.3)
+    β = T(0.9999)
     λ = zero(T)
     return LasryLionsPenalty(mpcc, meta, Ref(β), Ref(λ))
 end
@@ -103,13 +103,15 @@ function NLPModels.obj(rnlp::LasryLionsPenalty{T, VT}, x::AbstractVector) where 
     obj = NLPModels.obj(rnlp.mpcc, x)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     @views begin
-        obj += sense * mapreduce((x1,lx1,x2,lx2)->lasrylions(x1-lx1,x2-lx2,rnlp.λ[],rnlp.β[]),
-                                 +,
-                                 x[rnlp.mpcc.meta.ind_cc1],
-                                 rnlp.meta.lvar[rnlp.mpcc.meta.ind_cc1],
-                                 x[rnlp.mpcc.meta.ind_cc2],
-                                 rnlp.meta.lvar[rnlp.mpcc.meta.ind_cc2]
-                                 )
+        obj +=
+            sense * mapreduce(
+                (x1, lx1, x2, lx2)->lasrylions(x1-lx1, x2-lx2, rnlp.λ[], rnlp.β[]),
+                +,
+                x[rnlp.mpcc.meta.ind_cc1],
+                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc1],
+                x[rnlp.mpcc.meta.ind_cc2],
+                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc2],
+            )
     end
     return obj
 end
@@ -124,10 +126,12 @@ function NLPModels.grad!(
     for i in 1:rnlp.mpcc.meta.ncc
         icc1 = rnlp.mpcc.meta.ind_cc1[i]
         icc2 = rnlp.mpcc.meta.ind_cc2[i]
-        (d1,d2) = dlasrylions((x[icc1] - rnlp.meta.lvar[icc1]),
-                              (x[icc2] - rnlp.meta.lvar[icc2]),
-                              rnlp.λ[],
-                              rnlp.β[])
+        (d1, d2) = dlasrylions(
+            (x[icc1] - rnlp.mpcc.meta.lvar[icc1]),
+            (x[icc2] - rnlp.mpcc.meta.lvar[icc2]),
+            rnlp.λ[],
+            rnlp.β[],
+        )
         gx[icc1] += sense * d1
         gx[icc2] += sense * d2
     end
@@ -142,21 +146,25 @@ function NLPModels.objgrad!(
     obj, gx = NLPModels.objgrad!(rnlp.mpcc, x, gx)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     @views begin
-        obj += sense * mapreduce((x1,lx1,x2,lx2)->lasrylions(x1-lx1,x2-lx2,rnlp.λ[],rnlp.β[]),
-                                 +,
-                                 x[rnlp.mpcc.meta.ind_cc1],
-                                 rnlp.meta.lvar[rnlp.mpcc.meta.ind_cc1],
-                                 x[rnlp.mpcc.meta.ind_cc2],
-                                 rnlp.meta.lvar[rnlp.mpcc.meta.ind_cc2]
-                                 )
+        obj +=
+            sense * mapreduce(
+                (x1, lx1, x2, lx2)->lasrylions(x1-lx1, x2-lx2, rnlp.λ[], rnlp.β[]),
+                +,
+                x[rnlp.mpcc.meta.ind_cc1],
+                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc1],
+                x[rnlp.mpcc.meta.ind_cc2],
+                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc2],
+            )
     end
     for i in 1:rnlp.mpcc.meta.ncc
         icc1 = rnlp.mpcc.meta.ind_cc1[i]
         icc2 = rnlp.mpcc.meta.ind_cc2[i]
-        (d1,d2) = dlasrylions((x[icc1] - rnlp.meta.lvar[icc1]),
-                              (x[icc2] - rnlp.meta.lvar[icc2]),
-                              rnlp.λ[],
-                              rnlp.β[])
+        (d1, d2) = dlasrylions(
+            (x[icc1] - rnlp.mpcc.meta.lvar[icc1]),
+            (x[icc2] - rnlp.mpcc.meta.lvar[icc2]),
+            rnlp.λ[],
+            rnlp.β[],
+        )
         gx[icc1] += sense * d1
         gx[icc2] += sense * d2
     end
@@ -345,10 +353,12 @@ function NLPModels.hess_coord!(
     for i in 1:ncc
         icc1 = rnlp.mpcc.meta.ind_cc1[i]
         icc2 = rnlp.mpcc.meta.ind_cc2[i]
-        (q11,q22,q12) = ddlasrylions((x[icc1] - rnlp.meta.lvar[icc1]),
-                              (x[icc2] - rnlp.meta.lvar[icc2]),
-                              rnlp.λ[],
-                              rnlp.β[])
+        (q11, q22, q12) = ddlasrylions(
+            (x[icc1] - rnlp.mpcc.meta.lvar[icc1]),
+            (x[icc2] - rnlp.mpcc.meta.lvar[icc2]),
+            rnlp.λ[],
+            rnlp.β[],
+        )
         H[i+nnzh] = q12
         H[i+nnzh+ncc] = q11
         H[i+nnzh+2*ncc] = q22
@@ -374,7 +384,6 @@ function NLPModels.hprod!(
     end
     return Hv
 end
-
 
 function get_penalty(rnlp::LasryLionsPenalty)
     return inv(rnlp.λ[])

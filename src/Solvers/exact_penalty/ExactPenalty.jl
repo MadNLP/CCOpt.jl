@@ -2,7 +2,7 @@
     penalty::Type = Ell1Relaxation
     # complementarity homotopy options
     rho_0::T = 1.0
-    rho_max::T = 1e8
+    rho_max::T = 1e10
     rho_growth_rate::T = 10.0
     gamma::T = 0.4
 
