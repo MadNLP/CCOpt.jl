@@ -326,13 +326,6 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
         cc1 = ind_cc1[i]
         cc2 = ind_cc2[i]
 
-        # TODO(@anton) figure out numerical stability here
-        # tr = kkt.pr_diag[cc1] + kkt.pr_diag[cc2]
-        # det = kkt.pr_diag[cc1] * kkt.pr_diag[cc2] - tau^2
-        # lam1 = (tr + sqrt(tr^2 - 4*det))/2
-        # lam2 = 2*det/((tr - sqrt(tr^2 - 4*det)))
-        # v11 = (lam2 - kkt.pr_diag[cc2])/tau
-        # v21 = (lam1 - kkt.pr_diag[cc2])/tau
         if solver.opts.kkt_regularization == :eigenvalue_decomposition
             A[1, 1] = kkt.pr_diag[cc1]
             A[2, 2] = kkt.pr_diag[cc2]
@@ -357,7 +350,6 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
                     solver.opts.critical_rho_factor*rho_max*(
                         rnlp.meta.minimize ? one(T) : -one(T)
                     )
-                #kkt.hess_raw.V[nnzh+i] = (1-ipm.mu)*rho_max*(rnlp.meta.minimize ? one(T) : -one(T))
                 regularized = true
             end
         end
