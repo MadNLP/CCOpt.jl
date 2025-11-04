@@ -184,12 +184,11 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             )
             ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
             # Also clear the filter
-            #empty!(solver.pr_comp_hist)
             empty!(ipm.filter)
             push!(ipm.filter, (ipm.theta_max, -Inf))
         end
 
-        MadNLP.@trace(solver.logger, "Evaluating the lagrangian hessian.")
+        MadNLP.@trace(solver.logger, "Evaluating the Lagrangian Hessian.")
         if (ipm.cnt.k!=0)
             MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
         end
@@ -218,7 +217,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 MadNLP.@trace(
                     solver.logger,
-                    "Evaluating the lagrangian hessian (again because penalty was updated."
+                    "Evaluating the Lagrangian Hessian (again because penalty was updated)."
                 )
                 # TODO(@anton) we can do this as a vector assignment
                 if (ipm.cnt.k!=0)
@@ -239,7 +238,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
                 push!(ipm.filter, (ipm.theta_max, -Inf))
                 MadNLP.@trace(
                     solver.logger,
-                    "Evaluating the lagrangian hessian (again because penalty was updated."
+                    "Evaluating the Lagrangian Hessian (again because penalty was updated)."
                 )
                 # TODO(@anton) we can do this as a vector assignment
                 if (ipm.cnt.k!=0)
@@ -312,12 +311,13 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     end
 
     ipm = solver.ipm
+    cb = ipm.cb
     rnlp = solver.ell1
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = solver.mpcc.meta.ncc
     nnzh = solver.mpcc.meta.nnzh
-    tau = solver.ell1.tau[]
+    rho = solver.ell1.tau[]
     ind_cc1 = solver.mpcc.meta.ind_cc1
     ind_cc2 = solver.mpcc.meta.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -329,8 +329,8 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
         if solver.opts.kkt_regularization == :eigenvalue_decomposition
             A[1, 1] = kkt.pr_diag[cc1]
             A[2, 2] = kkt.pr_diag[cc2]
-            A[2, 1] = tau
-            A[1, 2] = tau
+            A[2, 1] = rho*cb.obj_scale[]
+            A[1, 2] = rho*cb.obj_scale[]
             E = eigen(Symmetric(A))
             if E.values[1] < 0 || E.values[2] > solver.opts.max_eig_value
                 E.values[1] = solver.opts.min_eig_value
@@ -345,7 +345,7 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
             end
         elseif solver.opts.kkt_regularization == :critical_rho
             rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
-            if tau > rho_max
+            if rho*cb.obj_scale[] > rho_max
                 kkt.hess_raw.V[nnzh+i] =
                     solver.opts.critical_rho_factor*rho_max*(
                         rnlp.meta.minimize ? one(T) : -one(T)
@@ -361,12 +361,13 @@ end
 
 function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     ipm = solver.ipm
+    cb = ipm.cb
     rnlp = solver.ell1
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = solver.mpcc.meta.ncc
     nnzh = solver.mpcc.meta.nnzh
-    tau = solver.ell1.tau[]
+    rho = cb.obj_scale[]*solver.ell1.tau[]
     ind_cc1 = solver.mpcc.meta.ind_cc1
     ind_cc2 = solver.mpcc.meta.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -375,7 +376,7 @@ function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     kkt.pr_diag[ind_cc2] .-= kkt.reg[ind_cc2]
     kkt.reg[ind_cc1] .= 0
     kkt.reg[ind_cc2] .= 0
-    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= rnlp.meta.minimize ? tau : -tau
+    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= rnlp.meta.minimize ? rho : -rho
     # We modify hess_raw so need to compress_hessian again.
     MadNLP.compress_hessian!(kkt)
     return regularized
