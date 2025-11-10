@@ -15,8 +15,16 @@ struct DenseSparsity{T} <: CasadiSparsity{T}
     ncol::T
 end
 
-mutable struct CasadiFunction{T, IT}
-    const lib::Any # Library
+nnz(cs::DenseSparsity) = cs.nrow*cs.ncol
+nnz(cs::CscSparsity) = cs.nnz
+
+# TODO(@anton) Make this generic on int and float types.
+#              This seems to be nontrivial because @ccall takes the typevars
+#              and does not decompose them to concrete types when it can.
+#              In principle one could also specialize on number of args but this is
+#              perhaps not super useful as this can't be known at compile time anyway
+mutable struct CasadiFunction
+    const lib::Ptr{Cvoid} # Library
     const name::Symbol
     const _incref::Ptr{Cvoid}
     const _decref::Ptr{Cvoid}
@@ -34,20 +42,27 @@ mutable struct CasadiFunction{T, IT}
     const _work::Ptr{Cvoid}
     const _eval::Ptr{Cvoid}
 
-    const arg::Vector{T}
-    const res::Vector{T}
-    const iw::Vector{IT}
-    const w::Vector{T}
+    const arg_vec::Vector{
+        Union{SparseMatrixCSC{Cdouble, Clong}, Matrix{Cdouble}, Vector{Cdouble}},
+    }
+    const res_vec::Vector{
+        Union{SparseMatrixCSC{Cdouble, Clong}, Matrix{Cdouble}, Vector{Cdouble}},
+    }
+    const iw_vec::Vector{Clong}
+    const w_vec::Vector{Cdouble}
 
-    const sz_arg::IT
-    const sz_res::IT
-    const sz_iw::IT
-    const sz_w::IT
-    const n_in::IT
-    const n_out::IT
+    const arg_ptr_vec::Vector{Ptr{Cdouble}}
+    const res_ptr_vec::Vector{Ptr{Cdouble}}
 
-    const in_sparsities::Vector{CasadiSparsity{IT}}
-    const out_sparsities::Vector{CasadiSparsity{IT}}
+    const sz_arg::Clong
+    const sz_res::Clong
+    const sz_iw::Clong
+    const sz_w::Clong
+    const n_in::Clong
+    const n_out::Clong
+
+    const in_sparsities::Vector{CasadiSparsity{Clong}}
+    const out_sparsities::Vector{CasadiSparsity{Clong}}
 
     function CasadiFunction(libpath::String, name::Symbol)
         lib = Libdl.dlopen(libpath)
@@ -86,11 +101,10 @@ mutable struct CasadiFunction{T, IT}
             error("Casadi work failed")
         end
 
-        # allocate work vectors:
-        arg = Vector{Cdouble}(undef, sz_arg[1])
-        res = Vector{Cdouble}(undef, sz_res[1])
-        iw = Vector{Clong}(undef, sz_iw[1])
-        w = Vector{Cdouble}(undef, sz_w[1])
+        arg_vec = Vector{
+            Union{SparseMatrixCSC{Cdouble, Clong}, Matrix{Cdouble}, Vector{Cdouble}},
+        }()
+        arg_ptr_vec = Vector{Ptr{Cdouble}}()
 
         # get input sparsities
         in_sparsities = Vector{CasadiSparsity{Clong}}()
@@ -100,43 +114,69 @@ mutable struct CasadiFunction{T, IT}
             nrow = sp_in_vec[1]
             ncol = sp_in_vec[2]
             dense = sp_in_vec[3]
-            println(sp_in_vec)
             if dense != 0
                 push!(in_sparsities, DenseSparsity(nrow, ncol))
+                if ncol == 1
+                    push!(arg_vec, Vector{Cdouble}(undef, nnz(in_sparsities[end])))
+                else
+                    push!(arg_vec, Matrix{Cdouble}(undef, nrow, ncol))
+                end
+                push!(arg_ptr_vec, pointer(arg_vec[end]))
             else
                 colind = Vector{Clong}(undef, ncol)
-                sp_in_vec = unsafe_wrap(Vector{Clong}, sp_in, (2+ncol,))
-                colind .= sp_in_vec[2:end]
-                nnz=colind[end]
+                sp_in_vec = unsafe_wrap(Vector{Clong}, sp_in, (3+ncol,))
+                colind .= sp_in_vec[3:end] .+ 1
+                nnz_ = colind[end]-1
                 rows = Vector{Clong}(undef, nnz)
-                sp_in_vec = unsafe_wrap(Vector{Clong}, sp_in, (2+ncol+nnz,))
-                rows .= sp_in_vec[(3+ncol):end]
-                push!(in_sparsities, CscSparsity(nrow, ncol, nnz, colind, rows))
+                sp_in_vec = unsafe_wrap(Vector{Clong}, sp_in, (3+ncol+nnz_,))
+                rows .= sp_in_vec[(4+ncol):end] .+ 1
+                push!(in_sparsities, CscSparsity(nrow, ncol, nnz_, colind, rows))
+                nzval = Vector{Cdouble}(undef, nnz_)
+                sparsein = SparseMatrixCSC{Cdouble, Clong}(nrow, ncol, colind, rows, nzval)
+                push!(arg_vec, sparsein)
+                push!(arg_ptr_vec, pointer(nzval))
             end
         end
 
+        res_vec = Vector{
+            Union{SparseMatrixCSC{Cdouble, Clong}, Matrix{Cdouble}, Vector{Cdouble}},
+        }()
+        res_ptr_vec = Vector{Ptr{Cdouble}}()
         # get output sparsities
         out_sparsities = Vector{CasadiSparsity{Clong}}()
         for ii in Clong(0):(n_out-Clong(1))
             sp_out = @ccall $_sparsity_out(ii::Clong)::Ptr{Clong}
             sp_out_vec = unsafe_wrap(Vector{Clong}, sp_out, (3,))
-            println(sp_out_vec)
             nrow = sp_out_vec[1]
             ncol = sp_out_vec[2]
             dense = sp_out_vec[3]
             if dense != 0
                 push!(out_sparsities, DenseSparsity(nrow, ncol))
+                if ncol == 1
+                    push!(res_vec, Vector{Cdouble}(undef, nnz(out_sparsities[end])))
+                else
+                    push!(res_vec, Matrix{Cdouble}(undef, nrow, ncol))
+                end
+                push!(res_ptr_vec, pointer(res_vec[end]))
             else
-                colind = Vector{Clong}(undef, ncol)
-                sp_out_vec = unsafe_wrap(Vector{Clong}, sp_out, (2+ncol,))
-                colind .= sp_out_vec[2:end]
-                nnz=colind[end]
-                rows = Vector{Clong}(undef, nnz)
-                sp_out_vec = unsafe_wrap(Vector{Clong}, sp_out, (2+ncol+nnz,))
-                rows .= sp_out_vec[(3+ncol):end]
-                push!(out_sparsities, CscSparsity(nrow, ncol, nnz, colind, rows))
+                colind = Vector{Clong}(undef, ncol+1)
+                sp_out_vec = unsafe_wrap(Vector{Clong}, sp_out, (3+ncol,))
+                colind .= sp_out_vec[3:end] .+ 1
+                nnz_ = colind[end] - 1
+                rows = Vector{Clong}(undef, nnz_)
+                sp_out_vec = unsafe_wrap(Vector{Clong}, sp_out, (3+ncol+nnz_,))
+                rows .= sp_out_vec[(4+ncol):end] .+ 1
+                push!(out_sparsities, CscSparsity(nrow, ncol, nnz_, colind, rows))
+                nzval = Vector{Cdouble}(undef, nnz_)
+                sparseout = SparseMatrixCSC{Cdouble, Clong}(nrow, ncol, colind, rows, nzval)
+                push!(res_vec, sparseout)
+                push!(res_ptr_vec, pointer(nzval))
             end
         end
+
+        # allocate work vectors:
+        iw_vec = Vector{Clong}(undef, sz_iw[1])
+        w_vec = Vector{Cdouble}(undef, sz_w[1])
 
         # checkout a copy of the function and initialize the memory
         @ccall $_incref()::Cvoid
@@ -146,7 +186,7 @@ mutable struct CasadiFunction{T, IT}
             error("failed to checkout memory")
         end
 
-        casadi_fun = new{Cdouble, Clong}(
+        casadi_fun = new(
             lib,
             name,
             _incref,
@@ -164,10 +204,12 @@ mutable struct CasadiFunction{T, IT}
             _free_mem,
             _work,
             _eval,
-            arg,
-            res,
-            iw,
-            w,
+            arg_vec,
+            res_vec,
+            iw_vec,
+            w_vec,
+            arg_ptr_vec,
+            res_ptr_vec,
             sz_arg[1],
             sz_res[1],
             sz_iw[1],
@@ -188,4 +230,65 @@ mutable struct CasadiFunction{T, IT}
         finalizer(f, casadi_fun)
         return casadi_fun
     end
+end
+
+check_arg_type(arg::Any, inarg::Any) = false
+check_arg_type(arg::T, inarg::T) where {T <: Vector} = true
+check_arg_type(arg::T, inarg::T) where {T <: Matrix} = true
+check_arg_type(arg::T, inarg::T) where {T <: SparseMatrixCSC} = true
+
+check_arg_size(arg::Any, inarg::Any) = false
+check_arg_size(arg::T, inarg::T) where {T <: Vector} = length(arg) == length(inarg)
+check_arg_size(arg::T, inarg::T) where {T <: Matrix} = size(arg) == size(inarg)
+
+function check_arg_size(arg::T, inarg::T) where {T <: SparseMatrixCSC}
+    len_compat = size(arg) == size(inarg)
+    return len_compat &&
+           all(rowvals(arg) .== rowvals(inarg)) &&
+           all(arg.colptr .== arg.colptr)
+end
+
+function check_arg(fun::CasadiFunction, ii::Int, inarg::Any)
+    if !check_arg_type(fun.arg_vec[ii], inarg)
+        error(
+            "CasADi function $(fun.name) expected input argument $(ii) of type $(typeof(fun.arg_vec[ii]))",
+        )
+    end
+    if !check_arg_size(fun.arg_vec[ii], inarg)
+        error(
+            "CasADi function $(fun.name) got wrong shape input argument $(ii) of type $(typeof(fun.arg_vec[ii]))",
+        )
+    end
+    return nothing
+end
+
+function (fun::CasadiFunction)(args...)
+    # Check number of args
+    if length(args) != fun.n_in
+        error(
+            "Wrong number of args passed to casadi function $(fun.name). Expected $(fun.n_in)",
+        )
+    end
+
+    # Get eval fpointer
+    eval = fun._eval
+
+    # Copy to arguments
+    for ii in 1:fun.n_in
+        check_arg(fun, ii, args[ii])
+        fun.arg_vec[ii] .= args[ii]
+    end
+
+    ret = @ccall $eval(
+        pointer(fun.arg_ptr_vec)::Ptr{Ptr{Cdouble}},
+        pointer(fun.res_ptr_vec)::Ptr{Ptr{Cdouble}},
+        pointer(fun.iw_vec)::Ptr{Clong},
+        pointer(fun.w_vec)::Ptr{Cdouble},
+    )::Clong
+
+    if ret != 0
+        error("Error evaluating function $(fun.name)")
+    end
+
+    return fun.res_vec
 end
