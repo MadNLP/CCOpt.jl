@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.0"
+julia_version = "1.12.1"
 manifest_format = "2.0"
-project_hash = "bc1872005dfea0b847d848e7764cf2d2ee549de4"
+project_hash = "4efb7a3311e8477cc4cc243b9e152ba0607589f5"
 
 [[deps.AMD]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -301,7 +301,7 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.MadMPEC]]
-deps = ["DataStructures", "Gurobi", "HiGHS", "JuMP", "LinearAlgebra", "MadNLP", "MathOptInterface", "NLPModels", "Printf", "Serialization", "SolverCore", "SparseArrays"]
+deps = ["DataStructures", "Gurobi", "HiGHS", "JuMP", "Libdl", "LinearAlgebra", "MadNLP", "MathOptInterface", "NLPModels", "Printf", "Serialization", "SolverCore", "SparseArrays"]
 path = "."
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
 version = "0.1.0"
@@ -561,7 +561,7 @@ version = "1.3.1+2"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.13.1+1"
+version = "5.15.0+0"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
