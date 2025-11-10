@@ -1,8 +1,8 @@
 using Libdl
 
-abstract type CasadiSparsity{T} end
+abstract type CasADiSparsity{T} end
 
-struct CscSparsity{T} <: CasadiSparsity{T}
+struct CscSparsity{T} <: CasADiSparsity{T}
     nrow::T
     ncol::T
     nnz::T
@@ -10,7 +10,7 @@ struct CscSparsity{T} <: CasadiSparsity{T}
     rows::Vector{T}
 end
 
-struct DenseSparsity{T} <: CasadiSparsity{T}
+struct DenseSparsity{T} <: CasADiSparsity{T}
     nrow::T
     ncol::T
 end
@@ -23,7 +23,7 @@ nnz(cs::CscSparsity) = cs.nnz
 #              and does not decompose them to concrete types when it can.
 #              In principle one could also specialize on number of args but this is
 #              perhaps not super useful as this can't be known at compile time anyway
-mutable struct CasadiFunction
+mutable struct CasADiFunction
     const lib::Ptr{Cvoid} # Library
     const name::Symbol
     const _incref::Ptr{Cvoid}
@@ -61,11 +61,15 @@ mutable struct CasadiFunction
     const n_in::Clong
     const n_out::Clong
 
-    const in_sparsities::Vector{CasadiSparsity{Clong}}
-    const out_sparsities::Vector{CasadiSparsity{Clong}}
+    const in_sparsities::Vector{CasADiSparsity{Clong}}
+    const out_sparsities::Vector{CasADiSparsity{Clong}}
 
-    function CasadiFunction(libpath::String, name::Symbol)
+    function CasADiFunction(libpath::String, name::Symbol)
         lib = Libdl.dlopen(libpath)
+        return CasADiFunction(lib, name)
+    end
+
+    function CasADiFunction(lib::Ptr{Cvoid}, name::Symbol)
         _incref = Libdl.dlsym(lib, Symbol(name, :_incref))
         _decref = Libdl.dlsym(lib, Symbol(name, :_decref))
         _n_in = Libdl.dlsym(lib, Symbol(name, :_n_in))
@@ -98,7 +102,7 @@ mutable struct CasadiFunction
             pointer(sz_w)::Ptr{Clong},
         )::Clong
         if err != 0
-            error("Casadi work failed")
+            error("CasADi work failed")
         end
 
         arg_vec = Vector{
@@ -107,7 +111,7 @@ mutable struct CasadiFunction
         arg_ptr_vec = Vector{Ptr{Cdouble}}()
 
         # get input sparsities
-        in_sparsities = Vector{CasadiSparsity{Clong}}()
+        in_sparsities = Vector{CasADiSparsity{Clong}}()
         for ii in Clong(0):(n_in-Clong(1))
             sp_in = @ccall $_sparsity_in(ii::Clong)::Ptr{Clong}
             sp_in_vec = unsafe_wrap(Vector{Clong}, sp_in, (3,))
@@ -116,7 +120,7 @@ mutable struct CasadiFunction
             dense = sp_in_vec[3]
             if dense != 0
                 push!(in_sparsities, DenseSparsity(nrow, ncol))
-                if ncol == 1
+                if ncol <= 1
                     push!(arg_vec, Vector{Cdouble}(undef, nnz(in_sparsities[end])))
                 else
                     push!(arg_vec, Matrix{Cdouble}(undef, nrow, ncol))
@@ -143,7 +147,7 @@ mutable struct CasadiFunction
         }()
         res_ptr_vec = Vector{Ptr{Cdouble}}()
         # get output sparsities
-        out_sparsities = Vector{CasadiSparsity{Clong}}()
+        out_sparsities = Vector{CasADiSparsity{Clong}}()
         for ii in Clong(0):(n_out-Clong(1))
             sp_out = @ccall $_sparsity_out(ii::Clong)::Ptr{Clong}
             sp_out_vec = unsafe_wrap(Vector{Clong}, sp_out, (3,))
@@ -248,7 +252,7 @@ function check_arg_size(arg::T, inarg::T) where {T <: SparseMatrixCSC}
            all(arg.colptr .== arg.colptr)
 end
 
-function check_arg(fun::CasadiFunction, ii::Int, inarg::Any)
+function check_arg(fun::CasADiFunction, ii::Int, inarg::Any)
     if !check_arg_type(fun.arg_vec[ii], inarg)
         error(
             "CasADi function $(fun.name) expected input argument $(ii) of type $(typeof(fun.arg_vec[ii]))",
@@ -262,11 +266,11 @@ function check_arg(fun::CasadiFunction, ii::Int, inarg::Any)
     return nothing
 end
 
-function (fun::CasadiFunction)(args...)
+function (fun::CasADiFunction)(args...)
     # Check number of args
     if length(args) != fun.n_in
         error(
-            "Wrong number of args passed to casadi function $(fun.name). Expected $(fun.n_in)",
+            "Wrong number of args passed to CasADi function $(fun.name). Expected $(fun.n_in)",
         )
     end
 

@@ -28,5 +28,6 @@ include("Solvers/madnlpc/MadNLPC.jl")
 include("Solvers/exact_penalty/ExactPenalty.jl")
 
 include("CasADi/casadi_function.jl")
+include("CasADi/casadi_nlp.jl")
 
 end # module MadMPEC
