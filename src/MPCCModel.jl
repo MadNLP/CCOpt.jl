@@ -192,7 +192,7 @@ function MPCCModelConCon(
 
         ind_j_lin_row_map = Dict{Int, Int}()
         ind_j_nln_row_map::Dict{Int, Int} =
-            Dict((i, i-count([x < j for x in cc_nln])) for i in 1:nlp.meta.nnln)
+            Dict((i, i-count([x < i for x in cc_nln])) for i in 1:nlp.meta.nnln)
     end
     ind_j_comp_left_triplets = findall(x->x∈ind_ccc1, rows);
     ind_j_comp_right_triplets = findall(x->x∈ind_ccc2, rows);

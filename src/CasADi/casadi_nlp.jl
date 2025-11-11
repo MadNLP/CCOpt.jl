@@ -77,13 +77,17 @@ end
 # TODO(@anton) maybe if we release this separately we want to implement the full one
 #              if only to appease the JSO folks.
 
-function NLPModels.obj(nlp::CasADiNLPModel, x::Vector{Cdouble})
+function NLPModels.obj(nlp::CasADiNLPModel, x::AbstractVector{Cdouble})
     @lencheck nlp.meta.nvar x
     (f,) = nlp.f(x, nlp.p)
     return f[1]
 end
 
-function NLPModels.grad!(nlp::CasADiNLPModel, x::Vector{Cdouble}, g::Vector{Cdouble})
+function NLPModels.grad!(
+    nlp::CasADiNLPModel,
+    x::AbstractVector{Cdouble},
+    g::AbstractVector{Cdouble},
+)
     @lencheck nlp.meta.nvar x
     @lencheck nlp.meta.nvar g
     (f, grad_f) = nlp.grad_f(x, nlp.p)
@@ -91,7 +95,11 @@ function NLPModels.grad!(nlp::CasADiNLPModel, x::Vector{Cdouble}, g::Vector{Cdou
     return g
 end
 
-function NLPModels.cons!(nlp::CasADiNLPModel, x::Vector{Cdouble}, c::Vector{Cdouble})
+function NLPModels.cons!(
+    nlp::CasADiNLPModel,
+    x::AbstractVector{Cdouble},
+    c::AbstractVector{Cdouble},
+)
     @lencheck nlp.meta.nvar x
     @lencheck nlp.meta.ncon c
     (g,) = nlp.g(x, nlp.p)
@@ -99,7 +107,11 @@ function NLPModels.cons!(nlp::CasADiNLPModel, x::Vector{Cdouble}, c::Vector{Cdou
     return c
 end
 
-function NLPModels.objgrad!(nlp::CasADiNLPModel, x::Vector{Cdouble}, g::Vector{Cdouble})
+function NLPModels.objgrad!(
+    nlp::CasADiNLPModel,
+    x::AbstractVector{Cdouble},
+    g::AbstractVector{Cdouble},
+)
     @lencheck nlp.meta.nvar x
     @lencheck nlp.meta.nvar g
     (f, grad_f) = nlp.grad_f(x, nlp.p)

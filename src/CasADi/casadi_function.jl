@@ -237,12 +237,17 @@ mutable struct CasADiFunction
 end
 
 check_arg_type(arg::Any, inarg::Any) = false
-check_arg_type(arg::T, inarg::T) where {T <: Vector} = true
+check_arg_type(arg::T1, inarg::T2) where {T1 <: AbstractVector, T2 <: AbstractVector} = true
 check_arg_type(arg::T, inarg::T) where {T <: Matrix} = true
 check_arg_type(arg::T, inarg::T) where {T <: SparseMatrixCSC} = true
 
 check_arg_size(arg::Any, inarg::Any) = false
-check_arg_size(arg::T, inarg::T) where {T <: Vector} = length(arg) == length(inarg)
+function check_arg_size(
+    arg::T1,
+    inarg::T2,
+) where {T1 <: AbstractVector, T2 <: AbstractVector}
+    return length(arg) == length(inarg)
+end
 check_arg_size(arg::T, inarg::T) where {T <: Matrix} = size(arg) == size(inarg)
 
 function check_arg_size(arg::T, inarg::T) where {T <: SparseMatrixCSC}
