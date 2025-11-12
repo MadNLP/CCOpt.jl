@@ -5,6 +5,7 @@ const MOI = MathOptInterface
 using Serialization
 using Printf
 using DataStructures: CircularBuffer
+using CasADiNLPModels, JSON
 import MadNLP
 
 include("types.jl")
@@ -27,8 +28,6 @@ include("Solvers/lpcc_solver.jl")
 include("Solvers/madnlpc/MadNLPC.jl")
 include("Solvers/exact_penalty/ExactPenalty.jl")
 
-include("CasADi/casadi_function.jl")
-include("CasADi/casadi_nlp.jl")
 include("CasADi/casadi_mpcc.jl")
 
 end # module MadMPEC
