@@ -4,11 +4,9 @@ version = "0.1.0"
 authors = ["Anton Edvinovich Pozharskiy <apozharski@gmail.com>"]
 
 [deps]
-CasADiNLPModels = "9e015429-ec9b-44ad-8386-499448c02825"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
-JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
@@ -20,11 +18,9 @@ SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-CasADiNLPModels = "0.1.0"
 DataStructures = "0.18.22"
 Gurobi = "1.7.5"
 HiGHS = "1.18.1"
-JSON = "0.21.4"
 JuMP = "1.26.0"
 LinearAlgebra = "1.11.0"
 MadNLP = "0.8.12"
