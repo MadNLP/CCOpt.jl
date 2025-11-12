@@ -36,7 +36,7 @@ version = "1.0.9+0"
 
 [[deps.CasADiNLPModels]]
 deps = ["JSON", "Libdl", "LinearAlgebra", "NLPModels", "SparseArrays"]
-git-tree-sha1 = "a27a5317e810e397655b197408b25693bcc9a597"
+git-tree-sha1 = "a733961b3978d0e4e56164b602ef7cc7aa3e22e6"
 repo-rev = "master"
 repo-url = "https://github.com/apozharski/CasADiNLPModels.jl"
 uuid = "9e015429-ec9b-44ad-8386-499448c02825"
