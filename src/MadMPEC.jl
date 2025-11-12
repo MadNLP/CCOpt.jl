@@ -21,13 +21,12 @@ include("Models/natural_residual_relaxation.jl")
 include("Models/branch_nlp.jl")
 include("Models/l1_exact_penalty.jl")
 include("Models/lifted_model.jl")
+include("Models/casadi_mpcc.jl")
 
 include("Solvers/AbstractMPCCSolver.jl")
 include("Solvers/homotopy_solver.jl")
 include("Solvers/lpcc_solver.jl")
 include("Solvers/madnlpc/MadNLPC.jl")
 include("Solvers/exact_penalty/ExactPenalty.jl")
-
-include("CasADi/casadi_mpcc.jl")
 
 end # module MadMPEC
