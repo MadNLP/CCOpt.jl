@@ -124,43 +124,12 @@ end
     print_level::MadNLP.LogLevels = MadNLP.INFO
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
 
-    # mpecopt options
-    use_mpecopt::Bool = false
-    phase_I_oracle = :lpcc
-    eps_proj::T = 1e-3
-    alpha_eps_proj::T = 1e-2
-    M_lpcc::T = 1000.0
-    bnlp_opts::Dict = Dict(
-        :barrier=>MadNLP.MonotoneUpdate(mu_init=1e-3),
-        :bound_push=>1e-6,
-        :bound_fac=>1e-6,
-        :print_level=>print_level,
-    )
-    phase_I_tr_factor::T = 100.0
-    s_stationarity_tol::T = 1e-8
-    b_stationarity_tol::T = 1e-7
-    phase_II_tr0::T = 1e-3
-    phase_II_alpha_tr::T = 1e-1
-    phase_II_tr_min::T = 1e-6
-
-    # lpec solver options
-    lpcc_solver_opts::AbstractLpccSolverOptions{T} = LpccMILPOptions()
-
     # Store Iterations
     iterates_fname::String = ""
 end
 
 @kwdef mutable struct MadNLPCCounters
     counters::MadNLP.MadNLPCounters
-
-    lpcc_solves::Int = 0
-    bnlp_solves::Int = 0
-
-    lpcc_init_time::Float64 = 0
-    lpcc_solve_time::Float64 = 0
-    bnlp_init_time::Float64 = 0
-    bnlp_solve_time::Float64 = 0
-
     solver_time::Float64 = 0
 end
 
@@ -173,20 +142,12 @@ mutable struct MadNLPCSolver{T, VT}
     iterate_logger::IterateLogger
     opts::MadNLPCOptions{T}
     cnt::MadNLPCCounters
-
     status::Status
-
-    lpcc::LpccMILP{T, VT}
-    bnlp_ipm::MadNLP.MadNLPSolver{T, VT}
-    eps_proj::T
     inf_pr_cc::T
-
     multipliers_cc1::VT
     multipliers_cc2::VT
-
     ind_cc1_lb::Vector{Int}
     ind_cc2_lb::Vector{Int}
-
     x::VT
     b::Vector{Bool} # TODO(@anton) is it actually better to have a Vector{Bool}
 end
@@ -211,16 +172,10 @@ function MadNLPCSolver(
              open(solver_opts.iterates_fname, "w+"),
     )
 
-    lpcc = LpccMILP(mpcc; M=solver_opts.M_lpcc)
-    eps_proj = solver_opts.eps_proj
     x = VT(undef, mpcc.meta.nvar)
     multipliers_cc1 = VT(undef, mpcc.meta.ncc)
     multipliers_cc2 = VT(undef, mpcc.meta.ncc)
     b = Vector{Bool}(undef, mpcc.meta.ncc)
-    bnlp = BranchNLP(mpcc, b)
-    bnlp_ipm = MadNLP.MadNLPSolver(bnlp) # TODO(@anton) also pass the bnlp options somehow
-    ipm.cnt.init_time += bnlp_ipm.cnt.init_time
-    bnlp_ipm.cnt = ipm.cnt # WARNING: A HACK TO KEEP TIMING/ITERS CONSISTENT
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), mpcc.meta.ind_cc1)
@@ -234,9 +189,6 @@ function MadNLPCSolver(
         solver_opts,
         cnt,
         INITIAL,
-        lpcc,
-        bnlp_ipm,
-        eps_proj,
         0.0,
         multipliers_cc1,
         multipliers_cc2,
