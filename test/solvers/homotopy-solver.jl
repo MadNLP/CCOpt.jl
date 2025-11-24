@@ -9,7 +9,7 @@
 
         stats = MadMPEC.solve!(solver)
 
-        @test stats.status == MadMPEC.NLP_STATIONARY
+        @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
         @test stats.objective ≈ 1 atol=1e-5
         @test stats.solution ≈ [1, 0] atol=1e-5
     end
@@ -25,7 +25,7 @@
         solver = MadMPEC.HomotopySolver(mpcc, MadNLP.MadNLPSolver, opts)
 
         stats = MadMPEC.solve!(solver)
-        @test stats.status == MadMPEC.NLP_STATIONARY
+        @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
         # These are broken, we for some reason converge to the biactive point
         # in the case of MadNLP but to the true optimum [1,0]
         # in the case of IPOPT

@@ -187,7 +187,6 @@ function MadNLPCSolver(
         iterates_logger,
         solver_opts,
         cnt,
-        INITIAL,
         0.0,
         multipliers_cc1,
         multipliers_cc2,

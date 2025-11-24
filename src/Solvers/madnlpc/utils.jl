@@ -1,6 +1,6 @@
 mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
     options::MadNLP.AbstractOptions
-    status::Status
+    status::MadNLP.Status
     objective::T
     solution::VT
     constraints::VT
@@ -19,7 +19,7 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
     m = solver.mpcc.meta.ncon
     return MadNLPCExecutionStats(
         solver.opts,
-        solver.status,
+        solver.ipm.status,
         solver.ipm.obj_val,
         MadNLP.primal(solver.ipm.x)[1:n],
         solver.ipm.c[1:m],
