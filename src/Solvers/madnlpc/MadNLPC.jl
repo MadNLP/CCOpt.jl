@@ -48,7 +48,7 @@ end
     sigma_mu_exp::T = 1.0
     monotone::Bool = false
     mu_factor::T = 1.0
-    tau::T = 0.5
+    tau::T = 0.3
     relax_threshold::T = 1e-6
     k_ftb::T = 0.9
     unrelax::Bool = false

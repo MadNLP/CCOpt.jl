@@ -25,7 +25,10 @@ function save_madnlp_df(
 ) where {T, VT}
     df_madnlp = DataFrame(
         name=names,
-        success=[s.status == MadMPEC.NLP_STATIONARY for s in stats_madnlp],
+        success=[
+            s.status in [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL] for
+            s in stats_madnlp
+        ],
         status=[s.status for s in stats_madnlp],
         objective=[s.objective for s in stats_madnlp],
         inf_cc=[s.inf_cc for s in stats_madnlp],
@@ -48,7 +51,10 @@ function save_madnlp_df(
 ) where {T, VT}
     df_madnlp = DataFrame(
         name=names,
-        success=[s.status == MadMPEC.NLP_STATIONARY for s in stats_madnlp],
+        success=[
+            s.status in [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL] for
+            s in stats_madnlp
+        ],
         status=[s.status for s in stats_madnlp],
         objective=[s.objective for s in stats_madnlp],
         inf_cc=[s.inf_cc for s in stats_madnlp],
@@ -149,26 +155,23 @@ function save_madnlp_c_df(
     df_madnlp_c = DataFrame(
         name=names,
         success=[
-            s.stats.status in [
+            s.status in [
                 MadNLP.SOLVE_SUCCEEDED,
                 MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
                 MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
             ] &&
-            cc ≤ 5e-8 &&
-            s.stats.primal_feas ≤ 5e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
+            cc ≤ 1e-8 &&
+            s.primal_feas ≤ 5e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
-        status=[s.stats.status for s in stats_madnlp_c],
-        objective=[s.stats.objective for s in stats_madnlp_c],
+        status=[s.status for s in stats_madnlp_c],
+        objective=[s.objective for s in stats_madnlp_c],
         inf_cc=inf_cc,
-        inf_pr=[s.stats.primal_feas for s in stats_madnlp_c],
-        inf_du=[s.stats.dual_feas for s in stats_madnlp_c],
-        wall_time=[s.stats.counters.total_time for s in stats_madnlp_c],
-        iter=[s.stats.counters.k for s in stats_madnlp_c],
-        eval_function_time=[s.stats.counters.eval_function_time for s in stats_madnlp_c],
-        linear_solver_time=[s.stats.counters.linear_solver_time for s in stats_madnlp_c],
-        lpcc_init_time=[s.counters.lpcc_init_time for s in stats_madnlp_c],
-        bnlp_init_time=[s.counters.bnlp_init_time for s in stats_madnlp_c],
-        lpcc_solve_time=[s.counters.lpcc_solve_time for s in stats_madnlp_c],
+        inf_pr=[s.primal_feas for s in stats_madnlp_c],
+        inf_du=[s.dual_feas for s in stats_madnlp_c],
+        wall_time=[s.counters.counters.total_time for s in stats_madnlp_c],
+        iter=[s.counters.counters.k for s in stats_madnlp_c],
+        eval_function_time=[s.counters.counters.eval_function_time for s in stats_madnlp_c],
+        linear_solver_time=[s.counters.counters.linear_solver_time for s in stats_madnlp_c],
         solver_time=[s.counters.solver_time for s in stats_madnlp_c],
     )
     CSV.write(name, df_madnlp_c)
@@ -185,8 +188,8 @@ function save_madnlp_c_df(
     inf_cc =
         inf_cc=[
             min(
-                MadMPEC.comp_residual(mpcc, s.stats.solution),
-                MadMPEC.comp_residual_product(mpcc, s.stats.solution),
+                MadMPEC.comp_residual(mpcc, s.solution),
+                MadMPEC.comp_residual_product(mpcc, s.solution),
             ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
@@ -200,13 +203,15 @@ function save_madnlp_c_df(
             cc ≤ 1e-8 &&
             s.stats.primal_feas ≤ 1e-8 for (s, cc) in zip(stats_madnlp_c, inf_cc)
         ],
-        status=[s.stats.status for s in stats_madnlp_c],
-        objective=[s.stats.objective for s in stats_madnlp_c],
+        status=[s.status for s in stats_madnlp_c],
+        objective=[s.objective for s in stats_madnlp_c],
         inf_cc=inf_cc,
-        wall_time=[s.stats.counters.total_time for s in stats_madnlp_c],
-        iter=[s.stats.counters.k for s in stats_madnlp_c],
-        eval_function_time=[s.stats.counters.eval_function_time for s in stats_madnlp_c],
-        linear_solver_time=[s.stats.counters.linear_solver_time for s in stats_madnlp_c],
+        wall_time=[s.counters.total_time for s in stats_madnlp_c],
+        iter=[s.counters.counters.k for s in stats_madnlp_c],
+        eval_function_time=[
+            s.counters..counters.eval_function_time for s in stats_madnlp_c
+        ],
+        linear_solver_time=[s.counters.counters.linear_solver_time for s in stats_madnlp_c],
     )
     CSV.write(name, df_madnlp_c)
 
@@ -221,7 +226,10 @@ function save_ipopt_df(
 ) where {T, VT}
     df_ipopt = DataFrame(
         name=names,
-        success=[s.status == MadMPEC.NLP_STATIONARY for s in stats_ipopt],
+        success=[
+            s.status in [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL] for
+            s in stats_ipopt
+        ],
         status=[s.status for s in stats_ipopt],
         objective=[s.objective for s in stats_ipopt],
         inf_cc=[s.inf_cc for s in stats_ipopt],

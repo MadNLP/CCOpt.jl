@@ -1243,7 +1243,6 @@ function test_two_sided(; range=:)
         kkt_regularization=:none,
         relaxation_update=MadMPEC.RelaxLBUpdate(),
         center_complementarities=true,
-        centering_factor=0.9,
     )
 
     default_madnlp_c = (
