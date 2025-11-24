@@ -381,6 +381,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
         MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
+        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
         log_iter(solver.iterate_logger, solver)
 
