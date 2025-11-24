@@ -138,11 +138,11 @@ function solve_homotopy!(
             MadNLP.print_init(ipm)
             # Also reset sigma
             ipm.status = MadNLP.initialize!(solver)
-            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
+            init_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma
-            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
+            init_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             ipm.status = MadNLP.reinitialize!(ipm)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         end

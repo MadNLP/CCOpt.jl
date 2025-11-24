@@ -227,8 +227,9 @@ function update_sigma!(
     end
     # update c
     ipm.c[(end-ncc+1):end] .-= rnlp.σ
-
-    if ipm.mu <= relax.relax_threshold # check if we need to relax bounds
+    # TODO(@anton) is this the best trigger?
+    kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
+    if kkt_error <= relax.relax_threshold # check if we need to relax bounds
         for ii in 1:ncc
             cc1 = ind_cc1[ii]
             cc2 = ind_cc2[ii]
@@ -317,5 +318,103 @@ function update_sigma!(
     end
 
     # Here we assume the barrier update handles whether we throw out the filter.
+    return nothing
+end
+
+function init_sigma!(
+    relax::ProportionalRelaxationUpdate{T},
+    rnlp::AbstractMPCCRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # calculate new sigma
+    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
+    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    return nothing
+end
+
+function init_sigma!(
+    relax::LOQORelaxationUpdate{T},
+    rnlp::AbstractMPCCRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # Calculate mean primal complementarity
+    cc_pr = @views dot(
+        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] -
+        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
+        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] -
+        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+    )
+    mean_cc = cc_pr/ncc
+    # Calculate minimum primal complementarity
+    min_cc_pr = @views mapreduce(
+        (x1, xl1, x2, x2l) -> (x1-xl1)*(x2-x2l),
+        min,
+        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
+        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
+        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
+        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+        init=T(Inf),
+    )
+    # Calculate the factor to multiply the mean complementarity by.
+    xi = min_cc_pr/mean_cc
+    gamma_sigma = max(relax.gamma_min, relax.gamma*min((1-relax.r)*((1-xi)/xi), 2)^3)
+    # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
+    set_relaxation(
+        rnlp,
+        max(gamma_sigma*mean_cc, solver.opts.sigma_min, relax.mu_factor*ipm.mu),
+    )
+    # update c
+    c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    # Throw out the filter as the barrier problem has changed
+    empty!(ipm.filter)
+    push!(ipm.filter, (ipm.theta_max, -Inf))
+    return nothing
+end
+
+function init_sigma!(
+    relax::TwoSidedScholtesUpdate{T},
+    rnlp::ScholtesRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # calculate new sigma
+    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
+    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    return nothing
+end
+
+function init_sigma!(
+    relax::RelaxLBUpdate{T},
+    rnlp::ScholtesRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # calculate new sigma
+    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
+    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
 end
