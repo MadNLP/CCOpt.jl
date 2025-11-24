@@ -2,7 +2,7 @@
 mutable struct HomotopySolverStats{T, VT}
     # TODO(@anton) what needs to live here
     # TODO(@anton) Should subclass AbstractExecutionStats probably
-    status::Status           # Return status from the HomotopySolver
+    status::MadNLP.Status           # Return status from the HomotopySolver
     solution::VT             # solution for primal variables x
     objective::T             # objective achieved
     multipliers::VT          # multipliers for nonlinear constraints (including relaxed complementarities)
@@ -18,7 +18,7 @@ end
 
 function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     return HomotopySolverStats(
-        INITIAL,
+        MadNLP.INITIAL,
         VT(undef, mpcc.meta.nvar),
         zero(T),
         VT(undef, mpcc.meta.ncon),
@@ -213,57 +213,29 @@ end
 # TODO(@anton) I think we _really_ should look into standardizing on Solver core
 #              in MadNLP but this would require buyin from more of the MadNLP dev team
 const SOLVER_CORE_TO_MPCC_SOLVER_STATUS = Dict(
-    :exception => INTERNAL_ERROR,
-    :first_order => NLP_STATIONARY,
-    :acceptable => NLP_STATIONARY,
-    :infeasible => INFEASIBLE_PROBLEM_DETECTED,
-    :max_eval => MAXIMUM_ITERATIONS_EXCEEDED,
-    :max_iter => MAXIMUM_ITERATIONS_EXCEEDED,
-    :max_time => MAXIMUM_WALLTIME_EXCEEDED,
-    :neg_pred => INTERNAL_ERROR,
-    :not_desc => INTERNAL_ERROR,
-    :small_residual => INTERNAL_ERROR,
-    :small_step => NLP_STATIONARY,
-    :stalled => INTERNAL_ERROR,
-    :unbounded => INTERNAL_ERROR,
-    :unknown => INTERNAL_ERROR,
-    :user => INTERNAL_ERROR,
+    :exception => MadNLP.INTERNAL_ERROR,
+    :first_order => MadNLP.SOLVE_SUCCEEDED,
+    :acceptable => MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL,
+    :infeasible => MadNLP.INFEASIBLE_PROBLEM_DETECTED,
+    :max_eval => MadNLP.MAXIMUM_ITERATIONS_EXCEEDED,
+    :max_iter => MadNLP.MAXIMUM_ITERATIONS_EXCEEDED,
+    :max_time => MadNLP.MAXIMUM_WALLTIME_EXCEEDED,
+    :neg_pred => MadNLP.INTERNAL_ERROR,
+    :not_desc => MadNLP.INTERNAL_ERROR,
+    :small_residual => MadNLP.INTERNAL_ERROR,
+    :small_step => MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL,
+    :stalled => MadNLP.INTERNAL_ERROR,
+    :unbounded => MadNLP.INTERNAL_ERROR,
+    :unknown => MadNLP.INTERNAL_ERROR,
+    :user => MadNLP.USER_REQUESTED_STOP,
 )
 
-const MADNLP_TO_MPCC_SOLVER_STATUS = Dict(
-    MadNLP.SOLVE_SUCCEEDED => NLP_STATIONARY,
-    MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL => NLP_STATIONARY,
-    MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL => NLP_STATIONARY,
-    MadNLP.DIVERGING_ITERATES => DIVERGING_ITERATES,
-    MadNLP.INFEASIBLE_PROBLEM_DETECTED => INFEASIBLE_PROBLEM_DETECTED,
-    MadNLP.MAXIMUM_ITERATIONS_EXCEEDED => MAXIMUM_ITERATIONS_EXCEEDED,
-    MadNLP.MAXIMUM_WALLTIME_EXCEEDED => MAXIMUM_WALLTIME_EXCEEDED,
-    MadNLP.INITIAL => INTERNAL_ERROR,
-    MadNLP.REGULAR => INTERNAL_ERROR,
-    MadNLP.RESTORE => INTERNAL_ERROR,
-    MadNLP.ROBUST => INTERNAL_ERROR,
-    # TODO(@anton) it seems depending on a bleeding edge of a package for CI is difficult?
-    #              Commenting out as missing will lead to UNKNOWN as well
-    # MadNLP.LINESEARCH_SUCCEEDED => UNKNOWN,
-    MadNLP.RESTORATION_FAILED => INFEASIBLE_PROBLEM_DETECTED,
-    MadNLP.INVALID_NUMBER_DETECTED => INTERNAL_ERROR,
-    MadNLP.ERROR_IN_STEP_COMPUTATION => INTERNAL_ERROR,
-    MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM => INTERNAL_ERROR,
-    MadNLP.USER_REQUESTED_STOP => INTERNAL_ERROR,
-    MadNLP.INTERNAL_ERROR => INTERNAL_ERROR,
-    MadNLP.INVALID_NUMBER_OBJECTIVE => INTERNAL_ERROR,
-    MadNLP.INVALID_NUMBER_GRADIENT => INTERNAL_ERROR,
-    MadNLP.INVALID_NUMBER_CONSTRAINTS => INTERNAL_ERROR,
-    MadNLP.INVALID_NUMBER_JACOBIAN => INTERNAL_ERROR,
-    MadNLP.INVALID_NUMBER_HESSIAN_LAGRANGIAN => INTERNAL_ERROR,
-)
-
-function convert_nlp_solve_failure(nlp_stats::AbstractExecutionStats)
-    return get(SOLVER_CORE_TO_MPCC_SOLVER_STATUS, nlp_stats.status, INTERNAL_ERROR)
+function convert_nlp_solve(nlp_stats::AbstractExecutionStats)
+    return get(SOLVER_CORE_TO_MPCC_SOLVER_STATUS, nlp_stats.status, MadNLP.INTERNAL_ERROR)
 end
 
-function convert_nlp_solve_failure(nlp_stats::MadNLP.MadNLPExecutionStats)
-    return get(MADNLP_TO_MPCC_SOLVER_STATUS, nlp_stats.status, INTERNAL_ERROR)
+function convert_nlp_solve(nlp_stats::MadNLP.MadNLPExecutionStats)
+    return nlp_stats.status
 end
 
 function reset_nlp_solver!(
@@ -394,11 +366,9 @@ function solve!(
         reset_nlp_solver!(solver)
     end
     if converged
-        stats.status = NLP_STATIONARY
+        stats.status = convert_nlp_solve(stats.nlp_stats[end])
     elseif ii > opts.N_homotopy
-        stats.status = MAXIMUM_ITERATIONS_EXCEEDED
-    else
-        stats.status = convert_nlp_solve_failure(stats.nlp_stats[end])
+        stats.status = MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
     end
     stats.solution = solver.x_k
     stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable

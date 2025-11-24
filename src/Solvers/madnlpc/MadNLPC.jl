@@ -142,7 +142,6 @@ mutable struct MadNLPCSolver{T, VT}
     iterate_logger::IterateLogger
     opts::MadNLPCOptions{T}
     cnt::MadNLPCCounters
-    status::Status
     inf_pr_cc::T
     multipliers_cc1::VT
     multipliers_cc2::VT
@@ -188,7 +187,6 @@ function MadNLPCSolver(
         iterates_logger,
         solver_opts,
         cnt,
-        INITIAL,
         0.0,
         multipliers_cc1,
         multipliers_cc2,

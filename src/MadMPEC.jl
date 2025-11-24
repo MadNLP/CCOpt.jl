@@ -8,7 +8,6 @@ using DataStructures: CircularBuffer
 import MadNLP
 
 include("types.jl")
-include("enums.jl")
 include("MPCCModelMeta.jl")
 include("MPCCModel.jl")
 include("MPCCRelaxationModel.jl")

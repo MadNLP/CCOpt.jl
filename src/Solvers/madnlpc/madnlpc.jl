@@ -154,71 +154,45 @@ function solve_homotopy!(
                 solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2]
         end
 
-        # Now begin "Phase I"
-        solver.status = INITIAL
-        while ipm.status >= MadNLP.REGULAR && solver.status ≠ NLP_STATIONARY
-            ipm.status == MadNLP.REGULAR &&
-                ((ipm.status, solver.status) = MadMPEC.homotopy!(solver))
-            ipm.status == MadNLP.RESTORE && (
-                (ipm.status, solver.status) =
-                    irregular_to_mpcc_status(MadNLP.restore!(ipm))
-            )
-            ipm.status == MadNLP.ROBUST && (
-                (ipm.status, solver.status) =
-                    irregular_to_mpcc_status(MadNLP.robust!(ipm))
-            )
+        while ipm.status >= MadNLP.REGULAR
+            ipm.status == MadNLP.REGULAR && (ipm.status = MadMPEC.homotopy!(solver))
+            ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
+            ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
         end
-        # Copy the primal solution from Phase I
         solver.x .= MadNLP.variable(ipm.x)
     catch e
         if e isa MadNLP.InvalidNumberException
             if e.callback == :obj
                 ipm.status=MadNLP.INVALID_NUMBER_OBJECTIVE
-                solver.status = IPM_ERROR
             elseif e.callback == :grad
                 ipm.status=MadNLP.INVALID_NUMBER_GRADIENT
-                solver.status = IPM_ERROR
             elseif e.callback == :cons
                 ipm.status=MadNLP.INVALID_NUMBER_CONSTRAINTS
-                solver.status = IPM_ERROR
             elseif e.callback == :jac
                 ipm.status=MadNLP.INVALID_NUMBER_JACOBIAN
-                solver.status = IPM_ERROR
             elseif e.callback == :hess
                 ipm.status=MadNLP.INVALID_NUMBER_HESSIAN_LAGRANGIAN
-                solver.status = IPM_ERROR
             else
                 ipm.status=MadNLP.INVALID_NUMBER_DETECTED
-                solver.status = IPM_ERROR
             end
         elseif e isa MadNLP.NotEnoughDegreesOfFreedomException
             ipm.status=MadNLP.NOT_ENOUGH_DEGREES_OF_FREEDOM
-            solver.status = IPM_ERROR
         elseif e isa MadNLP.LinearSolverException
             ipm.status=MadNLP.ERROR_IN_STEP_COMPUTATION;
-            solver.status = IPM_ERROR
             ipm.opt.rethrow_error && rethrow(e)
         elseif e isa MadNLP.InterruptException
             ipm.status=MadNLP.USER_REQUESTED_STOP
-            solver.status = IPM_ERROR
             ipm.opt.rethrow_error && rethrow(e)
         else
             ipm.status=MadNLP.INTERNAL_ERROR
-            solver.status = IPM_ERROR
             ipm.opt.rethrow_error && rethrow(e)
         end
     finally
         ipm.cnt.total_time = time() - ipm.cnt.start_time
         if !(ipm.status < MadNLP.SOLVE_SUCCEEDED)
             MadNLP.print_summary(ipm)
-        else
-            solver.status = IPM_ERROR
         end
 
-        MadNLP.@notice(
-            solver.logger,
-            "EXIT: $(get_status_output(solver.status, solver.opts, ipm.opt))"
-        )
         ipm.opt.disable_garbage_collector && (
             GC.enable(true);
             MadNLP.@warn(ipm.logger, "Julia garbage collector is turned back on")
@@ -372,18 +346,17 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
-            return MadNLP.SOLVE_SUCCEEDED, NLP_STATIONARY
+            return MadNLP.SOLVE_SUCCEEDED
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.acceptable_tol ?
         (
             ipm.cnt.acceptable_cnt < ipm.opt.acceptable_iter ? ipm.cnt.acceptable_cnt+=1 :
-            return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL, NLP_STATIONARY
+            return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
         ) : (ipm.cnt.acceptable_cnt = 0)
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) >= ipm.opt.diverging_iterates_tol &&
-            return MadNLP.DIVERGING_ITERATES, DIVERGING_ITERATES
-        ipm.cnt.k>=ipm.opt.max_iter &&
-            return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED, MAXIMUM_ITERATIONS_EXCEEDED
+            return MadNLP.DIVERGING_ITERATES
+        ipm.cnt.k>=ipm.opt.max_iter && return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
         time()-ipm.cnt.start_time>=ipm.opt.max_wall_time &&
-            return MadNLP.MAXIMUM_WALLTIME_EXCEEDED, MAXIMUM_WALL_TIME_EXCEEDED
+            return MadNLP.MAXIMUM_WALLTIME_EXCEEDED
 
         # Now go back to using relaxed inf_pr
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
@@ -398,8 +371,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         end
         MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
         MadNLP.@trace(solver.logger, "Factorizing the KKT system.")
-        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) ||
-            return MadNLP.ROBUST, solver.status
+        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
 
         # update the barrier parameter
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
@@ -474,10 +446,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
         if status != MadNLP.LINESEARCH_SUCCEEDED
-            if status == MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL
-                solver.status = SEARCH_DIRECTION_BECOMES_TOO_SMALL
-            end
-            return status, solver.status
+            return status
         end
 
         MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
@@ -517,7 +486,7 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     ipm = solver.ipm
     n, m = NLPModels.get_nvar(ipm.nlp), solver.mpcc.meta.ncon
 
-    stats.status = solver.status
+    stats.status = solver.ipm.status
     stats.solution .= @view(MadNLP.primal(ipm.x)[1:n])
     stats.multipliers .= ipm.y[1:m]
     stats.multipliers_L .= @view(MadNLP.primal(ipm.zl)[1:n])
@@ -525,11 +494,9 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     MadNLP.update_z!(ipm.cb, stats.multipliers_L, stats.multipliers_U, ipm.jacl)
 
     stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
-    stats.constraints .=
-        ipm.c[1:m] ./ ipm.cb.con_scale[1:m] .+ ipm.rhs[1:m]
+    stats.constraints .= ipm.c[1:m] ./ ipm.cb.con_scale[1:m] .+ ipm.rhs[1:m]
     ind_ind_ineq = ipm.ind_ineq .∈ [1:m]
-    stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+=
-            MadNLP.slack(ipm.x)[ind_ind_ineq]
+    stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+= MadNLP.slack(ipm.x)[ind_ind_ineq]
     stats.dual_feas = ipm.inf_du
     stats.primal_feas = ipm.inf_pr
     stats.iter = ipm.cnt.k
@@ -539,4 +506,3 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
         stats.counters.counters.eval_function_time
     return stats
 end
-
