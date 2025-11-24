@@ -247,14 +247,18 @@ function update_sigma!(
             z2 = MadNLP.variable(ipm.zl)[cc2]
             zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
 
-            if nu1_filt <= -((ipm.mu)^relax.tau) && rnlp.δ1[ii] < relax.mu_factor*ipm.mu
+            nu1_inactive =
+                relax.use_filtered ? nu1_filt <= -((ipm.mu)^relax.tau) :
+                nu1 <= -((ipm.mu)^relax.tau)
+            if nu1_inactive && rnlp.δ1[ii] < relax.mu_factor*ipm.mu
                 # Relax the lower bound, and take a magic step in the multipliers
-
                 rnlp.δ1[ii] = relax.mu_factor*ipm.mu
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
 
                 # Calculate new values
-                z1_hat = inv(x1+rnlp.δ1[ii])*mu # TODO(@anton): maybe do mu+r where r is the old residual
+                mu_r = mu + (x1*z1 - mu)
+                nu_res = -MadNLP.primal(ipm.f)[cc1] - MadNLP.primal(ipm.zu)[cc1]
+                z1_hat = inv(x1+rnlp.δ1[ii])*mu_r # TODO(@anton): maybe do mu+r where r is the old residual
                 zs_hat = inv(x2)*(-nu1 + z1_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
                 z2_hat = x1*zs_hat + nu2 # TODO(@anton) same here
                 delta_zs = zs_hat - zs
@@ -274,7 +278,6 @@ function update_sigma!(
                 ## Set the multiplier contribution in the Hessian of the Lagrangian
                 nnzh = get_nnzh(mpcc)
                 ipm.kkt.hess[nnzh+ii] = zs_hat*cb.con_scale[end-ncc+ii]
-
             elseif relax.unrelax && rnlp.δ1[ii] > 0 && nu1 >= ((ipm.mu)^relax.tau)
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
@@ -282,16 +285,21 @@ function update_sigma!(
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
             end
 
-            if nu2_filt <= -((ipm.mu)^relax.tau) && rnlp.δ2[ii] < relax.mu_factor*ipm.mu
+            nu2_inactive =
+                relax.use_filtered ? nu2_filt <= -((ipm.mu)^relax.tau) :
+                nu2 <= -((ipm.mu)^relax.tau)
+            if nu2_inactive && rnlp.δ2[ii] < relax.mu_factor*ipm.mu
                 rnlp.δ2[ii] = relax.mu_factor*ipm.mu
                 MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
 
                 # Calculate new values
-                z2_hat = inv(x2+rnlp.δ2[ii])*mu # TODO(@anton): maybe do mu+r where r is the old residual
+                mu_r = mu + (x2*z2 - mu)
+                nu_res = -MadNLP.primal(ipm.f)[cc2] - MadNLP.primal(ipm.zu)[cc2]
+                px = MadNLP.primal(ipm.p)
+                z2_hat = inv(x2+rnlp.δ2[ii])*mu_r # TODO(@anton): maybe do mu+r where r is the old residual
                 zs_hat = inv(x1)*(-nu2 + z2_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
                 z1_hat = x2*zs_hat + nu1 # TODO(@anton) same here
                 delta_zs = zs_hat - zs
-
                 # Set new values
                 ## Set the new duals
                 MadNLP.variable(ipm.zl)[cc1] = z1_hat
@@ -307,7 +315,6 @@ function update_sigma!(
                 ## Set the multiplier contribution in the Hessian of the Lagrangian
                 nnzh = get_nnzh(mpcc)
                 ipm.kkt.hess[nnzh+ii] = zs_hat*cb.con_scale[end-ncc+ii]
-
             elseif relax.unrelax && rnlp.δ2[ii] > 0 && nu2 >= ((ipm.mu)^relax.tau)
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
