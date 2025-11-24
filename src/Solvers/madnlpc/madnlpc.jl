@@ -525,9 +525,11 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     MadNLP.update_z!(ipm.cb, stats.multipliers_L, stats.multipliers_U, ipm.jacl)
 
     stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
-    stats.constraints .= ipm.c[1:m] ./ ipm.cb.con_scale[1:m] .+ ipm.rhs[1:m]
+    stats.constraints .=
+        ipm.c[1:m] ./ ipm.cb.con_scale[1:m] .+ ipm.rhs[1:m]
     ind_ind_ineq = ipm.ind_ineq .∈ [1:m]
-    stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+= MadNLP.slack(ipm.x)[ind_ind_ineq]
+    stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+=
+            MadNLP.slack(ipm.x)[ind_ind_ineq]
     stats.dual_feas = ipm.inf_du
     stats.primal_feas = ipm.inf_pr
     stats.iter = ipm.cnt.k
@@ -541,7 +543,13 @@ end
 function irregular_to_mpcc_status(status::MadNLP.Status)
     if status > MadNLP.INITIAL
         return status, SOLVING
-    else
+    elseif status == MadNLP.DIVERGING_ITERATES
+        return status, DIVERGING_ITERATES
+    elseif status == MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
+        return status, MAXIMUM_ITERATIONS_EXCEEDED
+    elseif status == MadNLP.MAXIMUM_WALLTIME_EXCEEDED
+        return status, MAXIMUM_WALLTIME_EXCEEDED
+    elseif
         return status, IPM_ERROR
     end
 end
