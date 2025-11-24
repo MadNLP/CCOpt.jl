@@ -10,7 +10,7 @@
         stats = MadMPEC.solve_homotopy!(solver)
 
         @test stats.status == MadMPEC.NLP_STATIONARY
-        @test stats.stats.objective ≈ 1 atol=1e-5
+        @test stats.objective ≈ 1 atol=1e-5
         @test stats.solution ≈ [1, 0] atol=1e-5
     end
 
@@ -26,7 +26,7 @@
         stats = MadMPEC.solve_homotopy!(solver)
 
         @test stats.status == MadMPEC.NLP_STATIONARY
-        @test stats.stats.objective ≈ 1 atol=1e-5
+        @test stats.objective ≈ 1 atol=1e-5
         @test stats.solution ≈ [1, 0] atol=1e-5
     end
 
