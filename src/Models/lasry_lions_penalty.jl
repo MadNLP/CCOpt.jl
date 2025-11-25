@@ -1,4 +1,4 @@
-######################### Ell1 Relaxation #########################
+######################### Lasry-Lions Penalty Relaxation #########################
 struct LasryLionsPenalty{T, VT} <: AbstractMPCCPenaltyModel{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     meta::NLPModels.NLPModelMeta{T, VT}
@@ -47,7 +47,11 @@ function ddlasrylions(x1::T, x2::T, λ::T, β::T) where {T}
     end
 end
 
-function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
+function LasryLionsPenalty(
+    mpcc::AbstractMPCCModel{T, VT};
+    β::T=T(0.9999),
+    λ::T=T(0.0),
+) where {T, VT}
     if !is_vertical(mpcc)
         # TODO(@anton) Perhaps we should do this automatically in the future or we can support non-vertical form scholtes
         #              though this makes the callbacks a bit more complicated
@@ -84,8 +88,6 @@ function LasryLionsPenalty(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nnzh=nnzh,
         lvar=lvar,
     )
-    β = T(0.9999)
-    λ = zero(T)
     return LasryLionsPenalty(mpcc, meta, Ref(β), Ref(λ))
 end
 
