@@ -1,13 +1,17 @@
-function solve_homotopy!(nlp::MadMPEC.Ell1Relaxation, solver::ExactPenaltySolver; kwargs...)
+function solve_homotopy!(
+    nlp::AbstractMPCCPenaltyModel,
+    solver::ExactPenaltySolver;
+    kwargs...,
+)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
 
 function solve_homotopy!(solver::ExactPenaltySolver; kwargs...)
-    return solve_homotopy!(solver.ell1, solver; kwargs...)
+    return solve_homotopy!(solver.pnlp, solver; kwargs...)
 end
 
 function solve_homotopy!(
-    nlp::MadMPEC.Ell1Relaxation,
+    nlp::AbstractMPCCPenaltyModel,
     solver::MadMPEC.ExactPenaltySolver,
     stats::MadNLP.MadNLPExecutionStats;
     x=nothing,
@@ -42,12 +46,12 @@ function solve_homotopy!(
                 "This is $(MadNLP.introduce()), using MadMPEC Ell1 extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
             )
             MadNLP.print_init(ipm)
-            # Also reset tau
-            ipm.nlp.tau[] = solver.opts.tau_0
+            # Also reset rho
+            set_penalty(solver.pnlp, solver.opts.rho_0)
             ipm.status = MadNLP.initialize!(ipm)
         else # resolving the problem
-            # Also reset tau
-            ipm.nlp.tau[] = solver.opts.tau_0
+            # Also reset rho
+            set_penalty(solver.pnlp, solver.opts.rho_0)
             ipm.status = MadNLP.reinitialize!(ipm)
         end
 
@@ -107,7 +111,7 @@ end
 
 function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
     ipm = solver.ipm
-    nlp = solver.ell1
+    nlp = solver.pnlp
     mpcc = solver.mpcc
     while true
         # Set sigma to zero for constraint infeasibility calculations
@@ -146,24 +150,27 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             sc,
         )
         inf_pr_comp = MadMPEC.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        inf_pr_comp_prod = MadMPEC.comp_residual_product(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        inf_pr_comp_sum = MadMPEC.comp_residual_sum(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
-        solver.inf_pr_cc = inf_pr_comp
+        inf_pr_comp_sum = get_inf_pr_cc_sum(solver) # Primal complementarity residual
+        solver.inf_pr_cc = get_inf_pr_cc(solver)
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
 
         MadNLP.print_iter(solver)
 
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) <= ipm.opt.tol &&
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc) <= ipm.opt.tol &&
             return MadNLP.SOLVE_SUCCEEDED
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp_prod) <=
-        ipm.opt.acceptable_tol ?
+        max(
+            ipm.inf_pr,
+            ipm.inf_du,
+            ipm.inf_compl,
+            min(solver.inf_pr_cc, get_inf_pr_cc_prod(solver)),
+        ) <= ipm.opt.acceptable_tol ?
         (
             ipm.cnt.acceptable_cnt < ipm.opt.acceptable_iter ? ipm.cnt.acceptable_cnt+=1 :
             return MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
         ) : (ipm.cnt.acceptable_cnt = 0)
-        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, inf_pr_comp) >=
+        max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc) >=
         ipm.opt.diverging_iterates_tol && return MadNLP.DIVERGING_ITERATES
         ipm.cnt.k>=ipm.opt.max_iter && return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
         time()-ipm.cnt.start_time>=ipm.opt.max_wall_time &&
@@ -172,15 +179,15 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         # Do dynamic penalty update:
         # First calculate primal comp epsilon
         eps_pr_comp = ipm.mu^solver.opts.gamma
-        if solver.opts.dynamic_tau_update &&
+        if solver.opts.dynamic_rho_update &&
            isfull(solver.pr_comp_hist) &&
-           inf_pr_comp > eps_pr_comp &&
+           solver.inf_pr_cc > eps_pr_comp &&
            inf_pr_comp_sum > solver.opts.eta_dynamic_update*maximum(solver.pr_comp_hist) &&
-           nlp.tau[] < solver.opts.tau_max
-            nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
+           get_penalty(solver.pnlp) < solver.opts.rho_max
+            set_penalty(solver.pnlp, solver.opts.rho_growth_rate*get_penalty(solver.pnlp))
             MadNLP.@trace(
                 solver.logger,
-                "Updating the penalty parameter dynamically to $(nlp.tau[])."
+                "Updating the penalty parameter dynamically to $(get_penalty(solver.pnlp))."
             )
             ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
             # Also clear the filter
@@ -200,19 +207,22 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         mu_updated = ipm.mu != mu_old
         # Standard check
         # FIXME(@anton) This update happening _after_ the matrix has been factorized means
-        #               we are still using the old $\tau$ for one iteration. This in principle
+        #               we are still using the old $\rho$ for one iteration. This in principle
         #               does not impact convergence guarantees, but is inaccurate.
         #               In principle this also means we need to possibly factorize twice in the case
         #               of the QualityFunctionUpdate (though this may not even make sense and we may
-        #               only use the adaptive $\tau$ update in this case).
+        #               only use the adaptive $\rho$ update in this case).
         if mu_updated
             # check for complementarity convergence when we decrease 𝜇
             # or if we already are at smallest mu increase penalty if we are not satisfying eps_pr_comp
-            if inf_pr_comp > eps_pr_comp
-                nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
+            if solver.inf_pr_cc > eps_pr_comp
+                set_penalty(
+                    solver.pnlp,
+                    solver.opts.rho_growth_rate*get_penalty(solver.pnlp),
+                )
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(nlp.tau[])."
+                    "Updating the penalty parameter to $(nlp.rho[])."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 MadNLP.@trace(
@@ -227,11 +237,14 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
         elseif ipm.mu ≤ max(ipm.opt.barrier.mu_min, ipm.opt.tol/10) &&
                max(ipm.inf_pr, ipm.inf_du, inf_compl_mu) <=
                ipm.opt.barrier_tol_factor*ipm.mu
-            if inf_pr_comp > ipm.opt.tol
-                nlp.tau[] = solver.opts.tau_growth_rate*nlp.tau[]
+            if solver.inf_pr_cc > ipm.opt.tol
+                set_penalty(
+                    solver.pnlp,
+                    solver.opts.rho_growth_rate*get_penalty(solver.pnlp),
+                )
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(nlp.tau[])."
+                    "Updating the penalty parameter to $(nlp.rho[])."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 empty!(ipm.filter)
@@ -312,12 +325,12 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
 
     ipm = solver.ipm
     cb = ipm.cb
-    rnlp = solver.ell1
+    pnlp = solver.pnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = solver.mpcc.meta.ncc
     nnzh = solver.mpcc.meta.nnzh
-    rho = solver.ell1.tau[]
+    rho = solver.pnlp.rho[]
     ind_cc1 = solver.mpcc.meta.ind_cc1
     ind_cc2 = solver.mpcc.meta.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -348,7 +361,7 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
             if rho*cb.obj_scale[] > rho_max
                 kkt.hess_raw.V[nnzh+i] =
                     solver.opts.critical_rho_factor*rho_max*(
-                        rnlp.meta.minimize ? one(T) : -one(T)
+                        pnlp.meta.minimize ? one(T) : -one(T)
                     )
                 regularized = true
             end
@@ -362,12 +375,12 @@ end
 function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     ipm = solver.ipm
     cb = ipm.cb
-    rnlp = solver.ell1
+    pnlp = solver.pnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = solver.mpcc.meta.ncc
     nnzh = solver.mpcc.meta.nnzh
-    rho = cb.obj_scale[]*solver.ell1.tau[]
+    rho = cb.obj_scale[]*solver.pnlp.rho[]
     ind_cc1 = solver.mpcc.meta.ind_cc1
     ind_cc2 = solver.mpcc.meta.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -376,7 +389,7 @@ function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     kkt.pr_diag[ind_cc2] .-= kkt.reg[ind_cc2]
     kkt.reg[ind_cc1] .= 0
     kkt.reg[ind_cc2] .= 0
-    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= rnlp.meta.minimize ? rho : -rho
+    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= pnlp.meta.minimize ? rho : -rho
     # We modify hess_raw so need to compress_hessian again.
     MadNLP.compress_hessian!(kkt)
     return regularized

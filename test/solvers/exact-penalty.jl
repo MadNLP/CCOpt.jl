@@ -19,7 +19,7 @@
         mpcc = SimpleMPCCModel2(Float64)
         madnlpell1_opts = MadMPEC.ExactPenaltyOptions{Float64}(;
             print_level=MadNLP.ERROR,
-            dynamic_tau_update=true,
+            dynamic_rho_update=true,
         )
         solver = MadMPEC.ExactPenaltySolver(
             mpcc;
