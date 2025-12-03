@@ -200,6 +200,14 @@ function update_sigma!(
     end
 end
 
+function get_delta_candidate(nu, x, sigma, delta_max)
+    if nu + x < 0.0
+        return delta_max
+    else
+        return min(delta_max, sigma/(nu+x))
+    end
+end
+
 function update_sigma!(
     relax::RelaxLBUpdate{T},
     rnlp::ScholtesRelaxation{T},
@@ -212,9 +220,19 @@ function update_sigma!(
     ncon = get_ncon(mpcc)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
+    # Store previous delta
+    # TODO(@anton) this is inefficient
+    solver.prev_delta1 .= rnlp.δ1
+    solver.prev_delta2 .= rnlp.δ2
     mu = ipm.mu
+    if solver.delta_rollback
+        return # Already updated everything, do nothing
+    end
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+
+    # TODO(@anton) is this the best trigger?
+    kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     if relax.monotone
@@ -225,11 +243,7 @@ function update_sigma!(
     else
         set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
     end
-    # update c
-    ipm.c[(end-ncc+1):end] .-= rnlp.σ
-    # TODO(@anton) is this the best trigger?
-    kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
-    if kkt_error <= relax.relax_threshold # check if we need to relax bounds
+    if kkt_error <= relax.relax_threshold
         for ii in 1:ncc
             cc1 = ind_cc1[ii]
             cc2 = ind_cc2[ii]
@@ -246,14 +260,19 @@ function update_sigma!(
             x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
             z2 = MadNLP.variable(ipm.zl)[cc2]
             zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
+            s = MadNLP.slack(ipm.x)[end-ncc+ii]
 
             nu1_inactive =
                 relax.use_filtered ? nu1_filt <= -((ipm.mu)^relax.tau) :
                 nu1 <= -((ipm.mu)^relax.tau)
             if nu1_inactive && rnlp.δ1[ii] < relax.mu_factor*ipm.mu
+                delta_candidate = get_delta_candidate(nu1, x2, rnlp.σ[ii], relax.delta_max)
+                println(
+                    "Relaxing cc1[$(ii)] with nu1=$(nu1) and bound = $(delta_candidate)",
+                )
                 # Relax the lower bound, and take a magic step in the multipliers
-                rnlp.δ1[ii] = relax.mu_factor*ipm.mu
-                MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
+                rnlp.δ1[ii] = delta_candidate
+                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1_orig] - rnlp.δ1[ii]
 
                 # Calculate new values
                 mu_r = mu + (x1*z1 - mu)
@@ -262,8 +281,12 @@ function update_sigma!(
                 zs_hat = inv(x2)*(-nu1 + z1_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
                 z2_hat = x1*zs_hat + nu2 # TODO(@anton) same here
                 delta_zs = zs_hat - zs
+                println(-s*(zs) - mu)
+                println(-s*(zs_hat) - mu)
 
                 # Set new values
+                ## Set the new slack?
+                #MadNLP.slack(ipm.x)[end-ncc+ii] = -mu*inv(zs_hat)
                 ## Set the new duals
                 MadNLP.variable(ipm.zl)[cc1] = z1_hat
                 MadNLP.variable(ipm.zl)[cc2] = z2_hat
@@ -282,15 +305,24 @@ function update_sigma!(
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
                 rnlp.δ1[ii] = max(0.0, rnlp.δ1[ii]-max_decrease)
-                MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
+                println(
+                    "unrelaxing cc1[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1_orig])",
+                )
+                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1_orig] - rnlp.δ1[ii]
+                rnlp.σ[ii] = relax.mu_factor*ipm.mu
+                # TODO(@anton) this should probably magic step as well but need to figure out how because it is a step in the primal
             end
 
             nu2_inactive =
                 relax.use_filtered ? nu2_filt <= -((ipm.mu)^relax.tau) :
                 nu2 <= -((ipm.mu)^relax.tau)
             if nu2_inactive && rnlp.δ2[ii] < relax.mu_factor*ipm.mu
-                rnlp.δ2[ii] = relax.mu_factor*ipm.mu
-                MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
+                delta_candidate = get_delta_candidate(nu2, x1, rnlp.σ[ii], relax.delta_max)
+                println(
+                    "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
+                )
+                rnlp.δ2[ii] = delta_candidate
+                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2_orig] - rnlp.δ2[ii]
 
                 # Calculate new values
                 mu_r = mu + (x2*z2 - mu)
@@ -301,12 +333,15 @@ function update_sigma!(
                 z1_hat = x2*zs_hat + nu1 # TODO(@anton) same here
                 delta_zs = zs_hat - zs
                 # Set new values
+                ## Set the new slack?
+                #MadNLP.slack(ipm.x)[end-ncc+ii] = -mu*inv(zs_hat)
                 ## Set the new duals
                 MadNLP.variable(ipm.zl)[cc1] = z1_hat
                 MadNLP.variable(ipm.zl)[cc2] = z2_hat
                 MadNLP.slack(ipm.zu)[end-ncc+ii] = zs_hat
                 ipm.y[end-ncc+ii] = zs_hat
 
+                #MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
                 ## Set the new J'y_c
                 ipm.jacl[cc1] += x2*delta_zs*cb.con_scale[end-ncc+ii]
                 ipm.jacl[cc2] += x1*delta_zs*cb.con_scale[end-ncc+ii]
@@ -319,11 +354,17 @@ function update_sigma!(
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
                 rnlp.δ2[ii] = max(0.0, rnlp.δ2[ii]-max_decrease)
-                MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
+                println(
+                    "unrelaxing cc2[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2_orig])",
+                )
+                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2_orig] - rnlp.δ2[ii]
+                rnlp.σ[ii] = relax.mu_factor*ipm.mu
             end
         end
     end
 
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
 end

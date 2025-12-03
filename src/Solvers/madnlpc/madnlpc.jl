@@ -310,7 +310,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     opts = solver.opts
     ipm = solver.ipm
     mpcc = solver.mpcc
-
     while true
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
@@ -343,6 +342,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         estimate_mpec_multipliers(solver)
 
         MadNLP.print_iter(solver)
+        #println.(MadNLP.full(ipm.f) .- MadNLP.full(ipm.zl) .+ MadNLP.full(ipm.zu) .+ ipm.jacl)
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
@@ -450,35 +450,42 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             return status
         end
 
-        MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
-        copyto!(MadNLP.full(ipm.x), MadNLP.full(ipm.x_trial))
-        copyto!(ipm.c, ipm.c_trial)
-        ipm.obj_val = ipm.obj_val_trial
-        MadNLP.adjust_boundary!(ipm.x_lr, ipm.xl_r, ipm.x_ur, ipm.xu_r, ipm.mu)
+        if is_relaxation_acceptable(solver, solver.rnlp, solver.opts.relaxation_update)
+            solver.delta_rollback = false
+            MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
+            copyto!(MadNLP.full(ipm.x), MadNLP.full(ipm.x_trial))
+            copyto!(ipm.c, ipm.c_trial)
+            ipm.obj_val = ipm.obj_val_trial
+            MadNLP.adjust_boundary!(ipm.x_lr, ipm.xl_r, ipm.x_ur, ipm.xu_r, ipm.mu)
 
-        MadNLP.axpy!(ipm.alpha, MadNLP.dual(ipm.d), ipm.y)
+            MadNLP.axpy!(ipm.alpha, MadNLP.dual(ipm.d), ipm.y)
 
-        ipm.zl_r .+= ipm.alpha_z .* MadNLP.dual_lb(ipm.d)
-        ipm.zu_r .+= ipm.alpha_z .* MadNLP.dual_ub(ipm.d)
-        MadNLP.reset_bound_dual!(
-            MadNLP.primal(ipm.zl),
-            MadNLP.primal(ipm.x),
-            MadNLP.primal(ipm.xl),
-            ipm.mu,
-            ipm.opt.kappa_sigma,
-        )
-        MadNLP.reset_bound_dual!(
-            MadNLP.primal(ipm.zu),
-            MadNLP.primal(ipm.xu),
-            MadNLP.primal(ipm.x),
-            ipm.mu,
-            ipm.opt.kappa_sigma,
-        )
+            ipm.zl_r .+= ipm.alpha_z .* MadNLP.dual_lb(ipm.d)
+            ipm.zu_r .+= ipm.alpha_z .* MadNLP.dual_ub(ipm.d)
+            MadNLP.reset_bound_dual!(
+                MadNLP.primal(ipm.zl),
+                MadNLP.primal(ipm.x),
+                MadNLP.primal(ipm.xl),
+                ipm.mu,
+                ipm.opt.kappa_sigma,
+            )
+            MadNLP.reset_bound_dual!(
+                MadNLP.primal(ipm.zu),
+                MadNLP.primal(ipm.xu),
+                MadNLP.primal(ipm.x),
+                ipm.mu,
+                ipm.opt.kappa_sigma,
+            )
 
-        MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
+            MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
 
-        ipm.cnt.k+=1
-        MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
+            ipm.cnt.k+=1
+            MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
+        else
+            ipm.cnt.k+=1
+            solver.delta_rollback = true
+            MadNLP.@info(ipm.logger, "Rejecting step due to faulty relaxation.")
+        end
     end
 end
 
