@@ -1,7 +1,7 @@
 using MadMPEC
 using ADNLPModels
 function SimpleMPCCModel(T::Type=Float64; x1=1, x2=1, q1=1.0, q2=1.0, x0=[0.0, 0.0])
-    f(x) = q1*x1*(x[1] - x1)^2 + q2*(x[2] - x2)^2
+    f(x) = q1*(x[1] - x1)^2 + q2*(x[2] - x2)^2
     x0 = T[x0...];
     ind_vcc1 = [1];
     ind_vcc2 = [2];

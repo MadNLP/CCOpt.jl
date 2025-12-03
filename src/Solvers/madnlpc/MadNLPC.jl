@@ -43,16 +43,19 @@ end
   this is done by taking steps which push the bound towards zero while making sure to reduce the distance from the iterate
   to the boundary by a factor of k_ftb.
 """
-@kwdef struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef mutable struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0
     sigma_mu_exp::T = 1.0
     monotone::Bool = false
     mu_factor::T = 1.0
+    delta_max::T = 1e-3
     tau::T = 0.1
     relax_threshold::T = 1e-6
     k_ftb::T = 0.9
     unrelax::Bool = false
     use_filtered::Bool = false
+    two_sided_hyst::Int = 4
+    two_sided::Int = -two_sided_hyst
 end
 
 # Iterate saving structure
@@ -167,6 +170,9 @@ mutable struct MadNLPCSolver{
     const multipliers_cc2::VT
     const multipliers_cc1_filt::VT
     const multipliers_cc2_filt::VT
+    const prev_delta1::VT
+    const prev_delta2::VT
+    const delta_rollback::Bool
     const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc1_lb::Vector{Int}
@@ -212,6 +218,8 @@ function MadNLPCSolver(
     multipliers_cc2 = VT(undef, get_ncc(mpcc))
     multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
     multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
+    prev_delta1 = VT(undef, get_ncc(mpcc))
+    prev_delta2 = VT(undef, get_ncc(mpcC))
     b = Vector{Bool}(undef, get_ncc(mpcc))
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
@@ -233,6 +241,9 @@ function MadNLPCSolver(
         multipliers_cc2,
         multipliers_cc1_filt,
         multipliers_cc2_filt,
+        prev_delta1,
+        prev_delta2,
+        false,
         ind_cc1,
         ind_cc2,
         ind_cc1_lb,

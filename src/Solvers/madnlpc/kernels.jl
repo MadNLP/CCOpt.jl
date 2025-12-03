@@ -61,12 +61,14 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
     for ii in 1:ncc
         cc1 = ind_cc1[ii]
         cc2 = ind_cc2[ii]
-        x1 = MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
+        x1 = MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1]
         z1 = MadNLP.variable(ipm.zl)[cc1]
-        x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
+        x2 = MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2]
         z2 = MadNLP.variable(ipm.zl)[cc2]
         zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
 
+        println("$(z1) - $(zs)*$(x2) = $(z1 - zs*x2)")
+        println("$(z2) - $(zs)*$(x1) = $(z2 - zs*x1)")
         solver.multipliers_cc1[ii] = z1 - zs*x2
         solver.multipliers_cc2[ii] = z2 - zs*x1
     end
@@ -81,4 +83,41 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
         solver.multipliers_cc1_filt .+= solver.multipliers_cc1 ./ N
         solver.multipliers_cc2_filt .+= solver.multipliers_cc2 ./ N
     end
+end
+
+is_relaxation_acceptable(solver, rnlp, relaxation) = true
+
+function is_relaxation_acceptable(
+    solver,
+    rnlp::ScholtesRelaxation,
+    relaxation::RelaxLBUpdate,
+)
+    # TODO(@anton) this is inefficient but alas
+    ind_cc1 = rnlp.mpcc.meta.ind_cc1
+    ind_cc2 = rnlp.mpcc.meta.ind_cc2
+    ncc = rnlp.mpcc.meta.ncc
+    acceptable = true
+    for ii in 1:ncc
+        cc1=ind_cc1[ii]
+        cc2=ind_cc2[ii]
+        x1 = MadNLP.variable(solver.ipm.x_trial)[cc1]
+        lbx1 = rnlp.mpcc.meta.lvar[cc1]
+        x2 = MadNLP.variable(solver.ipm.x_trial)[cc2]
+        lbx2 = rnlp.mpcc.meta.lvar[cc2]
+        println("$(x1) < $(lbx1)")
+        println("$(x2) < $(lbx2)")
+        if x1 < lbx1 - solver.ipm.opt.tol
+            rnlp.δ1[ii] = solver.prev_delta1[ii]
+            MadNLP.variable(solver.ipm.xl)[cc1] = lbx1 - rnlp.δ1[ii]
+            println("δ1[$(ii)] is unacceptable")
+            acceptable = false
+        end
+        if x2 < lbx2 - solver.ipm.opt.tol
+            rnlp.δ2[ii] = solver.prev_delta2[ii]
+            println("δ2[$(ii)] is unacceptable")
+            MadNLP.variable(solver.ipm.xl)[cc1] = lbx2 - rnlp.δ2[ii]
+            acceptable = false
+        end
+    end
+    return acceptable
 end
