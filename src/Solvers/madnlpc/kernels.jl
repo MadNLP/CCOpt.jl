@@ -67,8 +67,18 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
         z2 = MadNLP.variable(ipm.zl)[cc2]
         zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
 
-        println("$(z1) - $(zs)*$(x2) = $(z1 - zs*x2)")
-        println("$(z2) - $(zs)*$(x1) = $(z2 - zs*x1)")
+        f1 = MadNLP.variable(ipm.f)[cc1]
+        f2 = MadNLP.variable(ipm.f)[cc2]
+        jac1 = ipm.jacl[cc1]
+        jac2 = ipm.jacl[cc2]
+
+        # println("multipliers1: $(z1) - $(zs)*$(x2) = $(z1 - zs*x2)")
+        # println("grad1: $(f1) + $(jac1 - zs*x2) = $(f1 + jac1 - zs*x2)")
+        # println("multipliers2: $(z2) - $(zs)*$(x1) = $(z2 - zs*x1)")
+        # println("grad2: $(f2) + $(jac2 - zs*x1) = $(f2 + jac2 - zs*x1)")
+        #solver.multipliers_cc1[ii] = f1 + jac1 - zs*x2
+        #solver.multipliers_cc2[ii] = f2 + jac2 - zs*x1
+
         solver.multipliers_cc1[ii] = z1 - zs*x2
         solver.multipliers_cc2[ii] = z2 - zs*x1
     end
@@ -87,12 +97,11 @@ end
 
 is_relaxation_acceptable(solver, rnlp, relaxation) = true
 
-function is_relaxation_acceptable(
-    solver,
-    rnlp::ScholtesRelaxation,
-    relaxation::RelaxLBUpdate,
-)
+function is_relaxation_acceptable(solver, rnlp::ScholtesRelaxation, relax::RelaxLBUpdate)
     # TODO(@anton) this is inefficient but alas
+    if !relax.reject_steps
+        return true
+    end
     ind_cc1 = rnlp.mpcc.meta.ind_cc1
     ind_cc2 = rnlp.mpcc.meta.ind_cc2
     ncc = rnlp.mpcc.meta.ncc
@@ -104,8 +113,6 @@ function is_relaxation_acceptable(
         lbx1 = rnlp.mpcc.meta.lvar[cc1]
         x2 = MadNLP.variable(solver.ipm.x_trial)[cc2]
         lbx2 = rnlp.mpcc.meta.lvar[cc2]
-        println("$(x1) < $(lbx1)")
-        println("$(x2) < $(lbx2)")
         if x1 < lbx1 - solver.ipm.opt.tol
             rnlp.δ1[ii] = solver.prev_delta1[ii]
             MadNLP.variable(solver.ipm.xl)[cc1] = lbx1 - rnlp.δ1[ii]

@@ -49,13 +49,12 @@ end
     monotone::Bool = false
     mu_factor::T = 1.0
     delta_max::T = 1e-3
-    tau::T = 0.1
+    tau::T = 0.4
     relax_threshold::T = 1e-6
     k_ftb::T = 0.9
     unrelax::Bool = false
     use_filtered::Bool = false
-    two_sided_hyst::Int = 4
-    two_sided::Int = -two_sided_hyst
+    reject_steps::Bool = false
 end
 
 # Iterate saving structure
