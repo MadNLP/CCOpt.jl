@@ -244,6 +244,12 @@ function update_sigma!(
         set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
     end
     if kkt_error <= relax.relax_threshold
+        #nu_bound = (ipm.mu)^relax.tau
+        println(
+            "kkt_error bound : $(kkt_error^relax.tau) ipm.mu: $(ipm.mu^relax.tau), ipm.inf_du $(ipm.inf_du^relax.tau)",
+        )
+        #nu_bound = kkt_error^relax.tau
+        nu_bound = ipm.inf_du^relax.tau
         for ii in 1:ncc
             cc1 = ind_cc1[ii]
             cc2 = ind_cc2[ii]
@@ -262,10 +268,8 @@ function update_sigma!(
             zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
             s = MadNLP.slack(ipm.x)[end-ncc+ii]
 
-            nu1_inactive =
-                relax.use_filtered ? nu1_filt <= -((ipm.mu)^relax.tau) :
-                nu1 <= -((ipm.mu)^relax.tau)
-            if nu1_inactive && rnlp.δ1[ii] < relax.mu_factor*ipm.mu
+            nu1_inactive = relax.use_filtered ? nu1_filt <= -(nu_bound) : nu1 <= -(nu_bound)
+            if nu1_inactive #&& rnlp.δ1[ii] < relax.mu_factor*ipm.mu
                 delta_candidate = get_delta_candidate(nu1, x2, rnlp.σ[ii], relax.delta_max)
                 println(
                     "Relaxing cc1[$(ii)] with nu1=$(nu1) and bound = $(delta_candidate)",
@@ -281,8 +285,6 @@ function update_sigma!(
                 zs_hat = inv(x2)*(-nu1 + z1_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
                 z2_hat = x1*zs_hat + nu2 # TODO(@anton) same here
                 delta_zs = zs_hat - zs
-                println(-s*(zs) - mu)
-                println(-s*(zs_hat) - mu)
 
                 # Set new values
                 ## Set the new slack?
@@ -313,10 +315,8 @@ function update_sigma!(
                 # TODO(@anton) this should probably magic step as well but need to figure out how because it is a step in the primal
             end
 
-            nu2_inactive =
-                relax.use_filtered ? nu2_filt <= -((ipm.mu)^relax.tau) :
-                nu2 <= -((ipm.mu)^relax.tau)
-            if nu2_inactive && rnlp.δ2[ii] < relax.mu_factor*ipm.mu
+            nu2_inactive = relax.use_filtered ? nu2_filt <= -(nu_bound) : nu2 <= -(nu_bound)
+            if nu2_inactive #&& rnlp.δ2[ii] < relax.mu_factor*ipm.mu
                 delta_candidate = get_delta_candidate(nu2, x1, rnlp.σ[ii], relax.delta_max)
                 println(
                     "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
