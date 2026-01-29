@@ -25,6 +25,32 @@ function update_sigma!(
 end
 
 function update_sigma!(
+    relax::RolloffRelaxationUpdate{T},
+    rnlp::AbstractMPCCRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # calculate new sigma
+    sigma_candidate = relax.rolloff_max*(solver.ipm.mu^relax.rolloff_slope)/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
+    if relax.monotone
+        set_relaxation(
+            rnlp,
+            max(min(solver.rnlp.σ[1], sigma_candidate), solver.opts.sigma_min),
+        )
+    else
+        set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    end
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    # Here we assume the barrier update handles whether we throw out the filter.
+    return nothing
+end
+
+function update_sigma!(
     relax::LOQORelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
     solver::MadNLPCSolver{T},
@@ -381,6 +407,24 @@ function init_sigma!(
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
+    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    return nothing
+end
+
+function init_sigma!(
+    relax::RolloffRelaxationUpdate{T},
+    rnlp::AbstractMPCCRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = mpcc.meta.ncc
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # calculate new sigma
+    sigma_candidate = relax.rolloff_max*(solver.ipm.mu^relax.rolloff_slope)/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
     set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
