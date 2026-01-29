@@ -35,7 +35,10 @@ function update_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate = relax.rolloff_max*(solver.ipm.mu^relax.rolloff_slope)/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
+    sigma_candidate =
+        relax.rolloff_max*(
+            solver.ipm.mu^relax.rolloff_slope
+        )/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
     if relax.monotone
         set_relaxation(
             rnlp,
@@ -271,9 +274,9 @@ function update_sigma!(
     end
     if kkt_error <= relax.relax_threshold
         #nu_bound = (ipm.mu)^relax.tau
-        println(
-            "kkt_error bound : $(kkt_error^relax.tau) ipm.mu: $(ipm.mu^relax.tau), ipm.inf_du $(ipm.inf_du^relax.tau)",
-        )
+        # println(
+        #     "kkt_error bound : $(kkt_error^relax.tau) ipm.mu: $(ipm.mu^relax.tau), ipm.inf_du $(ipm.inf_du^relax.tau)",
+        # )
         #nu_bound = kkt_error^relax.tau
         nu_bound = ipm.inf_du^relax.tau
         for ii in 1:ncc
@@ -297,9 +300,9 @@ function update_sigma!(
             nu1_inactive = relax.use_filtered ? nu1_filt <= -(nu_bound) : nu1 <= -(nu_bound)
             if nu1_inactive #&& rnlp.δ1[ii] < relax.mu_factor*ipm.mu
                 delta_candidate = get_delta_candidate(nu1, x2, rnlp.σ[ii], relax.delta_max)
-                println(
-                    "Relaxing cc1[$(ii)] with nu1=$(nu1) and bound = $(delta_candidate)",
-                )
+                # println(
+                #     "Relaxing cc1[$(ii)] with nu1=$(nu1) and bound = $(delta_candidate)",
+                # )
                 # Relax the lower bound, and take a magic step in the multipliers
                 rnlp.δ1[ii] = delta_candidate
                 MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1_orig] - rnlp.δ1[ii]
@@ -333,9 +336,9 @@ function update_sigma!(
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
                 rnlp.δ1[ii] = max(0.0, rnlp.δ1[ii]-max_decrease)
-                println(
-                    "unrelaxing cc1[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1_orig])",
-                )
+                # println(
+                #     "unrelaxing cc1[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1_orig])",
+                # )
                 MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1_orig] - rnlp.δ1[ii]
                 rnlp.σ[ii] = relax.mu_factor*ipm.mu
                 # TODO(@anton) this should probably magic step as well but need to figure out how because it is a step in the primal
@@ -344,9 +347,9 @@ function update_sigma!(
             nu2_inactive = relax.use_filtered ? nu2_filt <= -(nu_bound) : nu2 <= -(nu_bound)
             if nu2_inactive #&& rnlp.δ2[ii] < relax.mu_factor*ipm.mu
                 delta_candidate = get_delta_candidate(nu2, x1, rnlp.σ[ii], relax.delta_max)
-                println(
-                    "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
-                )
+                # println(
+                #     "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
+                # )
                 rnlp.δ2[ii] = delta_candidate
                 MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2_orig] - rnlp.δ2[ii]
 
@@ -380,9 +383,9 @@ function update_sigma!(
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
                 rnlp.δ2[ii] = max(0.0, rnlp.δ2[ii]-max_decrease)
-                println(
-                    "unrelaxing cc2[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2_orig])",
-                )
+                # println(
+                #     "unrelaxing cc2[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2_orig])",
+                # )
                 MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2_orig] - rnlp.δ2[ii]
                 rnlp.σ[ii] = relax.mu_factor*ipm.mu
             end
@@ -424,7 +427,10 @@ function init_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate = relax.rolloff_max*(solver.ipm.mu^relax.rolloff_slope)/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
+    sigma_candidate =
+        relax.rolloff_max*(
+            solver.ipm.mu^relax.rolloff_slope
+        )/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
     set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
