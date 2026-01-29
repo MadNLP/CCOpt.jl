@@ -13,6 +13,17 @@ abstract type AbstractRelaxationUpdate{T} end
     monotone::Bool = false
 end
 
+"""
+  Rolloff Relaxation update which updates σ = c*μ^a/(sqrt(μ^a^2)+b)
+"""
+@kwdef struct RolloffRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+    rolloff_slope::T = 1.6 # a
+    rolloff_point::T = 1e-5 # b
+    rolloff_max::T = 1.0 # c
+    monotone::Bool = false
+end
+
+
 @kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
     gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
