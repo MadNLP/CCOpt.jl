@@ -491,7 +491,14 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     stats.multipliers .= ipm.y[1:m]
     stats.multipliers_L .= @view(MadNLP.primal(ipm.zl)[1:n])
     stats.multipliers_U .= @view(MadNLP.primal(ipm.zu)[1:n])
-    MadNLP.update_z!(ipm.cb, stats.multipliers_L, stats.multipliers_U, ipm.jacl)
+    MadNLP.update_z!(
+        ipm.cb,
+        stats.solution,
+        stats.multipliers,
+        stats.multipliers_L,
+        stats.multipliers_U,
+        ipm.jacl,
+    )
 
     stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
     stats.constraints .= ipm.c[1:m] ./ ipm.cb.con_scale[1:m] .+ ipm.rhs[1:m]
