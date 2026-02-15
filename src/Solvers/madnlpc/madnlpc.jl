@@ -440,7 +440,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ipm.mu,
             ipm.opt.kappa_d,
         )
-        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) ||
+        MadNLP.inertia_correction!(ipm.inertia_corrector, solver) ||
             return MadNLP.ROBUST, solver.status
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
@@ -546,12 +546,11 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
 
     ipm = solver.ipm
     cb = ipm.cb
-    rnlp = solver.ell1
+    rnlp = solver.rnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = solver.mpcc.meta.ncc
     nnzh = solver.mpcc.meta.nnzh
-    rho = solver.ell1.tau[]
     ind_cc1 = solver.mpcc.meta.ind_cc1
     ind_cc2 = solver.mpcc.meta.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -559,13 +558,14 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
     for i in 1:ncc
         cc1 = ind_cc1[i]
         cc2 = ind_cc2[i]
-        ys = MadNLP.slack(ipm.zu)[end-ncc+i]
+        ys = ipm.y[end-ncc+i]
+        scale = cb.con_scale[end-ncc+i]
 
-        if solver.opts.kkt_regularization == :eigenvalue_decomposition
+        if solver.opts.q_regularization == :eigenvalue_decomposition
             A[1, 1] = kkt.pr_diag[cc1]
             A[2, 2] = kkt.pr_diag[cc2]
-            A[2, 1] = ys*cb.obj_scale[] # TODO is this correct
-            A[1, 2] = ys*cb.obj_scale[]
+            A[2, 1] = ys*scale # TODO is this correct
+            A[1, 2] = ys*scale
             E = eigen(Symmetric(A))
             if E.values[1] < 0 || E.values[2] > solver.opts.max_eig_value
                 E.values[1] = solver.opts.min_eig_value
@@ -578,11 +578,15 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
                 kkt.hess_raw.V[nnzh+i] = A[1, 2]
                 regularized = true
             end
-        elseif solver.opts.kkt_regularization == :critical_rho
-            rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
-            if rho*cb.obj_scale[] > rho_max
+        elseif solver.opts.q_regularization == :critical_rho
+            ys_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
+            
+            if ys*scale > ys_max
+                # println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
+                # println("regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[nnzh+i])")
+                #println(kkt.hess_raw.V)
                 kkt.hess_raw.V[nnzh+i] =
-                    solver.opts.critical_rho_factor*rho_max*(
+                    solver.opts.critical_rho_factor*ys_max*(
                         rnlp.meta.minimize ? one(T) : -one(T)
                     )
                 regularized = true
@@ -597,12 +601,11 @@ end
 function unregularize_Q!(solver::MadNLPCSolver{T}) where {T}
     ipm = solver.ipm
     cb = ipm.cb
-    rnlp = solver.ell1
+    rnlp = solver.rnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = solver.mpcc.meta.ncc
     nnzh = solver.mpcc.meta.nnzh
-    rho = cb.obj_scale[]*solver.ell1.tau[]
     ind_cc1 = solver.mpcc.meta.ind_cc1
     ind_cc2 = solver.mpcc.meta.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -611,7 +614,7 @@ function unregularize_Q!(solver::MadNLPCSolver{T}) where {T}
     kkt.pr_diag[ind_cc2] .-= kkt.reg[ind_cc2]
     kkt.reg[ind_cc1] .= 0
     kkt.reg[ind_cc2] .= 0
-    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= rnlp.meta.minimize ? rho : -rho
+    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= ipm.y[end-ncc+1:end] .* cb.con_scale[end-ncc+1:end] # TODO(@anton): this may allocate
     # We modify hess_raw so need to compress_hessian again.
     MadNLP.compress_hessian!(kkt)
     return regularized
