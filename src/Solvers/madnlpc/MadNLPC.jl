@@ -128,8 +128,13 @@ end
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
+    q_regularization::Symbol = :none
     mu_thresh::T = 5e-6
     eta_factor::T = 0.1
+    min_eig_value::T = 1e-4
+    max_eig_value::T = Inf
+    critical_rho_factor::T = 0.99
+    min_reg_mu::T = 5e-6
 
     # Magic step options
     use_magic_step::Bool = false
