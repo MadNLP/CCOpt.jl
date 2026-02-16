@@ -389,6 +389,7 @@ function MPCCModel(
     cc_types::AbstractVector{CCType},
 )
     ncc = length(ind_cc1)
+    nvar = nlp.meta.nvar
     ind_var1 = [ind_cc1[i] for i in 1:ncc if cc_types[i]∈[ConVar, ConCon]]
 
     ind_lift1::IndexSet = [i for i in 1:ncc if cc_types[i]∈[ConVar, ConCon]]
@@ -400,12 +401,12 @@ function MPCCModel(
         vcat(map((i) -> ind_cc1[i], ind_lift1), map((i) -> ind_cc2[i], ind_lift2))
     vnlp = LiftedNLPModel(nlp, ind_lift)
 
-    lift1 = (mpcc.nlp.meta.nvar+1):(mpcc.nlp.meta.nvar+nlift1)
-    lift2 = (mpcc.nlp.meta.nvar+nlift1+1):(mpcc.nlp.meta.nvar+nlift1+nlift2)
+    lift1 = (nvar+1):(nvar+nlift1)
+    lift2 = (nvar+nlift1+1):(nvar+nlift1+nlift2)
 
-    ind_vcc1 = mpcc.meta.ind_cc1
+    ind_vcc1 = ind_cc1
     ind_vcc1[ind_lift1] = lift1
-    ind_vcc2 = mpcc.meta.ind_cc2
+    ind_vcc2 = ind_cc2
     ind_vcc2[ind_lift2] = lift2
 
     return MPCCModelVarVar(vnlp, ind_vcc1, ind_vcc2)
