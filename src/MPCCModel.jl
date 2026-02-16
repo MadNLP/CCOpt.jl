@@ -380,6 +380,37 @@ function MPCCModelVarCon(
     return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2)
 end
 
+# Verticalize generic CC types. Returns a vertical form MPCC
+# TODO(@anton) we do no checks here :)
+function MPCCModel(
+    nlp::AbstractNLPModel{T, VT},
+    ind_cc1::IndexSet,
+    ind_cc2::IndexSet,
+    cc_types::AbstractVector{CCType},
+)
+    ncc = length(ind_cc1)
+    ind_var1 = [ind_cc1[i] for i in 1:ncc if cc_types[i]∈[ConVar, ConCon]]
+
+    ind_lift1::IndexSet = [i for i in 1:ncc if cc_types[i]∈[ConVar, ConCon]]
+    ind_lift2::IndexSet = [i for i in 1:ncc if cc_types[i]∈[VarCon, ConCon]]
+    nlift1 = length(ind_lift1)
+    nlift2 = length(ind_lift2)
+
+    ind_lift::IndexSet =
+        vcat(map((i) -> ind_cc1[i], ind_lift1), map((i) -> ind_cc2[i], ind_lift2))
+    vnlp = LiftedNLPModel(nlp, ind_lift)
+
+    lift1 = (mpcc.nlp.meta.nvar+1):(mpcc.nlp.meta.nvar+nlift1)
+    lift2 = (mpcc.nlp.meta.nvar+nlift1+1):(mpcc.nlp.meta.nvar+nlift1+nlift2)
+
+    ind_vcc1 = mpcc.meta.ind_cc1
+    ind_vcc1[ind_lift1] = lift1
+    ind_vcc2 = mpcc.meta.ind_cc2
+    ind_vcc2[ind_lift2] = lift2
+
+    return MPCCModelVarVar(vnlp, ind_vcc1, ind_vcc2)
+end
+
 ######################### Implementing NLPModels API #########################
 NLPModels.obj(mpcc::AbstractMPCCModel, x::AbstractVector) = NLPModels.obj(mpcc.nlp, x)
 function NLPModels.grad!(mpcc::AbstractMPCCModel, x::AbstractVector, gx::AbstractVector)
