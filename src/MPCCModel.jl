@@ -38,7 +38,7 @@ end
 
 ######################### Helper functions for MPCCModel #########################
 function is_vertical(mpcc::MPCCModel)
-    return all(map((x)->isa(x, VarVar), mpcc.meta.cc_types))
+    return all(map((x)->x==VarVar, mpcc.meta.cc_types))
 end
 
 ######################### MPCC Types #########################
@@ -82,7 +82,7 @@ function MPCCModelVarVar(
     # Complementarity Constraints
     ind_cc1 = ind_vcc1
     ind_cc2 = ind_vcc2
-    cc_types = fill!(Vector{CCType}(undef, ncc), VarVar())
+    cc_types = fill!(Vector{CCType}(undef, ncc), VarVar)
 
     # nnzj updates:
     nnzj = nlp.meta.nnzj
@@ -202,7 +202,7 @@ function MPCCModelConCon(
     # Complementarity Constraints
     ind_cc1 = ind_ccc1;
     ind_cc2 = ind_ccc2;
-    cc_types = fill!(Vector{CCType}(undef, ncc), ConCon())
+    cc_types = fill!(Vector{CCType}(undef, ncc), ConCon)
     cc_l = [i for i in 1:nlp.meta.ncon if i ∈ ind_cc1]
     cc_r = [i for i in 1:nlp.meta.ncon if i ∈ ind_cc2]
 
@@ -325,7 +325,7 @@ function MPCCModelVarCon(
     # UNUSED
     ind_cc1 = ind_vcc1;
     ind_cc2 = ind_ccc2;
-    cc_types = fill!(Vector{CCType}(undef, ncc), VarCon())
+    cc_types = fill!(Vector{CCType}(undef, ncc), VarCon)
     cc_l::IndexSet = [];
     cc_r = [i for i in 1:nlp.meta.ncon if i ∈ ind_cc2]
 
@@ -614,12 +614,13 @@ function comp_left!(mpcc::AbstractMPCCModel, x::AbstractVector, ccx::AbstractVec
     cvar = 0
     # First get variables:
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+        if mpcc.meta.cc_types[i] ∈ [VarVar, VarCon]
             ccx[i] = x[mpcc.meta.ind_cc1[i]]
             cvar += 1
         end
     end
 
+    # TODO(@anton) I am not sure anymore if this is correct for non-vertical form
     cons!(mpcc.nlp, x, mpcc._c1)
     @views ccx[(cvar+1):end] .= mpcc._c1[mpcc.meta.cc_l]
     return ccx
@@ -636,12 +637,13 @@ function comp_right!(mpcc::AbstractMPCCModel, x::AbstractVector, ccx::AbstractVe
     cvar = 0
     # First get variables:
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], VarVar)
+        if mpcc.meta.cc_types[i] ∈ [VarVar, ConVar]
             ccx[i] = x[mpcc.meta.ind_cc2[i]]
             cvar += 1
         end
     end
 
+    # TODO(@anton) I am not sure anymore if this is correct for non-vertical form
     cons!(mpcc.nlp, x, mpcc._c1)
     @views ccx[(cvar+1):end] .= mpcc._c1[mpcc.meta.cc_r]
     return ccx
@@ -656,7 +658,7 @@ function lcomp_left!(mpcc::AbstractMPCCModel{T, VT}, lccx::AbstractVector) where
     @lencheck mpcc.meta.ncc lccx
 
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+        if mpcc.meta.cc_types[i] ∈ [VarVar, VarCon]
             lccx[i] = mpcc.nlp.meta.lvar[mpcc.meta.ind_cc1[i]]
         else
             lccx[i] = mpcc.nlp.meta.lcon[mpcc.meta.ind_cc1[i]]
@@ -674,7 +676,7 @@ function lcomp_right!(mpcc::AbstractMPCCModel{T, VT}, lccx::AbstractVector) wher
     @lencheck mpcc.meta.ncc lccx
 
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], VarVar)
+        if mpcc.meta.cc_types[i] ∈ [VarVar, ConVar]
             lccx[i] = mpcc.nlp.meta.lvar[mpcc.meta.ind_cc2[i]]
         else
             lccx[i] = mpcc.nlp.meta.lcon[mpcc.meta.ind_cc2[i]]
@@ -695,7 +697,7 @@ function comp_res_left!(mpcc::AbstractMPCCModel, x::AbstractVector, lccx::Abstra
     comp_left!(mpcc, x, lccx)
 
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+        if mpcc.meta.cc_types[i] ∈ [VarVar, VarCon]
             lccx[i] -= mpcc.nlp.meta.lvar[mpcc.meta.ind_cc1[i]]
         else
             lccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc1[i]]
@@ -716,7 +718,7 @@ function comp_res_right!(mpcc::AbstractMPCCModel, x::AbstractVector, rccx::Abstr
     comp_right!(mpcc, x, rccx)
 
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], VarVar)
+        if mpcc.meta.cc_types[i] ∈ [VarVar, ConVar]
             rccx[i] -= mpcc.nlp.meta.lvar[mpcc.meta.ind_cc2[i]]
         else
             rccx[i] -= mpcc.nlp.meta.lcon[mpcc.meta.ind_cc2[i]]
@@ -756,7 +758,7 @@ function jac_comp_left_structure!(
     i_var_comp = length(mpcc.meta.ind_j_comp_left_triplets) + 1
     # TODO(@anton) maybe vectorize
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+        if mpcc.meta.cc_types[i] ∈ [VarVar, VarCon]
             rows[i_var_comp] = i;
             cols[i_var_comp] = mpcc.meta.ind_cc1[i]
             i_var_comp += 1
@@ -797,7 +799,7 @@ function jac_comp_right_structure!(
     i_var_comp = length(mpcc.meta.ind_j_comp_right_triplets) + 1
     # TODO(@anton) maybe vectorize
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], VarVar)
+        if mpcc.meta.cc_types[i] ∈ [VarVar, ConVar]
             rows[i_var_comp] = i;
             cols[i_var_comp] = mpcc.meta.ind_cc2[i]
             i_var_comp += 1
@@ -829,7 +831,7 @@ function jac_comp_left_coord!(
     i_var_comp = length(mpcc.meta.ind_j_comp_left_triplets) + 1
     # TODO(@anton) maybe vectorize
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], Union{VarVar, VarCon})
+        if mpcc.meta.cc_types[i] ∈ [VarVar, VarCon]
             vals[i_var_comp] = 1.0;
             i_var_comp += 1
         end
@@ -860,7 +862,7 @@ function jac_comp_right_coord!(
     i_var_comp = length(mpcc.meta.ind_j_comp_right_triplets) + 1
     # TODO(@anton) maybe vectorize
     for i in 1:mpcc.meta.ncc
-        if isa(mpcc.meta.cc_types[i], VarVar)
+        if mpcc.meta.cc_types[i] ∈ [VarVar, ConVar]
             vals[i_var_comp] = 1.0;
             i_var_comp += 1
         end
@@ -905,12 +907,14 @@ end
 ######################### Vertical Form Conversions #########################
 function vertical_form(mpcc::AbstractMPCCModel)
     ind_var1 = [
-        mpcc.meta.ind_cc1[i] for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)
+        mpcc.meta.ind_cc1[i] for
+        i in 1:mpcc.meta.ncc if mpcc.meta.cc_types[i]∈[ConVar, ConCon]
     ]
 
-    ind_lift1::IndexSet = [i for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], ConCon)]
+    ind_lift1::IndexSet =
+        [i for i in 1:mpcc.meta.ncc if mpcc.meta.cc_types[i]∈[ConVar, ConCon]]
     ind_lift2::IndexSet =
-        [i for i in 1:mpcc.meta.ncc if isa(mpcc.meta.cc_types[i], Union{VarCon, ConCon})]
+        [i for i in 1:mpcc.meta.ncc if mpcc.meta.cc_types[i]∈[VarCon, ConCon]]
     nlift1 = length(ind_lift1)
     nlift2 = length(ind_lift2)
 
