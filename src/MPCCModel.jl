@@ -383,7 +383,7 @@ end
 # Verticalize generic CC types. Returns a vertical form MPCC
 # TODO(@anton) we do no checks here :)
 function MPCCModel(
-    nlp::AbstractNLPModel{T, VT},
+    nlp::AbstractNLPModel,
     ind_cc1::IndexSet,
     ind_cc2::IndexSet,
     cc_types::AbstractVector{CCType},
