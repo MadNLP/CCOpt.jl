@@ -125,7 +125,7 @@ function solve_homotopy!(
 
     if !isempty(kwargs)
         MadNLP.@warn(ipm.logger, "The options set during resolve may not have an effect")
-        set_options!(ipm.opt, kwargs)
+        MadNLP.set_options!(ipm.opt, kwargs)
     end
 
     try
