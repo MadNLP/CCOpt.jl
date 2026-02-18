@@ -7,10 +7,8 @@ function MadNLP.get_average_complementarity(solver::MadNLPCSolver{T}) where {T}
     # We know mpcc is in vertical form, therefore:
     # TODO(@anton) add view for x1, x2
     cc_pr = @views dot(
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] -
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] -
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+        MadNLP.variable(ipm.x)[solver.ind_cc1] - MadNLP.variable(ipm.xl)[solver.ind_cc1],
+        MadNLP.variable(ipm.x)[solver.ind_cc2] - MadNLP.variable(ipm.xl)[solver.ind_cc2],
     )
     return (cc_lb + cc_ub + cc_pr)/ncc
 end
@@ -38,10 +36,10 @@ function MadNLP.get_min_complementarity(solver::MadNLPCSolver{T}) where {T}
     cc_pr = @views mapreduce(
         (x1, xl1, x2, x2l) -> (x1-xl1)*(x2-x2l),
         min,
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+        MadNLP.variable(ipm.x)[solver.ind_cc1],
+        MadNLP.variable(ipm.xl)[solver.ind_cc1],
+        MadNLP.variable(ipm.x)[solver.ind_cc2],
+        MadNLP.variable(ipm.xl)[solver.ind_cc2],
         init=T(Inf),
     )
     return min(cc_lb, cc_ub, cc_pr)
@@ -56,8 +54,8 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
     mpcc = solver.mpcc
     ncc = mpcc.meta.ncc
     ncon = mpcc.meta.ncon
-    ind_cc1 = mpcc.meta.ind_cc1
-    ind_cc2 = mpcc.meta.ind_cc2
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
 
     for ii in 1:ncc
         cc1 = ind_cc1[ii]

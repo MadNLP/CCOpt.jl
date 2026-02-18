@@ -1,5 +1,6 @@
 mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
     options::MadNLP.AbstractOptions
+    mpcc_options::MadNLP.AbstractOptions
     status::MadNLP.Status
     objective::T
     solution::VT
@@ -7,6 +8,8 @@ mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
     multipliers::VT
     multipliers_L::VT
     multipliers_U::VT
+    multipliers_x1::VT
+    multipliers_x2::VT
     dual_feas::T
     primal_feas::T
     inf_pr_cc::T
@@ -17,15 +20,24 @@ end
 function MadNLPCExecutionStats(solver::MadNLPCSolver)
     n = MadNLP.get_nvar(solver.ipm.nlp)
     m = solver.mpcc.meta.ncon
+    ncc = solver.mpcc.meta.ncc
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
+
     return MadNLPCExecutionStats(
+        solver.ipm.opt,
         solver.opts,
         solver.ipm.status,
         solver.ipm.obj_val,
         MadNLP.primal(solver.ipm.x)[1:n],
-        solver.ipm.c[1:m],
-        solver.ipm.y[1:m],
+        solver.ipm.c,
+        solver.ipm.y,
         MadNLP.primal(solver.ipm.zl)[1:n],
         MadNLP.primal(solver.ipm.zu)[1:n],
+        MadNLP.primal(solver.ipm.zl)[ind_cc1] .-
+        solver.ipm.y[(m+1):end] .* MadNLP.primal(solver.ipm.x)[ind_cc2],
+        MadNLP.primal(solver.ipm.zl)[ind_cc2] .-
+        solver.ipm.y[(m+1):end] .* MadNLP.primal(solver.ipm.x)[ind_cc1],
         solver.ipm.inf_du,
         solver.ipm.inf_pr,
         solver.inf_pr_cc,
@@ -52,12 +64,12 @@ function log_iter(
 
     k = ipm.cnt.k
     x0 = MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_x]
-    x1 = MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_cc1]
-    x2 = MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_cc2]
+    x1 = MadNLP.variable(ipm.x)[solver.ind_cc1]
+    x2 = MadNLP.variable(ipm.x)[solver.ind_cc2]
     s = MadNLP.slack(ipm.x)[(end-ncc+1):end]
 
-    z1 = MadNLP.variable(ipm.zl)[solver.mpcc.meta.ind_cc1]
-    z2 = MadNLP.variable(ipm.zl)[solver.mpcc.meta.ind_cc2]
+    z1 = MadNLP.variable(ipm.zl)[solver.ind_cc1]
+    z2 = MadNLP.variable(ipm.zl)[solver.ind_cc2]
     zs = MadNLP.slack(ipm.zu)[(end-ncc+1):end]
 
     alpha_pr = ipm.alpha
@@ -119,9 +131,9 @@ function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
         mapreduce(
             (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
             max,
-            MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc1],
+            MadNLP.variable(solver.ipm.x)[solver.ind_cc1],
             solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc1],
-            MadNLP.variable(solver.ipm.x)[solver.mpcc.meta.ind_cc2],
+            MadNLP.variable(solver.ipm.x)[solver.ind_cc2],
             solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2];
             init=zero(T),
         )

@@ -109,8 +109,8 @@ function MadNLP._evaluate_quality_function(
     ipm = solver.ipm
     n, m = ipm.n, ipm.m
     ncc = solver.mpcc.meta.ncc
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
     nlb, nub = ipm.nlb, ipm.nub
     tau = ipm.tau
     d = ipm.d # Load buffer

@@ -145,10 +145,24 @@ mutable struct MadNLPCSolver{T, VT}
     inf_pr_cc::T
     multipliers_cc1::VT
     multipliers_cc2::VT
+    ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
+    ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     ind_cc1_lb::Vector{Int}
     ind_cc2_lb::Vector{Int}
     x::VT
-    b::Vector{Bool} # TODO(@anton) is it actually better to have a Vector{Bool}
+    b::Vector{Bool}
+end
+
+# TODO(@anton) fix this to be nonquadratic I guess
+# FIXME(@anton) This is broken for fixed complementarities. For now, ignore that.
+function _adjust_cc_inds!(cb, ind_cc1, ind_cc2)
+    fixed = cb.ind_fixed
+    for ii in 1:length(ind_cc1)
+        n_less1 = count(<(ind_cc1[ii]), fixed)
+        n_less2 = count(<(ind_cc2[ii]), fixed)
+        ind_cc1[ii] -= n_less1
+        ind_cc2[ii] -= n_less2
+    end
 end
 
 function MadNLPCSolver(
@@ -177,8 +191,11 @@ function MadNLPCSolver(
     b = Vector{Bool}(undef, mpcc.meta.ncc)
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
-    ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), mpcc.meta.ind_cc1)
-    ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), mpcc.meta.ind_cc2)
+    ind_cc1 = copy(mpcc.meta.ind_cc1)
+    ind_cc2 = copy(mpcc.meta.ind_cc2)
+    _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
+    ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
+    ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
     return solver = MadNLPCSolver(
         mpcc,
         rnlp,
@@ -190,6 +207,8 @@ function MadNLPCSolver(
         0.0,
         multipliers_cc1,
         multipliers_cc2,
+        ind_cc1,
+        ind_cc2,
         ind_cc1_lb,
         ind_cc2_lb,
         x,

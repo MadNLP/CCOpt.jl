@@ -148,10 +148,8 @@ function solve_homotopy!(
         end
         # possibly fix complementarity variable upper bounds:
         if solver.opts.respect_comp_bounds
-            MadNLP.variable(ipm.xl)[solver.mpcc.meta.ind_cc1] .=
-                solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc1]
-            MadNLP.variable(ipm.xl)[solver.mpcc.meta.ind_cc2] .=
-                solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2]
+            MadNLP.variable(ipm.xl)[solver.ind_cc1] .= solver.mpcc.meta.lvar[solver.ind_cc1]
+            MadNLP.variable(ipm.xl)[solver.ind_cc2] .= solver.mpcc.meta.lvar[solver.ind_cc2]
         end
 
         while ipm.status >= MadNLP.REGULAR
@@ -226,8 +224,8 @@ function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
         x_vec = MadNLP.variable(ipm.x)
         s_vec = MadNLP.slack(ipm.x)
         sigma_0 = ipm.opt.barrier.mu_init
-        ind_cc1 = mpcc.meta.ind_cc1
-        ind_cc2 = mpcc.meta.ind_cc2
+        ind_cc1 = solver.ind_cc1
+        ind_cc2 = solver.ind_cc2
         ncc = mpcc.meta.ncc
         x_vec[ind_cc1] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc1]
         x_vec[ind_cc2] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc2]
@@ -389,12 +387,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ncc = mpcc.meta.ncc
             𝜅 = solver.opts.magic_step_kappa
             @views project_scholtes_explicit!(
-                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-                MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-                MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
-                MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+                MadNLP.variable(ipm.x)[solver.ind_cc1],
+                MadNLP.variable(ipm.x)[solver.ind_cc2],
+                MadNLP.variable(ipm.x)[solver.ind_cc1],
+                MadNLP.variable(ipm.x)[solver.ind_cc2],
+                MadNLP.variable(ipm.xl)[solver.ind_cc1],
+                MadNLP.variable(ipm.xl)[solver.ind_cc2],
                 𝜅,
                 get_relaxation(solver.rnlp),
             )
@@ -402,13 +400,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             # TODO(@anton) throwing away the multiplier information is probably incorrect
             #              but doing it correctly seems nontrivial
             if solver.opts.magic_step_duals
-                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc1] = @views ipm.mu ./ (
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] .-
-                    MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1]
+                MadNLP.variable(ipm.zl)[solver.ind_cc1] = @views ipm.mu ./ (
+                    MadNLP.variable(ipm.x)[solver.ind_cc1] .-
+                    MadNLP.variable(ipm.xl)[solver.ind_cc1]
                 )
-                MadNLP.variable(ipm.zl)[mpcc.meta.ind_cc2] = @views ipm.mu ./ (
-                    MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] .-
-                    MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2]
+                MadNLP.variable(ipm.zl)[solver.ind_cc2] = @views ipm.mu ./ (
+                    MadNLP.variable(ipm.x)[solver.ind_cc2] .-
+                    MadNLP.variable(ipm.xl)[solver.ind_cc2]
                 )
             end
             if solver.opts.magic_step_slack
@@ -420,8 +418,8 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             log_iter(solver.iterate_logger, solver; magic=true)
         end
         if mu_updated && solver.opts.reset_slacks_on_update
-            ind_cc1 = mpcc.meta.ind_cc1
-            ind_cc2 = mpcc.meta.ind_cc2
+            ind_cc1 = solver.ind_cc1
+            ind_cc2 = solver.ind_cc2
             ncc = mpcc.meta.ncc
             @views begin
                 x1 = MadNLP.variable(solver.ipm.x)[ind_cc1]
@@ -485,12 +483,14 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     # TODO(@anton) we probably want to return a custom stats object which returns the correct statuses etc.
     ipm = solver.ipm
     n, m = NLPModels.get_nvar(ipm.nlp), solver.mpcc.meta.ncon
+    ncc = solver.mpcc.meta.ncc
 
     stats.status = solver.ipm.status
-    stats.solution .= @view(MadNLP.primal(ipm.x)[1:n])
-    stats.multipliers .= ipm.y[1:m]
-    stats.multipliers_L .= @view(MadNLP.primal(ipm.zl)[1:n])
-    stats.multipliers_U .= @view(MadNLP.primal(ipm.zu)[1:n])
+    MadNLP.unpack_x!(stats.solution, ipm.cb, MadNLP.variable(ipm.x))
+    MadNLP.unpack_y!(stats.multipliers, ipm.cb, ipm.y)
+    MadNLP.unpack_z!(stats.multipliers_L, ipm.cb, MadNLP.variable(ipm.zl))
+    MadNLP.unpack_z!(stats.multipliers_U, ipm.cb, MadNLP.variable(ipm.zu))
+
     MadNLP.update_z!(
         ipm.cb,
         stats.solution,
@@ -500,10 +500,23 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
         ipm.jacl,
     )
 
-    stats.objective = ipm.obj_val / ipm.cb.obj_scale[]
-    stats.constraints .= ipm.c[1:m] ./ ipm.cb.con_scale[1:m] .+ ipm.rhs[1:m]
-    ind_ind_ineq = ipm.ind_ineq .∈ [1:m]
-    stats.constraints[ipm.ind_ineq[ind_ind_ineq]] .+= MadNLP.slack(ipm.x)[ind_ind_ineq]
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
+    @views begin
+        stats.multipliers_x1 =
+            stats.multipliers_L[ind_cc1] .-
+            stats.multipliers[(m+1):end] .* stats.solution[ind_cc2]
+        stats.multipliers_x2 =
+            stats.multipliers_L[ind_cc2] .-
+            stats.multipliers[(m+1):end] .* stats.solution[ind_cc1]
+    end
+    stats.objective = MadNLP.unpack_obj(ipm.cb, ipm.obj_val)
+    MadNLP.unpack_cons!(stats.constraints, ipm.cb, ipm.c)
+    stats.constraints .+= ipm.rhs
+    stats.constraints[ipm.ind_ineq] .+= MadNLP.slack(ipm.x)
+    # Cut out scholtes constraints now we don't need them to calculate multipliers
+    resize!(stats.multipliers, m)
+    resize!(stats.constraints, m)
     stats.dual_feas = ipm.inf_du
     stats.primal_feas = ipm.inf_pr
     stats.iter = ipm.cnt.k
