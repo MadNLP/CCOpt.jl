@@ -500,15 +500,15 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
         ipm.jacl,
     )
 
-    ind_cc1 = solver.ind_cc1
-    ind_cc2 = solver.ind_cc2
+    ind_cc1 = solver.mpcc.meta.ind_cc1
+    ind_cc2 = solver.mpcc.meta.ind_cc2
     @views begin
         stats.multipliers_x1 =
             stats.multipliers_L[ind_cc1] .-
-            stats.multipliers[(m+1):end] .* stats.solution[ind_cc2]
+            stats.multipliers[(m+1):end] .* (stats.solution[ind_cc2] - solver.mpcc.meta.lvar[ind_cc2])
         stats.multipliers_x2 =
             stats.multipliers_L[ind_cc2] .-
-            stats.multipliers[(m+1):end] .* stats.solution[ind_cc1]
+            stats.multipliers[(m+1):end] .* (stats.solution[ind_cc1] - solver.mpcc.meta.lvar[ind_cc1])]
     end
     stats.objective = MadNLP.unpack_obj(ipm.cb, ipm.obj_val)
     MadNLP.unpack_cons!(stats.constraints, ipm.cb, ipm.c)
