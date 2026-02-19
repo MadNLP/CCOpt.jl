@@ -59,7 +59,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     ind_lin_lift_var::IndexSet =
         [nlp.meta.nvar+i for i in 1:nlift if ind_lift[i] ∈ nlp.meta.lin]
     ind_nln_lift_var::IndexSet =
-        [nlp.meta.nvar+i for i in 1:nlift if ind_lift[1] ∈ nlp.meta.nln]
+        [nlp.meta.nvar+i for i in 1:nlift if ind_lift[i] ∈ nlp.meta.nln]
 
     # add variable bounds for slacks and set initial value to the residual
     lvar = vcat(nlp.meta.lvar, nlp.meta.lcon[ind_lift])

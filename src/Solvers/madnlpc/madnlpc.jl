@@ -157,7 +157,7 @@ function solve_homotopy!(
             ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
             ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
         end
-        solver.x .= MadNLP.variable(ipm.x)
+        MadNLP.unpack_x!(solver.x, ipm.cb, MadNLP.variable(ipm.x))
     catch e
         if e isa MadNLP.InvalidNumberException
             if e.callback == :obj
@@ -227,8 +227,10 @@ function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
         ind_cc1 = solver.ind_cc1
         ind_cc2 = solver.ind_cc2
         ncc = mpcc.meta.ncc
-        x_vec[ind_cc1] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc1]
-        x_vec[ind_cc2] .= opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[ind_cc2]
+        x_vec[ind_cc1] .=
+            opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[mpcc.meta.ind_cc1]
+        x_vec[ind_cc2] .=
+            opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[mpcc.meta.ind_cc2]
         s_vec[(end-ncc+1):end] .= -sqrt(2*(1-opts.centering_factor*sigma_0))
     end
 end
@@ -312,7 +314,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
-
+        MadNLP.@trace(ipm.logger, "Current x = $(MadNLP.variable(ipm.x))")
         # Set σ to zero for constraint infeasibility calculations
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
@@ -505,11 +507,11 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     @views begin
         stats.multipliers_x1 =
             stats.multipliers_L[ind_cc1] .-
-            stats.multipliers[(m+1):end] .*
+            stats.multipliers[(end-ncc+1):end] .*
             (stats.solution[ind_cc2] - solver.mpcc.meta.lvar[ind_cc2])
         stats.multipliers_x2 =
             stats.multipliers_L[ind_cc2] .-
-            stats.multipliers[(m+1):end] .*
+            stats.multipliers[(end-ncc+1):end] .*
             (stats.solution[ind_cc1] - solver.mpcc.meta.lvar[ind_cc1])
     end
     stats.objective = MadNLP.unpack_obj(ipm.cb, ipm.obj_val)

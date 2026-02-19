@@ -390,7 +390,6 @@ function MPCCModel(
 )
     ncc = length(ind_cc1)
     nvar = nlp.meta.nvar
-    ind_var1 = [ind_cc1[i] for i in 1:ncc if cc_types[i]∈[ConVar, ConCon]]
 
     ind_lift1::IndexSet = [i for i in 1:ncc if cc_types[i]∈[ConVar, ConCon]]
     ind_lift2::IndexSet = [i for i in 1:ncc if cc_types[i]∈[VarCon, ConCon]]

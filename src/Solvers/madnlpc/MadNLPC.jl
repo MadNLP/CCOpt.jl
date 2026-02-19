@@ -193,7 +193,11 @@ function MadNLPCSolver(
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1 = copy(mpcc.meta.ind_cc1)
     ind_cc2 = copy(mpcc.meta.ind_cc2)
+    println("ind_cc1_orig: $(ind_cc1)")
+    println("ind_cc2_orig: $(ind_cc2)")
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
+    println("ind_cc1: $(ind_cc1)")
+    println("ind_cc2: $(ind_cc2)")
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
     return solver = MadNLPCSolver(

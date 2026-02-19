@@ -18,9 +18,18 @@ mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
 end
 
 function MadNLPCExecutionStats(solver::MadNLPCSolver)
+    n, m = get_nvar(solver.rnlp), get_ncon(solver.rnlp)
+    ncc = solver.mpcc.meta.ncc
+    VT = typeof(get_x0(solver.rnlp))
+    x = similar(VT, n)
+    zl = similar(VT, n)
+    zu = similar(VT, n)
+    zx1 = similar(VT, ncc)
+    zx2 = similar(VT, ncc)
+    c = similar(VT, m)
+    y = similar(VT, m)
     n = MadNLP.get_nvar(solver.ipm.nlp)
     m = solver.mpcc.meta.ncon
-    ncc = solver.mpcc.meta.ncc
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
 
@@ -28,20 +37,18 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
         solver.ipm.opt,
         solver.opts,
         solver.ipm.status,
-        solver.ipm.obj_val,
-        MadNLP.primal(solver.ipm.x)[1:n],
-        solver.ipm.c,
-        solver.ipm.y,
-        MadNLP.primal(solver.ipm.zl)[1:n],
-        MadNLP.primal(solver.ipm.zu)[1:n],
-        MadNLP.primal(solver.ipm.zl)[ind_cc1] .-
-        solver.ipm.y[(m+1):end] .* MadNLP.primal(solver.ipm.x)[ind_cc2],
-        MadNLP.primal(solver.ipm.zl)[ind_cc2] .-
-        solver.ipm.y[(m+1):end] .* MadNLP.primal(solver.ipm.x)[ind_cc1],
+        MadNLP.unpack_obj(solver.ipm.cb, solver.ipm.obj_val),
+        x,
+        c,
+        y,
+        zl,
+        zu,
+        zx1,
+        zx2,
         solver.ipm.inf_du,
         solver.ipm.inf_pr,
         solver.inf_pr_cc,
-        solver.ipm.cnt.k,
+        0,
         solver.cnt,
     )
 end
