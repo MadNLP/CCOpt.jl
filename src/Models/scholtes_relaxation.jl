@@ -9,6 +9,7 @@ struct ScholtesRelaxation{T, VT, MT <: AbstractMPCCModel{T, VT}} <:
     δ1opt::VT
     δ2::VT
     δ2opt::VT
+    counters::NLPModels.Counters
 end
 
 function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -55,7 +56,7 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     δ1opt = zeros(T, get_ncc(mpcc))
     δ2 = zeros(T, get_ncc(mpcc))
     δ2opt = zeros(T, get_ncc(mpcc))
-    return ScholtesRelaxation(mpcc, meta, σ, σopt, δ1, δ1opt, δ2, δ2opt)
+    return ScholtesRelaxation(mpcc, meta, σ, σopt, δ1, δ1opt, δ2, δ2opt, mpcc.counters)
 end
 
 # Counters should be forwarded

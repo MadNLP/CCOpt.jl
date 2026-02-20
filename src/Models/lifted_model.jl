@@ -19,30 +19,14 @@ struct LiftedNLPModelMeta{T, VT, MT <: AbstractNLPModelMeta{T, VT}} <:
     nln_nlift::Int
 end
 
-# function Base.getproperty(meta::LiftedNLPModelMeta, sym::Symbol)
-#     if sym ∈ fieldnames(LiftedNLPModelMeta) # NOTE: This is either elegant or EXTREMELY not, depending on how "static" the field names are
-#         getfield(meta, sym)
-#     else
-#         getproperty(meta.parent, sym)
-#     end
-# end
-
 ######################### LiftedNLPModel Definition #########################
 # TODO(@anton) should this be a mutable struct
 struct LiftedNLPModel{T, VT, NLP <: AbstractNLPModel{T, VT}, NMT} <: AbstractNLPModel{T, VT}
     nlp::NLP
 
     meta::LiftedNLPModelMeta{T, VT, NMT}
+    counters::NLPModels.Counters
 end
-
-# Counters should be forwarded
-# function Base.getproperty(lnlp::LiftedNLPModel, sym::Symbol)
-#     if sym ∈ [:counters]
-#         getproperty(lnlp.nlp, sym)
-#     else
-#         getfield(lnlp, sym)
-#     end
-# end
 
 function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
     # Get indicies for lin/nln
@@ -105,7 +89,7 @@ function LiftedNLPModel(nlp::AbstractNLPModel, ind_lift::IndexSet)
         nln_nlift,
     )
 
-    return LiftedNLPModel(nlp, meta)
+    return LiftedNLPModel(nlp, meta, nlp.counters)
 end
 
 ######################### NLPModels API Implementation #########################

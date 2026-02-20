@@ -35,6 +35,7 @@ mutable struct MPCCModel{T, VT, NLP <: NLPModels.AbstractNLPModel{T, VT}, NMT} <
     const _i2::IndexSet # [nlp.nnzj]
     const _cc1::VT      # [ncc]
     const _cc2::VT      # [ncc]
+    const counters::NLPModels.Counters
 end
 
 ######################### Helper functions for MPCCModel #########################
@@ -133,7 +134,7 @@ function MPCCModelVarVar(
     _cc1 = VT(undef, ncc)
     _cc2 = VT(undef, ncc)
 
-    return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2)
+    return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2, nlp.counters)
 end
 
 # Constructor
@@ -255,7 +256,7 @@ function MPCCModelConCon(
     _cc1 = VT(undef, ncc)
     _cc2 = VT(undef, ncc)
 
-    return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2)
+    return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2, nlp.counters)
 end
 
 # Constructor
@@ -378,7 +379,7 @@ function MPCCModelVarCon(
     _cc1 = VT(undef, ncc)
     _cc2 = VT(undef, ncc)
 
-    return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2)
+    return MPCCModel(nlp, meta, _c1, _j1, _i1, _i2, _cc1, _cc2, nlp.counters)
 end
 
 # Verticalize generic CC types. Returns a vertical form MPCC
