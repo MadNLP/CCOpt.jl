@@ -328,11 +328,11 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     pnlp = solver.pnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
-    ncc = solver.mpcc.meta.ncc
-    nnzh = solver.mpcc.meta.nnzh
+    ncc = get_ncc(solver.mpcc)
+    nnzh = get_nnzh(solver.mpcc)
     rho = solver.pnlp.rho[]
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ind_cc1 = get_ind_cc1(solver.mpcc)
+    ind_cc2 = get_ind_cc2(solver.mpcc)
     A = Array{T}(undef, 2, 2)
     regularized = false
     for i in 1:ncc
@@ -378,11 +378,11 @@ function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     pnlp = solver.pnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
-    ncc = solver.mpcc.meta.ncc
-    nnzh = solver.mpcc.meta.nnzh
+    ncc = get_ncc(solver.mpcc)
+    nnzh = get_nnzh(solver.mpcc)
     rho = cb.obj_scale[]*solver.pnlp.rho[]
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ind_cc1 = get_ind_cc1(solver.mpcc)
+    ind_cc2 = get_ind_cc2(solver.mpcc)
     A = Array{T}(undef, 2, 2)
     regularized = false
     kkt.pr_diag[ind_cc1] .-= kkt.reg[ind_cc1]

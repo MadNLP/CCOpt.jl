@@ -5,7 +5,7 @@
         solver =
             MadMPEC.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
-        copyto!(mpcc.meta.x0, [2; 1])
+        copyto!(get_x0(mpcc), [2; 1])
 
         stats = MadMPEC.solve_homotopy!(solver)
 
@@ -21,7 +21,7 @@
         solver =
             MadMPEC.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
-        copyto!(mpcc.meta.x0, [2; 1])
+        copyto!(get_x0(mpcc), [2; 1])
 
         stats = MadMPEC.solve_homotopy!(solver)
 

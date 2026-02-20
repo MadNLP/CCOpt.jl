@@ -134,23 +134,29 @@ end
 end
 
 # MadNLP-C algorithm
-mutable struct MadNLPCSolver{T, VT}
-    mpcc::AbstractMPCCModel{T, VT}
-    rnlp::AbstractMPCCRelaxation{T, VT}
-    ipm::MadNLP.MadNLPSolver{T, VT}
-    logger::MadNLP.MadNLPLogger
-    iterate_logger::IterateLogger
-    opts::MadNLPCOptions{T}
-    cnt::MadNLPCCounters
+mutable struct MadNLPCSolver{
+    T,
+    VT,
+    MPCC <: AbstractMPCCModel{T, VT},
+    RNLP <: AbstractMPCCRelaxation{T, VT},
+    SOLVER <: MadNLP.MadNLPSolver{T, VT},
+}
+    const mpcc::MPCC
+    const rnlp::RNLP
+    const ipm::SOLVER
+    const logger::MadNLP.MadNLPLogger
+    const iterate_logger::IterateLogger
+    const opts::MadNLPCOptions{T}
+    const cnt::MadNLPCCounters
     inf_pr_cc::T
-    multipliers_cc1::VT
-    multipliers_cc2::VT
-    ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
-    ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
-    ind_cc1_lb::Vector{Int}
-    ind_cc2_lb::Vector{Int}
-    x::VT
-    b::Vector{Bool}
+    const multipliers_cc1::VT
+    const multipliers_cc2::VT
+    const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
+    const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
+    const ind_cc1_lb::Vector{Int}
+    const ind_cc2_lb::Vector{Int}
+    const x::VT
+    const b::Vector{Bool}
 end
 
 # TODO(@anton) fix this to be nonquadratic I guess
@@ -185,14 +191,14 @@ function MadNLPCSolver(
              open(solver_opts.iterates_fname, "w+"),
     )
 
-    x = VT(undef, mpcc.meta.nvar)
-    multipliers_cc1 = VT(undef, mpcc.meta.ncc)
-    multipliers_cc2 = VT(undef, mpcc.meta.ncc)
-    b = Vector{Bool}(undef, mpcc.meta.ncc)
+    x = VT(undef, get_nvar(mpcc))
+    multipliers_cc1 = VT(undef, get_ncc(mpcc))
+    multipliers_cc2 = VT(undef, get_ncc(mpcc))
+    b = Vector{Bool}(undef, get_ncc(mpcc))
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
-    ind_cc1 = copy(mpcc.meta.ind_cc1)
-    ind_cc2 = copy(mpcc.meta.ind_cc2)
+    ind_cc1 = copy(get_ind_cc1(mpcc))
+    ind_cc2 = copy(get_ind_cc2(mpcc))
     println("ind_cc1_orig: $(ind_cc1)")
     println("ind_cc2_orig: $(ind_cc2)")
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)

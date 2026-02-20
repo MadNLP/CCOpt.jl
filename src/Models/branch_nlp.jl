@@ -14,11 +14,11 @@ function BranchNLP(mpcc::AbstractMPCCModel{T, VT}, b::Vector{Bool}) where {T, VT
     end
 
     # Update only the variable bounds
-    uvar = copy(mpcc.meta.uvar)
+    uvar = copy(get_uvar(mpcc))
 
-    uvar[mpcc.meta.ind_cc1[.!b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc1[.!b]]
-    uvar[mpcc.meta.ind_cc2[b]] .= mpcc.meta.lvar[mpcc.meta.ind_cc2[b]]
-    x0=copy(mpcc.meta.x0)
+    uvar[get_ind_cc1(mpcc)[.!b]] .= get_lvar(mpcc)[get_ind_cc1(mpcc)[.!b]]
+    uvar[get_ind_cc2(mpcc)[b]] .= get_lvar(mpcc)[get_ind_cc2(mpcc)[b]]
+    x0=copy(get_x0(mpcc))
     # Copy x0 so changing BNLP x0 does not change mpcc x0
     meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, uvar=uvar, x0=x0)
     return BranchNLP(mpcc, meta, b)
@@ -45,7 +45,7 @@ function NLPModels.objgrad!(bnlp::BranchNLP, x::AbstractVector, g::AbstractVecto
 end
 
 function NLPModels.cons!(bnlp::BranchNLP, x::AbstractVector, cx::AbstractVector)
-    mpcc_ncon = bnlp.mpcc.meta.ncon
+    mpcc_ncon = get_ncon(bnlp.mpcc)
     if get_ncon(bnlp.mpcc.nlp) > 0
         cons!(bnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end

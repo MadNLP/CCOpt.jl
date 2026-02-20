@@ -17,7 +17,7 @@ function MadNLP.set_aug_diagonal!(
 ) where {T, VT}
     ipm = solver.ipm
     n = length(ipm.x_ur)
-    ncc = ipm.nlp.mpcc.meta.ncc
+    ncc = get_ncc(ipm.nlp.mpcc)
 
     fill!(kkt.reg, zero(T))
     fill!(kkt.du_diag, zero(T))
@@ -64,7 +64,7 @@ function MadNLP.set_aug_diagonal!(
 ) where {T, VT}
     ipm = solver.ipm
     n = length(ipm.x_ur)
-    ncc = ipm.nlp.mpcc.meta.ncc
+    ncc = get_ncc(ipm.nlp.mpcc)
 
     fill!(kkt.reg, zero(T))
     fill!(kkt.du_diag, zero(T))
@@ -148,8 +148,8 @@ function solve_homotopy!(
         end
         # possibly fix complementarity variable upper bounds:
         if solver.opts.respect_comp_bounds
-            MadNLP.variable(ipm.xl)[solver.ind_cc1] .= solver.mpcc.meta.lvar[solver.ind_cc1]
-            MadNLP.variable(ipm.xl)[solver.ind_cc2] .= solver.mpcc.meta.lvar[solver.ind_cc2]
+            MadNLP.variable(ipm.xl)[solver.ind_cc1] .= get_lvar(solver.mpcc)[solver.ind_cc1]
+            MadNLP.variable(ipm.xl)[solver.ind_cc2] .= get_lvar(solver.mpcc)[solver.ind_cc2]
         end
 
         while ipm.status >= MadNLP.REGULAR
@@ -226,11 +226,11 @@ function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
         sigma_0 = ipm.opt.barrier.mu_init
         ind_cc1 = solver.ind_cc1
         ind_cc2 = solver.ind_cc2
-        ncc = mpcc.meta.ncc
+        ncc = get_ncc(mpcc)
         x_vec[ind_cc1] .=
-            opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[mpcc.meta.ind_cc1]
+            opts.centering_factor*sqrt(sigma_0) .+ get_lvar(mpcc)[get_ind_cc1(mpcc)]
         x_vec[ind_cc2] .=
-            opts.centering_factor*sqrt(sigma_0) .+ mpcc.meta.lvar[mpcc.meta.ind_cc2]
+            opts.centering_factor*sqrt(sigma_0) .+ get_lvar(mpcc)[get_ind_cc2(mpcc)]
         s_vec[(end-ncc+1):end] .= -sqrt(2*(1-opts.centering_factor*sigma_0))
     end
 end
@@ -321,7 +321,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         ipm.inf_pr =
-            max(MadNLP.get_inf_pr(@view(ipm.c[1:mpcc.meta.ncon])), solver.inf_pr_cc)
+            max(MadNLP.get_inf_pr(@view(ipm.c[1:get_ncon(mpcc)])), solver.inf_pr_cc)
         ipm.inf_du = MadNLP.get_inf_du(
             MadNLP.full(ipm.f),
             MadNLP.full(ipm.zl),
@@ -386,7 +386,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
 
         if mu_updated && solver.opts.use_magic_step
-            ncc = mpcc.meta.ncc
+            ncc = get_ncc(mpcc)
             𝜅 = solver.opts.magic_step_kappa
             @views project_scholtes_explicit!(
                 MadNLP.variable(ipm.x)[solver.ind_cc1],
@@ -422,7 +422,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         if mu_updated && solver.opts.reset_slacks_on_update
             ind_cc1 = solver.ind_cc1
             ind_cc2 = solver.ind_cc2
-            ncc = mpcc.meta.ncc
+            ncc = get_ncc(mpcc)
             @views begin
                 x1 = MadNLP.variable(solver.ipm.x)[ind_cc1]
                 x2 = MadNLP.variable(solver.ipm.x)[ind_cc2]
@@ -484,8 +484,8 @@ end
 function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) where {T, VT}
     # TODO(@anton) we probably want to return a custom stats object which returns the correct statuses etc.
     ipm = solver.ipm
-    n, m = NLPModels.get_nvar(ipm.nlp), solver.mpcc.meta.ncon
-    ncc = solver.mpcc.meta.ncc
+    n, m = NLPModels.get_nvar(ipm.nlp), get_ncon(solver.mpcc)
+    ncc = get_ncc(solver.mpcc)
 
     stats.status = solver.ipm.status
     MadNLP.unpack_x!(stats.solution, ipm.cb, MadNLP.variable(ipm.x))
@@ -502,17 +502,17 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
         ipm.jacl,
     )
 
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ind_cc1 = get_ind_cc1(solver.mpcc)
+    ind_cc2 = get_ind_cc2(solver.mpcc)
     @views begin
         stats.multipliers_x1 =
             stats.multipliers_L[ind_cc1] .-
             stats.multipliers[(end-ncc+1):end] .*
-            (stats.solution[ind_cc2] - solver.mpcc.meta.lvar[ind_cc2])
+            (stats.solution[ind_cc2] - get_lvar(solver.mpcc)[ind_cc2])
         stats.multipliers_x2 =
             stats.multipliers_L[ind_cc2] .-
             stats.multipliers[(end-ncc+1):end] .*
-            (stats.solution[ind_cc1] - solver.mpcc.meta.lvar[ind_cc1])
+            (stats.solution[ind_cc1] - get_lvar(solver.mpcc)[ind_cc1])
     end
     stats.objective = MadNLP.unpack_obj(ipm.cb, ipm.obj_val)
     MadNLP.unpack_cons!(stats.constraints, ipm.cb, ipm.c)

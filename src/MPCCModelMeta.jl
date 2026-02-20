@@ -43,10 +43,10 @@ struct MPCCModelMeta{T, VT, MT <: AbstractNLPModelMeta{T, VT}} <:
     ind_j_nln_row_map::Dict{Int, Int}
 end
 
-function Base.getproperty(meta::MPCCModelMeta, sym::Symbol)
-    if sym ∈ fieldnames(MPCCModelMeta) # NOTE: This is either elegant or EXTREMELY not, depending on how "static" the field names are
-        getfield(meta, sym)
-    else
-        getproperty(meta.nlp_meta[], sym)
-    end
-end
+# function Base.getproperty(meta::MPCCModelMeta, sym::Symbol)
+#     if sym ∈ fieldnames(MPCCModelMeta) # NOTE: This is either elegant or EXTREMELY not, depending on how "static" the field names are
+#         getfield(meta, sym)
+#     else
+#         getproperty(meta.nlp_meta[], sym)
+#     end
+# end

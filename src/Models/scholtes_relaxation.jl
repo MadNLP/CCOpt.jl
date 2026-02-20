@@ -1,6 +1,7 @@
 ######################### Scholtes Relaxation #########################
-struct ScholtesRelaxation{T, VT} <: AbstractMPCCRelaxation{T, VT}
-    mpcc::AbstractMPCCModel{T, VT}
+struct ScholtesRelaxation{T, VT, MT <: AbstractMPCCModel{T, VT}} <:
+       AbstractMPCCRelaxation{T, VT}
+    mpcc::MT
     meta::NLPModels.NLPModelMeta{T, VT}
     σ::VT
     σopt::VT
@@ -20,20 +21,20 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     end
 
     # Update only what needs to be updated
-    ncon = mpcc.meta.ncon + mpcc.meta.ncc
-    lcon = vcat(mpcc.meta.lcon, -typemax(T)*ones(T, mpcc.meta.ncc))
-    ucon = vcat(mpcc.meta.ucon, zeros(T, mpcc.meta.ncc))
-    y0 = vcat(mpcc.meta.y0, zeros(T, mpcc.meta.ncc))
+    ncon = get_ncon(mpcc) + get_ncc(mpcc)
+    lcon = vcat(get_lcon(mpcc), -typemax(T)*ones(T, get_ncc(mpcc)))
+    ucon = vcat(get_ucon(mpcc), zeros(T, get_ncc(mpcc)))
+    y0 = vcat(get_y0(mpcc), zeros(T, get_ncc(mpcc)))
     # TODO(@anton) this is a lower bound only accurate for vertical form: we can calculate this exactly if we store
     #              the nnz for the jacobians of G, and H, which we now do.
-    nnzj = mpcc.meta.nnzj + 2*mpcc.meta.ncc
-    nln_nnzj = mpcc.meta.nln_nnzj + 2*mpcc.meta.ncc # All the nln values are
+    nnzj = get_nnzj(mpcc) + 2*get_ncc(mpcc)
+    nln_nnzj = get_nln_nnzj(mpcc) + 2*get_ncc(mpcc) # All the nln values are
 
     # TODO(@anton) this is a bug actually. we need to check the structure of the mpcc (and the underlying nlp) to
     #              figure out if the nnzh is correct as if the off diagonals are not already in the nonzeros.
     #
     # TODO(@anton) This may or may not break the assumptions made by show(::NLPModelMeta)
-    nnzh = mpcc.meta.nnzh + mpcc.meta.ncc
+    nnzh = get_nnzh(mpcc) + get_ncc(mpcc)
     # TODO(@anton) We may need to change how nlv(b,o,c) are handled because we actually cannot
     #              backcalculate how these need to change necessarily.
     #              However these seem to not be used anywhere in the NLPModels API so I am ignoring them.
@@ -48,23 +49,23 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
     )
-    σ = zeros(T, mpcc.meta.ncc)
-    σopt = zeros(T, mpcc.meta.ncc)
-    δ1 = zeros(T, mpcc.meta.ncc)
-    δ1opt = zeros(T, mpcc.meta.ncc)
-    δ2 = zeros(T, mpcc.meta.ncc)
-    δ2opt = zeros(T, mpcc.meta.ncc)
+    σ = zeros(T, get_ncc(mpcc))
+    σopt = zeros(T, get_ncc(mpcc))
+    δ1 = zeros(T, get_ncc(mpcc))
+    δ1opt = zeros(T, get_ncc(mpcc))
+    δ2 = zeros(T, get_ncc(mpcc))
+    δ2opt = zeros(T, get_ncc(mpcc))
     return ScholtesRelaxation(mpcc, meta, σ, σopt, δ1, δ1opt, δ2, δ2opt)
 end
 
 # Counters should be forwarded
-function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
-    if sym ∈ [:counters]
-        getproperty(rnlp.mpcc.nlp, sym)
-    else
-        getfield(rnlp, sym)
-    end
-end
+# function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
+#     if sym ∈ [:counters]
+#         getproperty(rnlp.mpcc.nlp, sym)
+#     else
+#         getfield(rnlp, sym)
+#     end
+# end
 
 ######################### NLPModels Callbacks #########################
 NLPModels.obj(rnlp::ScholtesRelaxation, x::AbstractVector) = NLPModels.obj(rnlp.mpcc, x)
@@ -78,11 +79,11 @@ function NLPModels.objgrad!(rnlp::ScholtesRelaxation, x::AbstractVector, g::Abst
 end
 
 function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::AbstractVector)
-    mpcc_ncon = rnlp.mpcc.meta.ncon
+    mpcc_ncon = get_ncon(rnlp.mpcc)
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
-    cx[(mpcc_ncon+1):(rnlp.meta.ncon)] =
+    cx[(mpcc_ncon+1):(get_ncon(rnlp))] =
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
         (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ
     return cx
@@ -105,13 +106,13 @@ function NLPModels.cons_nln!(
     x::AbstractVector,
     cx::AbstractVector,
 )
-    mpcc_nnln = rnlp.mpcc.meta.nnln
+    mpcc_nnln = get_nnln(rnlp.mpcc)
     # This if statement is necessary as it seems that without it c!(cx,x) does not exist in a possible underlying ADNLPModel
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
     end
     # TODO(@anton) figure out if the intermediate outputs cause allocations
-    cx[(mpcc_nnln+1):(rnlp.meta.nnln)] .=
+    cx[(mpcc_nnln+1):(get_nnln(rnlp))] .=
         (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
         (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ
     return cx
@@ -124,17 +125,17 @@ function NLPModels.jac_structure!(
 )
     @views jac_structure!(
         rnlp.mpcc,
-        rows[1:rnlp.mpcc.meta.nnzj],
-        cols[1:rnlp.mpcc.meta.nnzj],
+        rows[1:get_nnzj(rnlp.mpcc)],
+        cols[1:get_nnzj(rnlp.mpcc)],
     ) # get including complementarities
 
-    for i in 1:rnlp.mpcc.meta.ncc
-        rows[i+rnlp.mpcc.meta.nnzj] = i + rnlp.mpcc.meta.ncon
-        cols[i+rnlp.mpcc.meta.nnzj] = rnlp.mpcc.meta.ind_cc1[i]
+    for i in 1:get_ncc(rnlp.mpcc)
+        rows[i+get_nnzj(rnlp.mpcc)] = i + get_ncon(rnlp.mpcc)
+        cols[i+get_nnzj(rnlp.mpcc)] = get_ind_cc1(rnlp.mpcc)[i]
     end
-    for i in 1:rnlp.mpcc.meta.ncc
-        rows[i+rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc] = i + rnlp.mpcc.meta.ncon
-        cols[i+rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc] = rnlp.mpcc.meta.ind_cc2[i]
+    for i in 1:get_ncc(rnlp.mpcc)
+        rows[i+get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = i + get_ncon(rnlp.mpcc)
+        cols[i+get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = get_ind_cc2(rnlp.mpcc)[i]
     end
 
     return rows, cols
@@ -156,17 +157,17 @@ function NLPModels.jac_nln_structure!(
 )
     @views jac_nln_structure!(
         rnlp.mpcc,
-        rows[1:rnlp.mpcc.meta.nln_nnzj],
-        cols[1:rnlp.mpcc.meta.nln_nnzj],
+        rows[1:get_nln_nnzj(rnlp.mpcc)],
+        cols[1:get_nln_nnzj(rnlp.mpcc)],
     ) # get including complementarities
 
-    for i in 1:rnlp.mpcc.meta.ncc
-        rows[i+rnlp.mpcc.meta.nln_nnzj] = i + rnlp.mpcc.meta.nnln
-        cols[i+rnlp.mpcc.meta.nln_nnzj] = rnlp.mpcc.meta.ind_cc1[i]
+    for i in 1:get_ncc(rnlp.mpcc)
+        rows[i+get_nln_nnzj(rnlp.mpcc)] = i + get_nnln(rnlp.mpcc)
+        cols[i+get_nln_nnzj(rnlp.mpcc)] = get_ind_cc1(rnlp.mpcc)[i]
     end
-    for i in 1:rnlp.mpcc.meta.ncc
-        rows[i+rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc] = i + rnlp.mpcc.meta.nnln
-        cols[i+rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc] = rnlp.mpcc.meta.ind_cc2[i]
+    for i in 1:get_ncc(rnlp.mpcc)
+        rows[i+get_nln_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = i + get_nnln(rnlp.mpcc)
+        cols[i+get_nln_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = get_ind_cc2(rnlp.mpcc)[i]
     end
 
     return rows, cols
@@ -177,18 +178,20 @@ function NLPModels.jac_coord!(
     x::AbstractVector,
     j::AbstractVector,
 )
-    jac_coord!(rnlp.mpcc, x, @view(j[1:rnlp.mpcc.meta.nnzj]))
+    jac_coord!(rnlp.mpcc, x, @view(j[1:get_nnzj(rnlp.mpcc)]))
 
     comp_res_right!(
         rnlp.mpcc,
         x,
-        @view(j[(rnlp.mpcc.meta.nnzj+1):(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc)])
+        @view(j[(get_nnzj(rnlp.mpcc)+1):(get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc))])
     )
     comp_res_left!(
         rnlp.mpcc,
         x,
         @view(
-            j[(rnlp.mpcc.meta.nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nnzj+2*rnlp.mpcc.meta.ncc)]
+            j[(get_nnzj(rnlp.mpcc)+get_ncc(
+                rnlp.mpcc,
+            )+1):(get_nnzj(rnlp.mpcc)+2*get_ncc(rnlp.mpcc))]
         )
     )
     return j
@@ -207,20 +210,22 @@ function NLPModels.jac_nln_coord!(
     x::AbstractVector,
     jac::AbstractVector,
 )
-    jac_nln_coord!(rnlp.mpcc, x, @view(jac[1:rnlp.mpcc.meta.nln_nnzj]))
+    jac_nln_coord!(rnlp.mpcc, x, @view(jac[1:get_nln_nnzj(rnlp.mpcc)]))
 
     comp_res_right!(
         rnlp.mpcc,
         x,
         @view(
-            jac[(rnlp.mpcc.meta.nln_nnzj+1):(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc)]
+            jac[(get_nln_nnzj(rnlp.mpcc)+1):(get_nln_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc))]
         )
     )
     comp_res_left!(
         rnlp.mpcc,
         x,
         @view(
-            jac[(rnlp.mpcc.meta.nln_nnzj+rnlp.mpcc.meta.ncc+1):(rnlp.mpcc.meta.nln_nnzj+2*rnlp.mpcc.meta.ncc)]
+            jac[(get_nln_nnzj(rnlp.mpcc)+get_ncc(
+                rnlp.mpcc,
+            )+1):(get_nln_nnzj(rnlp.mpcc)+2*get_ncc(rnlp.mpcc))]
         )
     )
     return jac
@@ -233,7 +238,7 @@ function NLPModels.jprod_lin!(
     Jv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jv[1:rnlp.meta.nlin] = jac_lin(rnlp, x) * v
+    Jv[1:get_nlin(rnlp)] = jac_lin(rnlp, x) * v
     return Jv
 end
 
@@ -244,7 +249,7 @@ function NLPModels.jprod_nln!(
     Jv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jv[1:rnlp.meta.nnln] = jac_nln(rnlp, x) * v
+    Jv[1:get_nnln(rnlp)] = jac_nln(rnlp, x) * v
     return Jv
 end
 
@@ -255,7 +260,7 @@ function NLPModels.jtprod_lin!(
     Jtv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jtv[1:rnlp.meta.nvar] = jac_lin(rnlp, x)' * v
+    Jtv[1:get_nvar(rnlp)] = jac_lin(rnlp, x)' * v
     return Jtv
 end
 
@@ -266,7 +271,7 @@ function NLPModels.jtprod_nln!(
     Jtv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jtv[1:rnlp.meta.nvar] = jac_nln(rnlp, x)' * v
+    Jtv[1:get_nvar(rnlp)] = jac_nln(rnlp, x)' * v
     return Jtv
 end
 
@@ -277,14 +282,14 @@ function NLPModels.hess_structure!(
 )
     @views hess_structure!(
         rnlp.mpcc,
-        rows[1:rnlp.mpcc.meta.nnzh],
-        cols[1:rnlp.mpcc.meta.nnzh],
+        rows[1:get_nnzh(rnlp.mpcc)],
+        cols[1:get_nnzh(rnlp.mpcc)],
     )
     # TODO(@anton) it seems hard to vectorize in one operation this because there is no efficient unzip in Base:
     #              See https://github.com/JuliaLang/julia/issues/13942 for details
-    for i in 1:rnlp.mpcc.meta.ncc
-        cols[i+rnlp.mpcc.meta.nnzh], rows[i+rnlp.mpcc.meta.nnzh] =
-            minmax(rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc2[i])
+    for i in 1:get_ncc(rnlp.mpcc)
+        cols[i+get_nnzh(rnlp.mpcc)], rows[i+get_nnzh(rnlp.mpcc)] =
+            minmax(get_ind_cc1(rnlp.mpcc)[i], get_ind_cc2(rnlp.mpcc)[i])
     end
     return rows, cols
 end
@@ -298,12 +303,12 @@ function NLPModels.hess_coord!(
     @views hess_coord!(
         rnlp.mpcc,
         x,
-        y[1:rnlp.mpcc.meta.ncon],
-        H[1:rnlp.mpcc.meta.nnzh];
+        y[1:get_ncon(rnlp.mpcc)],
+        H[1:get_nnzh(rnlp.mpcc)];
         obj_weight=obj_weight,
     )
-    for i in 1:rnlp.mpcc.meta.ncc
-        H[i+rnlp.mpcc.meta.nnzh] = y[i+rnlp.mpcc.meta.ncon]
+    for i in 1:get_ncc(rnlp.mpcc)
+        H[i+get_nnzh(rnlp.mpcc)] = y[i+get_ncon(rnlp.mpcc)]
     end
     return H
 end
@@ -316,12 +321,12 @@ function NLPModels.hprod!(
     Hv::AbstractVector;
     obj_weight::Real=one(T),
 ) where {T, VT}
-    @views hprod!(rnlp.mpcc, x, y[1:rnlp.mpcc.meta.ncon], v, Hv; obj_weight=obj_weight)
-    for i in 1:rnlp.mpcc.meta.ncc
-        Hv[rnlp.mpcc.meta.ind_cc1[i]] +=
-            v[rnlp.mpcc.meta.ind_cc2[i]]*y[i+rnlp.mpcc.meta.ncon]
-        Hv[rnlp.mpcc.meta.ind_cc2[i]] +=
-            v[rnlp.mpcc.meta.ind_cc1[i]]*y[i+rnlp.mpcc.meta.ncon]
+    @views hprod!(rnlp.mpcc, x, y[1:get_ncon(rnlp.mpcc)], v, Hv; obj_weight=obj_weight)
+    for i in 1:get_ncc(rnlp.mpcc)
+        Hv[get_ind_cc1(rnlp.mpcc)[i]] +=
+            v[get_ind_cc2(rnlp.mpcc)[i]]*y[i+get_ncon(rnlp.mpcc)]
+        Hv[get_ind_cc2(rnlp.mpcc)[i]] +=
+            v[get_ind_cc1(rnlp.mpcc)[i]]*y[i+get_ncon(rnlp.mpcc)]
     end
     return Hv
 end

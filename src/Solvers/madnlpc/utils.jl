@@ -19,7 +19,7 @@ end
 
 function MadNLPCExecutionStats(solver::MadNLPCSolver)
     n, m = get_nvar(solver.rnlp), get_ncon(solver.rnlp)
-    ncc = solver.mpcc.meta.ncc
+    ncc = get_ncc(solver.mpcc)
     VT = typeof(get_x0(solver.rnlp))
     x = similar(VT, n)
     zl = similar(VT, n)
@@ -29,7 +29,7 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
     c = similar(VT, m)
     y = similar(VT, m)
     n = MadNLP.get_nvar(solver.ipm.nlp)
-    m = solver.mpcc.meta.ncon
+    m = get_ncon(solver.mpcc)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
 
@@ -67,10 +67,10 @@ function log_iter(
         return nothing
     end
     ipm = solver.ipm
-    ncc = solver.mpcc.meta.ncc
+    ncc = get_ncc(solver.mpcc)
 
     k = ipm.cnt.k
-    x0 = MadNLP.variable(ipm.x)[solver.mpcc.meta.ind_x]
+    x0 = MadNLP.variable(ipm.x)[get_ind_x(solver.mpcc)]
     x1 = MadNLP.variable(ipm.x)[solver.ind_cc1]
     x2 = MadNLP.variable(ipm.x)[solver.ind_cc2]
     s = MadNLP.slack(ipm.x)[(end-ncc+1):end]
@@ -139,9 +139,9 @@ function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
             (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
             max,
             MadNLP.variable(solver.ipm.x)[solver.ind_cc1],
-            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc1],
+            get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
             MadNLP.variable(solver.ipm.x)[solver.ind_cc2],
-            solver.mpcc.meta.lvar[solver.mpcc.meta.ind_cc2];
+            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)];
             init=zero(T),
         )
     )
