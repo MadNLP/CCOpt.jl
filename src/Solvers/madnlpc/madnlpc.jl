@@ -538,7 +538,6 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
     return stats
 end
 
-
 function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
     if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
@@ -549,10 +548,10 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
     rnlp = solver.rnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
-    ncc = solver.mpcc.meta.ncc
-    nnzh = solver.mpcc.meta.nnzh
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ncc = get_ncc(solver.mpcc)
+    nnzh = get_nnzh(solver.mpcc)
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
     A = Array{T}(undef, 2, 2)
     regularized = false
     for i in 1:ncc
@@ -580,10 +579,12 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
             end
         elseif solver.opts.q_regularization == :critical_rho
             ys_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
-            
+
             if ys*scale > ys_max
-                # println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
-                # println("regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[nnzh+i])")
+                println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
+                println(
+                    "regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[nnzh+i])",
+                )
                 #println(kkt.hess_raw.V)
                 kkt.hess_raw.V[nnzh+i] =
                     solver.opts.critical_rho_factor*ys_max*(
@@ -604,17 +605,18 @@ function unregularize_Q!(solver::MadNLPCSolver{T}) where {T}
     rnlp = solver.rnlp
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
-    ncc = solver.mpcc.meta.ncc
-    nnzh = solver.mpcc.meta.nnzh
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ncc = get_ncc(solver.mpcc)
+    nnzh = get_nnzh(solver.mpcc)
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
     A = Array{T}(undef, 2, 2)
     regularized = false
     kkt.pr_diag[ind_cc1] .-= kkt.reg[ind_cc1]
     kkt.pr_diag[ind_cc2] .-= kkt.reg[ind_cc2]
     kkt.reg[ind_cc1] .= 0
     kkt.reg[ind_cc2] .= 0
-    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .= ipm.y[end-ncc+1:end] .* cb.con_scale[end-ncc+1:end] # TODO(@anton): this may allocate
+    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .=
+        ipm.y[(end-ncc+1):end] .* cb.con_scale[(end-ncc+1):end] # TODO(@anton): this may allocate
     # We modify hess_raw so need to compress_hessian again.
     MadNLP.compress_hessian!(kkt)
     return regularized
