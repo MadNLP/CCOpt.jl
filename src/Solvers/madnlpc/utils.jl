@@ -36,7 +36,6 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
     return MadNLPCExecutionStats(
         solver.ipm.opt,
         solver.opts,
-        solver.ipm.opt,
         solver.ipm.status,
         MadNLP.unpack_obj(solver.ipm.cb, solver.ipm.obj_val),
         x,
@@ -56,7 +55,7 @@ end
 
 # TODO(@anton) this is a hack, fix it
 function SolverCore.getStatus(result::MadNLPCExecutionStats)
-    return MadNLP.get_status_output(result.status, result.ipm_options)
+    return MadNLP.get_status_output(result.status, result.options)
 end
 
 function log_iter(
