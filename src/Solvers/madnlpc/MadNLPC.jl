@@ -1,7 +1,6 @@
 @kwdef mutable struct IterateLogger
     file::Union{IOStream, Nothing} = nothing
 end
-
 # Relaxation updates
 abstract type AbstractRelaxationUpdate{T} end
 
@@ -171,7 +170,7 @@ mutable struct MadNLPCSolver{
     const multipliers_cc2_filt::VT
     const prev_delta1::VT
     const prev_delta2::VT
-    const delta_rollback::Bool
+    delta_rollback::Bool
     const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc1_lb::Vector{Int}
@@ -218,17 +217,13 @@ function MadNLPCSolver(
     multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
     multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
     prev_delta1 = VT(undef, get_ncc(mpcc))
-    prev_delta2 = VT(undef, get_ncc(mpcC))
+    prev_delta2 = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
-    println("ind_cc1_orig: $(ind_cc1)")
-    println("ind_cc2_orig: $(ind_cc2)")
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
-    println("ind_cc1: $(ind_cc1)")
-    println("ind_cc2: $(ind_cc2)")
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
     return solver = MadNLPCSolver(

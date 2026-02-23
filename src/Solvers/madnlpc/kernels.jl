@@ -56,14 +56,18 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
     ncon = get_ncon(mpcc)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
+    ind_cc1_orig = mpcc.meta.ind_cc1
+    ind_cc2_orig = mpcc.meta.ind_cc2
     N = solver.opts.mpec_multiplier_filter_history
 
     for ii in 1:ncc
         cc1 = ind_cc1[ii]
         cc2 = ind_cc2[ii]
-        x1 = MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1]
+        cc1_orig = ind_cc1_orig[ii]
+        cc2_orig = ind_cc2_orig[ii]
+        x1 = MadNLP.variable(ipm.x)[cc1] - get_lvar(mpcc)[cc1_orig]
         z1 = MadNLP.variable(ipm.zl)[cc1]
-        x2 = MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2]
+        x2 = MadNLP.variable(ipm.x)[cc2] - get_lvar(mpcc)[cc2_orig]
         z2 = MadNLP.variable(ipm.zl)[cc2]
         zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
 
@@ -102,17 +106,21 @@ function is_relaxation_acceptable(solver, rnlp::ScholtesRelaxation, relax::Relax
     if !relax.reject_steps
         return true
     end
-    ind_cc1 = rnlp.mpcc.meta.ind_cc1
-    ind_cc2 = rnlp.mpcc.meta.ind_cc2
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
+    ind_cc1_orig = rnlp.mpcc.meta.ind_cc1
+    ind_cc2_orig = rnlp.mpcc.meta.ind_cc2
     ncc = rnlp.mpcc.meta.ncc
     acceptable = true
     for ii in 1:ncc
-        cc1=ind_cc1[ii]
-        cc2=ind_cc2[ii]
+        cc1 = ind_cc1[ii]
+        cc2 = ind_cc2[ii]
+        cc1_orig = ind_cc1_orig[ii]
+        cc2_orig = ind_cc2_orig[ii]
         x1 = MadNLP.variable(solver.ipm.x_trial)[cc1]
-        lbx1 = rnlp.mpcc.meta.lvar[cc1]
+        lbx1 = get_lvar(rnlp.mpcc)[cc1_orig]
         x2 = MadNLP.variable(solver.ipm.x_trial)[cc2]
-        lbx2 = rnlp.mpcc.meta.lvar[cc2]
+        lbx2 = get_lvar(rnlp.mpcc)[cc2_orig]
         if x1 < lbx1 - solver.ipm.opt.tol
             rnlp.δ1[ii] = solver.prev_delta1[ii]
             MadNLP.variable(solver.ipm.xl)[cc1] = lbx1 - rnlp.δ1[ii]
