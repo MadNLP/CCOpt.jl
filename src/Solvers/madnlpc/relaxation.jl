@@ -31,7 +31,7 @@ function update_sigma!(
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
-    ncc = mpcc.meta.ncc
+    ncc = get_ncc(mpcc)
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
@@ -111,8 +111,8 @@ function kkt_residual_norm(
     # Reset bounds:
     # NOTE(@anton): HERE BE DRAGONS! Due to using the original lvars we need to use two different
     #               index sets, due to fixed variable treatment
-    MadNLP.variable(ipm.xl)[ind_cc1] .= @view(rnlp.meta.lvar[get_ind_cc1(mpcc)]) .- δ1
-    MadNLP.variable(ipm.xl)[ind_cc2] .= @view(rnlp.meta.lvar[get_ind_cc2(mpcc)]) .- δ2
+    MadNLP.variable(ipm.xl)[ind_cc1] .= @view(get_lvar(mpcc)[get_ind_cc1(mpcc)]) .- δ1
+    MadNLP.variable(ipm.xl)[ind_cc2] .= @view(get_lvar(mpcc)[get_ind_cc2(mpcc)]) .- δ2
     px = MadNLP.primal(ipm.p)
     x = MadNLP.primal(ipm.x)
     f = MadNLP.primal(ipm.f)
@@ -148,8 +148,8 @@ function update_sigma!(
     r = kkt_residual_norm(rnlp, solver, rnlp.δ1opt, rnlp.δ2opt, rnlp.σopt) # kkt norm
     rl = r^(1+relax.tau)
     ru = r^(1-relax.tau)
-    MadNLP.variable(ipm.xl)[ind_cc1] .= @view(rnlp.meta.lvar[get_ind_cc1(mpcc)]) .- rnlp.δ1
-    MadNLP.variable(ipm.xl)[ind_cc2] .= @view(rnlp.meta.lvar[get_ind_cc2(mpcc)]) .- rnlp.δ2
+    MadNLP.variable(ipm.xl)[ind_cc1] .= @view(get_lvar(mpcc)[get_ind_cc1(mpcc)]) .- rnlp.δ1
+    MadNLP.variable(ipm.xl)[ind_cc2] .= @view(get_lvar(mpcc)[get_ind_cc2(mpcc)]) .- rnlp.δ2
     updated = false
     ipm.c[(end-ncc+1):end] .+= rnlp.σ
     for ii in 1:ncc
@@ -305,7 +305,7 @@ function update_sigma!(
                 # )
                 # Relax the lower bound, and take a magic step in the multipliers
                 rnlp.δ1[ii] = delta_candidate
-                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1_orig] - rnlp.δ1[ii]
+                MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
 
                 # Calculate new values
                 mu_r = mu + (x1*z1 - mu)
@@ -339,7 +339,7 @@ function update_sigma!(
                 # println(
                 #     "unrelaxing cc1[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1_orig])",
                 # )
-                MadNLP.variable(ipm.xl)[cc1] = mpcc.meta.lvar[cc1_orig] - rnlp.δ1[ii]
+                MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
                 rnlp.σ[ii] = relax.mu_factor*ipm.mu
                 # TODO(@anton) this should probably magic step as well but need to figure out how because it is a step in the primal
             end
@@ -351,7 +351,7 @@ function update_sigma!(
                 #     "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
                 # )
                 rnlp.δ2[ii] = delta_candidate
-                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2_orig] - rnlp.δ2[ii]
+                MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
 
                 # Calculate new values
                 mu_r = mu + (x2*z2 - mu)
@@ -386,7 +386,7 @@ function update_sigma!(
                 # println(
                 #     "unrelaxing cc2[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc2] - mpcc.meta.lvar[cc2_orig])",
                 # )
-                MadNLP.variable(ipm.xl)[cc2] = mpcc.meta.lvar[cc2_orig] - rnlp.δ2[ii]
+                MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
                 rnlp.σ[ii] = relax.mu_factor*ipm.mu
             end
         end
@@ -405,7 +405,7 @@ function init_sigma!(
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
-    ncc = mpcc.meta.ncc
+    ncc = get_ncc(mpcc)
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
@@ -423,7 +423,7 @@ function init_sigma!(
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
-    ncc = mpcc.meta.ncc
+    ncc = get_ncc(mpcc)
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
@@ -444,25 +444,23 @@ function init_sigma!(
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
-    ncc = mpcc.meta.ncc
+    ncc = get_ncc(mpcc)
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # Calculate mean primal complementarity
     cc_pr = @views dot(
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1] -
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2] -
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+        MadNLP.variable(ipm.x)[solver.ind_cc1] - MadNLP.variable(ipm.xl)[solver.ind_cc1],
+        MadNLP.variable(ipm.x)[solver.ind_cc2] - MadNLP.variable(ipm.xl)[solver.ind_cc2],
     )
     mean_cc = cc_pr/ncc
     # Calculate minimum primal complementarity
     min_cc_pr = @views mapreduce(
         (x1, xl1, x2, x2l) -> (x1-xl1)*(x2-x2l),
         min,
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc1],
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc1],
-        MadNLP.variable(ipm.x)[mpcc.meta.ind_cc2],
-        MadNLP.variable(ipm.xl)[mpcc.meta.ind_cc2],
+        MadNLP.variable(ipm.x)[solver.ind_cc1],
+        MadNLP.variable(ipm.xl)[solver.ind_cc1],
+        MadNLP.variable(ipm.x)[solver.ind_cc2],
+        MadNLP.variable(ipm.xl)[solver.ind_cc2],
         init=T(Inf),
     )
     # Calculate the factor to multiply the mean complementarity by.
@@ -488,7 +486,7 @@ function init_sigma!(
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
-    ncc = mpcc.meta.ncc
+    ncc = get_ncc(mpcc)
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
@@ -506,7 +504,7 @@ function init_sigma!(
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
-    ncc = mpcc.meta.ncc
+    ncc = get_ncc(mpcc)
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma

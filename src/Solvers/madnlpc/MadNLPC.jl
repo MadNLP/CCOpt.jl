@@ -23,7 +23,6 @@ end
     monotone::Bool = false
 end
 
-
 @kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
     gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
@@ -109,7 +108,8 @@ struct MadNLPCIterate{T, VT}
 end
 
 # Options struct
-@kwdef struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
+@kwdef struct MadNLPCOptions{T, RELAX <: AbstractRelaxationUpdate{T}} <:
+              MadNLP.AbstractOptions
     # Relaxation type
     relaxation::Type = ScholtesRelaxation
 
@@ -117,7 +117,7 @@ end
     use_specialized_barrier_update::Bool = false
 
     # complementarity homotopy options
-    relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
+    relaxation_update::RELAX = ProportionalRelaxationUpdate()
     sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
     delta_init::T = 0.0
 
