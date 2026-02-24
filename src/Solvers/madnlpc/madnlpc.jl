@@ -359,7 +359,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
 
         # Now go back to using relaxed inf_pr
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
-
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta_heuristic(solver)
 
