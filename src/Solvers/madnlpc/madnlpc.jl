@@ -442,7 +442,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ipm.opt.kappa_d,
         )
         MadNLP.inertia_correction!(ipm.inertia_corrector, solver) ||
-            return MadNLP.ROBUST, solver.status
+            return MadNLP.ROBUST, ipm.status
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
@@ -540,7 +540,7 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
 end
 
 function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
-    if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
+    if solver.opts.q_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
     end
 
@@ -582,10 +582,10 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
             ys_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
 
             if ys*scale > ys_max
-                println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
-                println(
-                    "regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[nnzh+i])",
-                )
+                # println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
+                # println(
+                #     "regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[nnzh+i])",
+                # )
                 #println(kkt.hess_raw.V)
                 kkt.hess_raw.V[nnzh+i] =
                     solver.opts.critical_rho_factor*ys_max*(

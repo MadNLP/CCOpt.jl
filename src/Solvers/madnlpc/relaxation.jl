@@ -9,14 +9,11 @@ function update_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
+    sigma_candidate = sigma_from_mu(relax, solver.ipm.mu)
     if relax.monotone
-        set_relaxation(
-            rnlp,
-            max(min(solver.rnlp.σ[1], sigma_candidate), solver.opts.sigma_min),
-        )
+        set_relaxation(rnlp, min(solver.rnlp.σ[1], sigma_candidate))
     else
-        set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+        set_relaxation(rnlp, sigma_candidate)
     end
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
@@ -35,17 +32,11 @@ function update_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate =
-        relax.rolloff_max*(
-            solver.ipm.mu^relax.rolloff_slope
-        )/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
+    sigma_candidate = sigma_from_mu(relax, solver.ipm.mu)
     if relax.monotone
-        set_relaxation(
-            rnlp,
-            max(min(solver.rnlp.σ[1], sigma_candidate), solver.opts.sigma_min),
-        )
+        set_relaxation(rnlp, min(solver.rnlp.σ[1], sigma_candidate))
     else
-        set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+        set_relaxation(rnlp, sigma_candidate)
     end
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
@@ -83,10 +74,7 @@ function update_sigma!(
     xi = min_cc_pr/mean_cc
     gamma_sigma = max(relax.gamma_min, relax.gamma*min((1-relax.r)*((1-xi)/xi), 2)^3)
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
-    set_relaxation(
-        rnlp,
-        max(gamma_sigma*mean_cc, solver.opts.sigma_min, relax.mu_factor*ipm.mu),
-    )
+    set_relaxation(rnlp, max(gamma_sigma*mean_cc, relax.sigma_min, relax.mu_factor*ipm.mu))
     # update c
     c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Throw out the filter as the barrier problem has changed
@@ -180,8 +168,8 @@ function update_sigma!(
         end
 
         if nu1 < -ru || nu2 < -ru
-            if min(relax.kappa*rnlp.σ[ii], rl) >= solver.opts.sigma_min
-                rnlp.σ[ii] = max(min(relax.kappa*rnlp.σ[ii], rl), solver.opts.sigma_min)
+            if min(relax.kappa*rnlp.σ[ii], rl) >= relax.sigma_min
+                rnlp.σ[ii] = max(min(relax.kappa*rnlp.σ[ii], rl), relax.sigma_min)
                 rnlp.σopt[ii] = 0.0
                 updated = true
             end
@@ -217,7 +205,7 @@ function update_sigma!(
                 updated = true
             end
             if x1 >= 0 && x2 >= 0 && x1*x2 >= solver.ipm.opt.tol
-                rnlp.σ[ii] = max(relax.kappa*rnlp.σ[ii], solver.opts.sigma_min)
+                rnlp.σ[ii] = max(relax.kappa*rnlp.σ[ii], relax.sigma_min)
                 updated = true
             end
         end
@@ -265,12 +253,9 @@ function update_sigma!(
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     if relax.monotone
-        set_relaxation(
-            rnlp,
-            max(min(solver.rnlp.σ[1], sigma_candidate), solver.opts.sigma_min),
-        )
+        set_relaxation(rnlp, max(min(solver.rnlp.σ[1], sigma_candidate), relax.sigma_min))
     else
-        set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+        set_relaxation(rnlp, max(sigma_candidate, relax.sigma_min))
     end
     if kkt_error <= relax.relax_threshold
         #nu_bound = (ipm.mu)^relax.tau
@@ -300,9 +285,12 @@ function update_sigma!(
             nu1_inactive = relax.use_filtered ? nu1_filt <= -(nu_bound) : nu1 <= -(nu_bound)
             if nu1_inactive #&& rnlp.δ1[ii] < relax.mu_factor*ipm.mu
                 delta_candidate = get_delta_candidate(nu1, x2, rnlp.σ[ii], relax.delta_max)
-                # println(
-                #     "Relaxing cc1[$(ii)] with nu1=$(nu1) and bound = $(delta_candidate)",
-                # )
+                if delta_candidate < 1.1 * rnlp.δ1[ii]
+                    continue
+                end
+                println(
+                    "Relaxing cc1[$(ii)] with nu1=$(nu1) and bound = $(delta_candidate)",
+                )
                 # Relax the lower bound, and take a magic step in the multipliers
                 rnlp.δ1[ii] = delta_candidate
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
@@ -336,9 +324,9 @@ function update_sigma!(
                 max_decrease =
                     relax.k_ftb*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
                 rnlp.δ1[ii] = max(0.0, rnlp.δ1[ii]-max_decrease)
-                # println(
-                #     "unrelaxing cc1[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1_orig])",
-                # )
+                println(
+                    "unrelaxing cc1[$(ii)], max_decrease = $(max_decrease), violation = $(MadNLP.variable(ipm.x)[cc1] - mpcc.meta.lvar[cc1_orig])",
+                )
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
                 rnlp.σ[ii] = relax.mu_factor*ipm.mu
                 # TODO(@anton) this should probably magic step as well but need to figure out how because it is a step in the primal
@@ -347,9 +335,12 @@ function update_sigma!(
             nu2_inactive = relax.use_filtered ? nu2_filt <= -(nu_bound) : nu2 <= -(nu_bound)
             if nu2_inactive #&& rnlp.δ2[ii] < relax.mu_factor*ipm.mu
                 delta_candidate = get_delta_candidate(nu2, x1, rnlp.σ[ii], relax.delta_max)
-                # println(
-                #     "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
-                # )
+                if delta_candidate < 1.1 * rnlp.δ2[ii]
+                    continue
+                end
+                println(
+                    "Relaxing cc2[$(ii)] with nu1=$(nu2) and bound = $(delta_candidate)",
+                )
                 rnlp.δ2[ii] = delta_candidate
                 MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
 
@@ -409,8 +400,7 @@ function init_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
-    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    set_relaxation(rnlp, sigma_from_mu(relax, solver.ipm.mu))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
@@ -427,11 +417,7 @@ function init_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate =
-        relax.rolloff_max*(
-            solver.ipm.mu^relax.rolloff_slope
-        )/(sqrt((solver.ipm.mu^relax.rolloff_slope)^2) + relax.rolloff_point)
-    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    set_relaxation(rnlp, sigma_from_mu(relax, solver.ipm.mu))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
@@ -467,10 +453,7 @@ function init_sigma!(
     xi = min_cc_pr/mean_cc
     gamma_sigma = max(relax.gamma_min, relax.gamma*min((1-relax.r)*((1-xi)/xi), 2)^3)
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
-    set_relaxation(
-        rnlp,
-        max(gamma_sigma*mean_cc, solver.opts.sigma_min, relax.mu_factor*ipm.mu),
-    )
+    set_relaxation(rnlp, max(gamma_sigma*mean_cc, relax.sigma_min, relax.mu_factor*ipm.mu))
     # update c
     c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Throw out the filter as the barrier problem has changed
@@ -491,7 +474,7 @@ function init_sigma!(
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
-    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    set_relaxation(rnlp, max(sigma_candidate, relax.sigma_min))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
@@ -509,8 +492,26 @@ function init_sigma!(
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
-    set_relaxation(rnlp, max(sigma_candidate, solver.opts.sigma_min))
+    set_relaxation(rnlp, max(sigma_candidate, relax.sigma_min))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
+end
+
+# TODO(@anton) this is a hack. Refactor parameter updates entirely at some point
+function sigma_from_mu(relax::AbstractAdaptiveRelaxationUpdate{T}, mu::T) where {T}
+    return mu
+end
+
+function sigma_from_mu(relax::ProportionalRelaxationUpdate{T}, mu::T) where {T}
+    sigma_candidate = relax.sigma_mu_ratio*(mu^relax.sigma_mu_exp)
+    return max(sigma_candidate, relax.sigma_min)
+end
+
+function sigma_from_mu(relax::RolloffRelaxationUpdate{T}, mu::T) where {T}
+    sigma_candidate =
+        relax.rolloff_max*(
+            mu^relax.rolloff_slope
+        )/(sqrt((mu^relax.rolloff_slope)^2) + relax.rolloff_point)
+    return max(sigma_candidate, relax.sigma_min)
 end

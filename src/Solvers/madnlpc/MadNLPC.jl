@@ -3,31 +3,36 @@
 end
 # Relaxation updates
 abstract type AbstractRelaxationUpdate{T} end
+abstract type AbstractFixedRelaxationUpdate{T} <: AbstractRelaxationUpdate{T} end
+abstract type AbstractAdaptiveRelaxationUpdate{T} <: AbstractRelaxationUpdate{T} end
 
 """
   Proportional Relaxation update which updates σ = aμ^b
 """
-@kwdef struct ProportionalRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef struct ProportionalRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0 # a
     sigma_mu_exp::T = 1.0 # b
     monotone::Bool = false
+    sigma_min::T = 1e-9
 end
 
 """
   Rolloff Relaxation update which updates σ = c*μ^a/(sqrt(μ^a^2)+b)
 """
-@kwdef struct RolloffRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef struct RolloffRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
     rolloff_slope::T = 1.6 # a
     rolloff_point::T = 1e-5 # b
     rolloff_max::T = 1.0 # c
     monotone::Bool = false
+    sigma_min::T = 1e-9
 end
 
-@kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef struct LOQORelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
     gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
     mu_factor::T = 1e-5 # smallest factor of reduction allowed
     r::T = 0.95 # Steplength param
+    sigma_min::T = 1e-9
 end
 
 """
@@ -35,10 +40,11 @@ end
   or the lower bounds of x1 and x2 choosing which to decrease by inspecting the estimated mpcc
   lagrange multipliers.
 """
-@kwdef struct TwoSidedScholtesUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef struct TwoSidedScholtesUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
     kappa::T = 0.1
     k_ftb::T = 0.9
     tau::T = 0.3
+    sigma_min::T = 1e-9
 end
 
 """
@@ -52,7 +58,7 @@ end
   this is done by taking steps which push the bound towards zero while making sure to reduce the distance from the iterate
   to the boundary by a factor of k_ftb.
 """
-@kwdef mutable struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef mutable struct RelaxLBUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0
     sigma_mu_exp::T = 1.0
     monotone::Bool = false
@@ -64,6 +70,7 @@ end
     unrelax::Bool = false
     use_filtered::Bool = false
     reject_steps::Bool = false
+    sigma_min::T = 1e-9
 end
 
 # Iterate saving structure
