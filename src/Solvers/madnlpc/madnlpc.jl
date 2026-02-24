@@ -538,7 +538,7 @@ function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) whe
 end
 
 function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
-    if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
+    if solver.opts.q_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
     end
 
