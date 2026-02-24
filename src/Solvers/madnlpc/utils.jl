@@ -171,7 +171,7 @@ function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(
         ipm.logger,
         @sprintf(
-            "iter    objective    inf_pr   inf_du inf_compl lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls lg(σ)   inf_cc"
+            "iter    objective    inf_pr  inf_rnlp   inf_du inf_comp lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls lg(σ)   inf_cc"
         )
     )
     if is_resto
@@ -189,11 +189,12 @@ function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
     MadNLP.@info(
         ipm.logger,
         @sprintf(
-            "%4i%s% 10.7e %6.2e %6.2e %7.2e %5.1f %6.2e %s %6.2e %6.2e%s  %i %5.1f  %6.2e",
+            "%4i%s% 10.7e %6.2e %6.2e %6.2e %7.2e %5.1f %6.2e %s %6.2e %6.2e%s  %i %5.1f  %6.2e",
             ipm.cnt.k,
             is_resto ? "r" : " ",
             ipm.obj_val/obj_scale,
             inf_pr,
+            MadNLP.get_inf_pr(ipm.c),
             inf_du,
             inf_compl,
             mu,

@@ -40,7 +40,7 @@ function _update_monotone!(
         ipm.mu = mu_new
 
         # calculate new sigma
-        sigma_candidate = sigma_from_mu(solver.opts.relaxation_update, ipm.mu)
+        sigma_candidate = sigma_from_mu(solver, solver.opts.relaxation_update, ipm.mu)
         @views begin
             inf_relaxed_cc = mapreduce(
                 (c, sigma_old)->abs(c+sigma_old-sigma_candidate),

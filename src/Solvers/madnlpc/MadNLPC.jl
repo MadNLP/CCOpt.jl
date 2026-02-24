@@ -13,7 +13,7 @@ abstract type AbstractAdaptiveRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0 # a
     sigma_mu_exp::T = 1.0 # b
     monotone::Bool = false
-    sigma_min::T = 1e-9
+    sigma_min::T = 1e-8
 end
 
 """
@@ -24,7 +24,7 @@ end
     rolloff_point::T = 1e-5 # b
     rolloff_max::T = 1.0 # c
     monotone::Bool = false
-    sigma_min::T = 1e-9
+    sigma_min::T = 1e-8
 end
 
 @kwdef struct LOQORelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
@@ -32,7 +32,7 @@ end
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
     mu_factor::T = 1e-5 # smallest factor of reduction allowed
     r::T = 0.95 # Steplength param
-    sigma_min::T = 1e-9
+    sigma_min::T = 1e-8
 end
 
 """
@@ -44,7 +44,17 @@ end
     kappa::T = 0.1
     k_ftb::T = 0.9
     tau::T = 0.3
-    sigma_min::T = 1e-9
+    sigma_min::T = 1e-8
+end
+
+@kwdef struct ScheduledRelaxationUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
+    base_accuracy::T = 1e-3
+    target_accuracy::T = 1e-8
+    accuracy_shoulder::T = 1e-4
+    sigma_linear_decrease_factor::T = 0.1
+    sigma_superlinear_decrease_power::T = 1.9
+    sigma_init::T = 1e0
+    sigma_min::T = 1e-8
 end
 
 """

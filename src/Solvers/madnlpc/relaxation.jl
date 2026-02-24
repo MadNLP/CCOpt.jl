@@ -9,7 +9,7 @@ function update_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate = sigma_from_mu(relax, solver.ipm.mu)
+    sigma_candidate = sigma_from_mu(solver, relax, solver.ipm.mu)
     if relax.monotone
         set_relaxation(rnlp, min(solver.rnlp.σ[1], sigma_candidate))
     else
@@ -32,7 +32,7 @@ function update_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    sigma_candidate = sigma_from_mu(relax, solver.ipm.mu)
+    sigma_candidate = sigma_from_mu(solver, relax, solver.ipm.mu)
     if relax.monotone
         set_relaxation(rnlp, min(solver.rnlp.σ[1], sigma_candidate))
     else
@@ -42,6 +42,87 @@ function update_sigma!(
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
+end
+
+function get_sigma(
+    sigma,
+    sigma_min,
+    sigma_linear_decrease_factor,
+    sigma_superlinear_decrease_power,
+    tol,
+)
+    a = min(99.0 * sigma_min / tol, 0.01)
+    return max(
+        sigma_min,
+        a * tol,
+        min(sigma_linear_decrease_factor*sigma, sigma^sigma_superlinear_decrease_power),
+    )
+end
+
+function get_accuracy(relax::ScheduledRelaxationUpdate{T}, sigma::T) where {T}
+    if sigma >= relax.accuracy_shoulder
+        return relax.base_accuracy
+    else
+        return sigma*(relax.base_accuracy/relax.accuracy_shoulder)
+    end
+end
+
+function update_sigma!(
+    relax::ScheduledRelaxationUpdate{T},
+    rnlp::AbstractMPCCRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    rnlp = ipm.nlp
+    ncc = get_ncc(solver.mpcc)
+    sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
+    inf_compl_mu = MadNLP.get_inf_compl(
+        ipm.x_lr,
+        ipm.xl_r,
+        ipm.zl_r,
+        ipm.xu_r,
+        ipm.x_ur,
+        ipm.zu_r,
+        ipm.mu,
+        sc,
+    )
+    inf_pr = ipm.inf_pr
+    sigma = get_relaxation(rnlp)[1]
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    accuracy = get_accuracy(relax, sigma)
+    while (sigma > max(relax.sigma_min, ipm.opt.tol/10)) &&
+        (max(inf_pr, ipm.inf_du, inf_compl_mu) <= accuracy)
+        sigma_new = get_sigma(
+            sigma,
+            relax.sigma_min,
+            relax.sigma_linear_decrease_factor,
+            relax.sigma_superlinear_decrease_power,
+            ipm.opt.tol,
+        )
+        sigma = sigma_new
+        accuracy = get_accuracy(relax, sigma)
+        ipm.mu = accuracy # This is a hack but seems to work?
+        @views begin
+            inf_relaxed_cc =
+                mapreduce((c)->abs(c-sigma_new), max, ipm.c[(end-ncc+1):end]; init=0)
+        end
+        inf_pr = max(inf_pr, inf_relaxed_cc)
+        inf_compl_mu = MadNLP.get_inf_compl(
+            ipm.x_lr,
+            ipm.xl_r,
+            ipm.zl_r,
+            ipm.xu_r,
+            ipm.x_ur,
+            ipm.zu_r,
+            ipm.mu,
+            sc,
+        )
+        empty!(ipm.filter)
+        push!(ipm.filter, (ipm.theta_max, -Inf))
+    end
+    set_relaxation(rnlp, sigma)
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    return
 end
 
 function update_sigma!(
@@ -76,7 +157,7 @@ function update_sigma!(
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
     set_relaxation(rnlp, max(gamma_sigma*mean_cc, relax.sigma_min, relax.mu_factor*ipm.mu))
     # update c
-    c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     # Throw out the filter as the barrier problem has changed
     empty!(ipm.filter)
     push!(ipm.filter, (ipm.theta_max, -Inf))
@@ -400,7 +481,7 @@ function init_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    set_relaxation(rnlp, sigma_from_mu(relax, solver.ipm.mu))
+    set_relaxation(rnlp, sigma_from_mu(solver, relax, solver.ipm.mu))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
@@ -417,7 +498,7 @@ function init_sigma!(
     # update c
     ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
     # calculate new sigma
-    set_relaxation(rnlp, sigma_from_mu(relax, solver.ipm.mu))
+    set_relaxation(rnlp, sigma_from_mu(solver, relax, solver.ipm.mu))
     # update c
     ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
     return nothing
@@ -498,17 +579,46 @@ function init_sigma!(
     return nothing
 end
 
-# TODO(@anton) this is a hack. Refactor parameter updates entirely at some point
-function sigma_from_mu(relax::AbstractAdaptiveRelaxationUpdate{T}, mu::T) where {T}
-    return mu
+function init_sigma!(
+    relax::ScheduledRelaxationUpdate{T},
+    rnlp::ScholtesRelaxation{T},
+    solver::MadNLPCSolver{T},
+) where {T}
+    ipm = solver.ipm
+    mpcc = solver.mpcc
+    ncc = get_ncc(mpcc)
+    # update c
+    ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    # calculate new sigma
+    set_relaxation(rnlp, relax.sigma_init)
+    # update c
+    ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    return nothing
 end
 
-function sigma_from_mu(relax::ProportionalRelaxationUpdate{T}, mu::T) where {T}
+# TODO(@anton) this is a hack. Refactor parameter updates entirely at some point
+function sigma_from_mu(
+    solver::MadNLPCSolver{T},
+    relax::AbstractAdaptiveRelaxationUpdate{T},
+    mu::T,
+) where {T}
+    return get_relaxation(solver.rnlp)[1] # Assume all the same for now
+end
+
+function sigma_from_mu(
+    solver::MadNLPCSolver{T},
+    relax::ProportionalRelaxationUpdate{T},
+    mu::T,
+) where {T}
     sigma_candidate = relax.sigma_mu_ratio*(mu^relax.sigma_mu_exp)
     return max(sigma_candidate, relax.sigma_min)
 end
 
-function sigma_from_mu(relax::RolloffRelaxationUpdate{T}, mu::T) where {T}
+function sigma_from_mu(
+    solver::MadNLPCSolver{T},
+    relax::RolloffRelaxationUpdate{T},
+    mu::T,
+) where {T}
     sigma_candidate =
         relax.rolloff_max*(
             mu^relax.rolloff_slope
