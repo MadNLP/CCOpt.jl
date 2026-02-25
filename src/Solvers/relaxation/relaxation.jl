@@ -101,7 +101,7 @@ function update_sigma!(
         )
         sigma = sigma_new
         accuracy = get_accuracy(relax, sigma)
-        ipm.mu = accuracy # This is a hack but seems to work?
+        #ipm.mu = accuracy # This is a hack but seems to work?
         @views begin
             inf_relaxed_cc =
                 mapreduce((c)->abs(c-sigma_new), max, ipm.c[(end-ncc+1):end]; init=0)
@@ -117,6 +117,8 @@ function update_sigma!(
             ipm.mu,
             sc,
         )
+        set_relaxation(rnlp, sigma)
+        take_magic_step!(solver)
         empty!(ipm.filter)
         push!(ipm.filter, (ipm.theta_max, -Inf))
     end
