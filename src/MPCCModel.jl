@@ -457,8 +457,11 @@ function NLPModels.jac_structure!(
 )
     jac_structure!(mpcc.nlp, mpcc._i1, mpcc._i2) # get including complementarities
     @views begin
-        rows .= mpcc._i1[get_ind_j_triplets(mpcc)]
-        cols .= mpcc._i2[get_ind_j_triplets(mpcc)]
+        # TODO(@anton) do this better?
+        @allowscalar begin
+            copyto!(rows, mpcc._i1[get_ind_j_triplets(mpcc)])
+            copyto!(cols, mpcc._i2[get_ind_j_triplets(mpcc)])
+        end
     end
     return rows, cols
 end
@@ -650,10 +653,12 @@ function comp_left!(
     @lencheck get_nvar(mpcc) x
     cvar = 0
     # First get variables:
-    for i in 1:get_ncc(mpcc)
-        if get_cc_types(mpcc)[i] ∈ [VarVar, VarCon]
-            ccx[i] = x[get_ind_cc1(mpcc)[i]]
-            cvar += 1
+    @allowscalar begin # TODO(@anton) Ponder what you did in life to go so wrong
+        for i in 1:get_ncc(mpcc)
+            if get_cc_types(mpcc)[i] ∈ [VarVar, VarCon]
+                ccx[i] = x[get_ind_cc1(mpcc)[i]]
+                cvar += 1
+            end
         end
     end
 
@@ -677,7 +682,7 @@ function comp_right!(
     @lencheck get_nvar(mpcc) x
     cvar = 0
     # First get variables:
-    for i in 1:get_ncc(mpcc)
+    @allowscalar for i in 1:get_ncc(mpcc) # TODO(@anton) It seems no good way to do this.
         if get_cc_types(mpcc)[i] ∈ [VarVar, ConVar]
             ccx[i] = x[get_ind_cc2(mpcc)[i]]
             cvar += 1
@@ -698,7 +703,7 @@ end
 function lcomp_left!(mpcc::AbstractMPCCModel{T, VT}, lccx::AbstractVector{T}) where {T, VT}
     @lencheck get_ncc(mpcc) lccx
 
-    for i in 1:get_ncc(mpcc)
+    @allowscalar for i in 1:get_ncc(mpcc) # TODO(@anton) making vector machines was a mistake
         if get_cc_types(mpcc)[i] ∈ [VarVar, VarCon]
             lccx[i] = get_lvar(mpcc.nlp)[get_ind_cc1(mpcc)[i]]
         else
@@ -716,7 +721,7 @@ end
 function lcomp_right!(mpcc::AbstractMPCCModel{T, VT}, lccx::AbstractVector{T}) where {T, VT}
     @lencheck get_ncc(mpcc) lccx
 
-    for i in 1:get_ncc(mpcc)
+    @allowscalar for i in 1:get_ncc(mpcc) # TODO(@anton) I hate GPUs
         if get_cc_types(mpcc)[i] ∈ [VarVar, ConVar]
             lccx[i] = get_lvar(mpcc.nlp)[get_ind_cc2(mpcc)[i]]
         else
@@ -741,7 +746,7 @@ function comp_res_left!(
 
     comp_left!(mpcc, x, lccx)
 
-    for i in 1:get_ncc(mpcc)
+    @allowscalar for i in 1:get_ncc(mpcc)
         if get_cc_types(mpcc)[i] ∈ [VarVar, VarCon]
             lccx[i] -= get_lvar(mpcc.nlp)[get_ind_cc1(mpcc)[i]]
         else
@@ -766,7 +771,7 @@ function comp_res_right!(
 
     comp_right!(mpcc, x, rccx)
 
-    for i in 1:get_ncc(mpcc)
+    @allowscalar for i in 1:get_ncc(mpcc)
         if get_cc_types(mpcc)[i] ∈ [VarVar, ConVar]
             rccx[i] -= get_lvar(mpcc.nlp)[get_ind_cc2(mpcc)[i]]
         else

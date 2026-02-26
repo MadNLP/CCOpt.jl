@@ -47,7 +47,7 @@ function _update_monotone!(
                 max,
                 ipm.c[(end-ncc+1):end],
                 get_relaxation(rnlp);
-                init=0,
+                init=0.0,
             )
         end
         inf_pr = max(inf_pr, inf_relaxed_cc)

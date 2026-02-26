@@ -9,9 +9,17 @@ function get_eta_heuristic(solver::MadNLPCSolver)
         return 0.0
     end
 end
-
 function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.AbstractKKTSystem{T},
+    solver::MadNLPCSolver{T, VT},
+    eta::T,
+) where {T, VT}
+    MadNLP.set_aug_diagonal!(kkt, solver.ipm)
+    return
+end
+# TODO(@anton) actually need to be careful here. Does this actually work for sparse condensed system
+function MadNLP.set_aug_diagonal!(
+    kkt::MadNLP.AbstractReducedKKTSystem{T},
     solver::MadNLPCSolver{T, VT},
     eta::T,
 ) where {T, VT}
@@ -32,13 +40,19 @@ function MadNLP.set_aug_diagonal!(
             solver.logger,
             "Applying regularization to complementarity slacks eta = $(eta)"
         )
-        kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
-        kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
-        # Lower bounds
-        kkt.l_diag[solver.ind_cc1_lb] .= @views min.(kkt.l_diag[solver.ind_cc1_lb], -eta)
-        kkt.l_lower[solver.ind_cc1_lb] .= @views max.(kkt.l_lower[solver.ind_cc1_lb], eta)
-        kkt.l_diag[solver.ind_cc2_lb] .= @views min.(kkt.l_diag[solver.ind_cc2_lb], -eta)
-        kkt.l_lower[solver.ind_cc2_lb] .= @views max.(kkt.l_lower[solver.ind_cc2_lb], eta)
+        @allowscalar begin
+            kkt.u_diag[(n-ncc+1):n] .= @views min.(kkt.u_diag[(n-ncc+1):n], -eta)
+            kkt.u_lower[(n-ncc+1):n] .= @views max.(kkt.u_lower[(n-ncc+1):n], eta)
+            # Lower bounds
+            kkt.l_diag[solver.ind_cc1_lb] .=
+                @views min.(kkt.l_diag[solver.ind_cc1_lb], -eta)
+            kkt.l_lower[solver.ind_cc1_lb] .=
+                @views max.(kkt.l_lower[solver.ind_cc1_lb], eta)
+            kkt.l_diag[solver.ind_cc2_lb] .=
+                @views min.(kkt.l_diag[solver.ind_cc2_lb], -eta)
+            kkt.l_lower[solver.ind_cc2_lb] .=
+                @views max.(kkt.l_lower[solver.ind_cc2_lb], eta)
+        end
     end
 
     if solver.opts.kkt_regularization == :vicente_wright_sum

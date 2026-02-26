@@ -56,12 +56,18 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         jtprod_available=true,
         hprod_available=true,
     )
-    σ = zeros(T, get_ncc(mpcc))
-    σopt = zeros(T, get_ncc(mpcc))
-    δ1 = zeros(T, get_ncc(mpcc))
-    δ1opt = zeros(T, get_ncc(mpcc))
-    δ2 = zeros(T, get_ncc(mpcc))
-    δ2opt = zeros(T, get_ncc(mpcc))
+    σ = similar(get_x0(mpcc), get_ncc(mpcc))
+    σ .= 0
+    σopt = similar(get_x0(mpcc), get_ncc(mpcc))
+    σopt .= 0
+    δ1 = similar(get_x0(mpcc), get_ncc(mpcc))
+    δ1 .= 0
+    δ1opt = similar(get_x0(mpcc), get_ncc(mpcc))
+    δ1opt .= 0
+    δ2 = similar(get_x0(mpcc), get_ncc(mpcc))
+    δ2 .= 0
+    δ2opt = similar(get_x0(mpcc), get_ncc(mpcc))
+    δ2opt .= 0
     return ScholtesRelaxation(mpcc, meta, σ, σopt, δ1, δ1opt, δ2, δ2opt, mpcc.counters)
 end
 
@@ -127,14 +133,25 @@ function NLPModels.jac_structure!(
         cols[1:get_nnzj(rnlp.mpcc)],
     ) # get including complementarities
 
-    for i in 1:get_ncc(rnlp.mpcc)
-        rows[i+get_nnzj(rnlp.mpcc)] = i + get_ncon(rnlp.mpcc)
-        cols[i+get_nnzj(rnlp.mpcc)] = get_ind_cc1(rnlp.mpcc)[i]
+    nnzj = get_nnzj(rnlp.mpcc)
+    ncon = get_ncon(rnlp.mpcc)
+    ncc = get_ncc(rnlp.mpcc)
+    @allowscalar begin # TODO(@anton) think about your life choices
+        @views begin
+            copyto!(rows[(nnzj+1):(nnzj+ncc)], (ncon+1):(ncon+ncc))
+            copyto!(cols[(nnzj+1):(nnzj+ncc)], get_ind_cc1(rnlp.mpcc))
+            copyto!(rows[(nnzj+ncc+1):(nnzj+2*ncc)], (ncon+1):(ncon+ncc))
+            copyto!(cols[(nnzj+ncc+1):(nnzj+2*ncc)], get_ind_cc2(rnlp.mpcc))
+        end
     end
-    for i in 1:get_ncc(rnlp.mpcc)
-        rows[i+get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = i + get_ncon(rnlp.mpcc)
-        cols[i+get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = get_ind_cc2(rnlp.mpcc)[i]
-    end
+    # for i in 1:get_ncc(rnlp.mpcc)
+    #     rows[i+get_nnzj(rnlp.mpcc)] = i + get_ncon(rnlp.mpcc)
+    #     cols[i+get_nnzj(rnlp.mpcc)] = get_ind_cc1(rnlp.mpcc)[i]
+    # end
+    # for i in 1:get_ncc(rnlp.mpcc)
+    #     rows[i+get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = i + get_ncon(rnlp.mpcc)
+    #     cols[i+get_nnzj(rnlp.mpcc)+get_ncc(rnlp.mpcc)] = get_ind_cc2(rnlp.mpcc)[i]
+    # end
 
     return rows, cols
 end
@@ -285,9 +302,12 @@ function NLPModels.hess_structure!(
     )
     # TODO(@anton) it seems hard to vectorize in one operation this because there is no efficient unzip in Base:
     #              See https://github.com/JuliaLang/julia/issues/13942 for details
-    for i in 1:get_ncc(rnlp.mpcc)
-        cols[i+get_nnzh(rnlp.mpcc)], rows[i+get_nnzh(rnlp.mpcc)] =
-            minmax(get_ind_cc1(rnlp.mpcc)[i], get_ind_cc2(rnlp.mpcc)[i])
+    # TODO(@anton) think about your life choices again
+    @allowscalar begin
+        for i in 1:get_ncc(rnlp.mpcc)
+            cols[i+get_nnzh(rnlp.mpcc)], rows[i+get_nnzh(rnlp.mpcc)] =
+                minmax(get_ind_cc1(rnlp.mpcc)[i], get_ind_cc2(rnlp.mpcc)[i])
+        end
     end
     return rows, cols
 end
@@ -305,9 +325,10 @@ function NLPModels.hess_coord!(
         H[1:get_nnzh(rnlp.mpcc)];
         obj_weight=obj_weight,
     )
-    for i in 1:get_ncc(rnlp.mpcc)
-        H[i+get_nnzh(rnlp.mpcc)] = y[i+get_ncon(rnlp.mpcc)]
-    end
+    ncc = get_ncc(rnlp.mpcc)
+    ncon = get_ncon(rnlp.mpcc)
+    nnzh = get_nnzh(rnlp.mpcc)
+    @views copyto!(H[(nnzh+1):(nnzh+ncc)], y[(ncon+1):(ncon+ncc)])
     return H
 end
 

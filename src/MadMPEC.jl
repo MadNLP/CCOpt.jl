@@ -5,6 +5,7 @@ const MOI = MathOptInterface
 using Serialization
 using Printf
 using DataStructures: CircularBuffer
+using GPUArrays # TODO(@anton) move this to CCOoptGPU extension
 import MadNLP
 
 include("types.jl")

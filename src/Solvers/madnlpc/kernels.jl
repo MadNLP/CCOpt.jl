@@ -60,7 +60,7 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
     ind_cc2_orig = mpcc.meta.ind_cc2
     N = solver.opts.mpec_multiplier_filter_history
 
-    for ii in 1:ncc
+    @allowscalar for ii in 1:ncc
         cc1 = ind_cc1[ii]
         cc2 = ind_cc2[ii]
         cc1_orig = ind_cc1_orig[ii]
