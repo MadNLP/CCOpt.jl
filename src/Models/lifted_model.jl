@@ -97,7 +97,7 @@ function NLPModels.obj(lnlp::LiftedNLPModel, x::AbstractVector)
     return NLPModels.obj(lnlp.nlp, view(x, 1:get_nvar(lnlp.nlp)))
 end
 function NLPModels.grad!(lnlp::LiftedNLPModel, x::AbstractVector, gx::AbstractVector)
-    @views NLPModels.grad!(lnlp.nlp, x[1:get_nvar(lnlp)], gx[1:get_nvar(lnlp.nlp)])
+    @views NLPModels.grad!(lnlp.nlp, x[1:get_nvar(lnlp.nlp)], gx[1:get_nvar(lnlp.nlp)])
     gx[(get_nvar(lnlp.nlp)+1):get_nvar(lnlp)] .= 0
     return gx
 end

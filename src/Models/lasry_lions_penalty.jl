@@ -87,6 +87,12 @@ function LasryLionsPenalty(
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
         lvar=lvar,
+        grad_available=true,
+        jac_available=true,
+        hess_available=true,
+        jprod_available=true,
+        jtprod_available=true,
+        hprod_available=true,
     )
     return LasryLionsPenalty(mpcc, meta, Ref(β), Ref(λ))
 end

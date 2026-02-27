@@ -9,12 +9,12 @@
 
         snlp = SimpleMPCCModel(T)
         nlp = MadMPEC.ScholtesRelaxation(snlp)
-        n = nlp.meta.nvar
-        m = nlp.meta.ncon
+        n = get_nvar(nlp)
+        m = get_ncon(nlp)
         @test n == 2
         @test m == 1
-        @test nlp.meta.lcon ≈ [typemin(T)]
-        @test nlp.meta.ucon ≈ [0.0]
+        @test get_lcon(nlp) ≈ [typemin(T)]
+        @test get_ucon(nlp) ≈ [0.0]
 
         x = randn(T, n)
         y = randn(T, m)
@@ -23,7 +23,7 @@
         Jv = zeros(T, m)
         Jtw = zeros(T, n)
         Hv = zeros(T, n)
-        Hvals = zeros(T, nlp.meta.nnzh)
+        Hvals = zeros(T, get_nnzh(nlp))
 
         @test obj(nlp, x) ≈ f(x)
         @test grad(nlp, x) ≈ ∇f(x)

@@ -183,7 +183,7 @@ function solve_rnlp(
         solver.opts.max_inner_iter-solver.stats.iter,
     )
     nlp_opts_i[:max_iter] = max_iter
-    return SolverCore.solve!(solver.solver; nlp_opts_i...)
+    return MadNLP.solve!(solver.solver; nlp_opts_i...)
 end
 
 function set_silent!(

@@ -44,6 +44,12 @@ function FischerBurmeisterRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, V
         nnzj=nnzj,
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
+        grad_available=true,
+        jac_available=true,
+        hess_available=true,
+        jprod_available=true,
+        jtprod_available=true,
+        hprod_available=true,
     )
 
     cc1_buf = VT(undef, get_ncc(mpcc))

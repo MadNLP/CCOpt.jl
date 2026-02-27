@@ -314,7 +314,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
         end
-        MadNLP.@trace(ipm.logger, "Current x = $(MadNLP.variable(ipm.x))")
         # Set σ to zero for constraint infeasibility calculations
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))

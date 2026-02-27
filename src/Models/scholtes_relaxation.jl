@@ -49,6 +49,12 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         nnzj=nnzj,
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
+        grad_available=true,
+        jac_available=true,
+        hess_available=true,
+        jprod_available=true,
+        jtprod_available=true,
+        hprod_available=true,
     )
     σ = zeros(T, get_ncc(mpcc))
     σopt = zeros(T, get_ncc(mpcc))
@@ -58,15 +64,6 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     δ2opt = zeros(T, get_ncc(mpcc))
     return ScholtesRelaxation(mpcc, meta, σ, σopt, δ1, δ1opt, δ2, δ2opt, mpcc.counters)
 end
-
-# Counters should be forwarded
-# function Base.getproperty(rnlp::ScholtesRelaxation, sym::Symbol)
-#     if sym ∈ [:counters]
-#         getproperty(rnlp.mpcc.nlp, sym)
-#     else
-#         getfield(rnlp, sym)
-#     end
-# end
 
 ######################### NLPModels Callbacks #########################
 NLPModels.obj(rnlp::ScholtesRelaxation, x::AbstractVector) = NLPModels.obj(rnlp.mpcc, x)
