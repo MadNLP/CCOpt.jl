@@ -61,21 +61,21 @@ function LasryLionsPenalty(
     end
 
     # Update only what needs to be updated
-    ncon = mpcc.meta.ncon
-    lcon = mpcc.meta.lcon
-    ucon = mpcc.meta.ucon
-    y0 = mpcc.meta.y0
-    nnzj = mpcc.meta.nnzj
-    nln_nnzj = mpcc.meta.nln_nnzj
+    ncon = get_ncon(mpcc)
+    lcon = get_lcon(mpcc)
+    ucon = get_ucon(mpcc)
+    y0 = get_y0(mpcc)
+    nnzj = get_nnzj(mpcc)
+    nln_nnzj = get_nln_nnzj(mpcc)
 
-    nnzh = mpcc.meta.nnzh + 3*mpcc.meta.ncc
+    nnzh = get_nnzh(mpcc) + 3*get_ncc(mpcc)
     # TODO(@anton) We may need to change how nlv(b,o,c) are handled because we actually cannot
     #              backcalculate how these need to change necessarily.
     #              However these seem to not be used anywhere in the NLPModels API so I am ignoring them.
 
-    lvar = copy(mpcc.meta.lvar)
-    lvar[mpcc.meta.ind_cc1] .= T(-Inf)
-    lvar[mpcc.meta.ind_cc2] .= T(-Inf)
+    lvar = copy(get_lvar(mpcc))
+    lvar[get_ind_cc1(mpcc)] .= T(-Inf)
+    lvar[get_ind_cc2(mpcc)] .= T(-Inf)
 
     meta = NLPModels.NLPModelMeta(
         mpcc.nlp.meta,
@@ -87,6 +87,12 @@ function LasryLionsPenalty(
         nln_nnzj=nln_nnzj,
         nnzh=nnzh,
         lvar=lvar,
+        grad_available=true,
+        jac_available=true,
+        hess_available=true,
+        jprod_available=true,
+        jtprod_available=true,
+        hprod_available=true,
     )
     return LasryLionsPenalty(mpcc, meta, Ref(β), Ref(λ))
 end
@@ -109,10 +115,10 @@ function NLPModels.obj(rnlp::LasryLionsPenalty{T, VT}, x::AbstractVector) where 
             sense * mapreduce(
                 (x1, lx1, x2, lx2)->lasrylions(x1-lx1, x2-lx2, rnlp.λ[], rnlp.β[]),
                 +,
-                x[rnlp.mpcc.meta.ind_cc1],
-                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc1],
-                x[rnlp.mpcc.meta.ind_cc2],
-                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc2],
+                x[get_ind_cc1(rnlp.mpcc)],
+                get_lvar(rnlp.mpcc)[get_ind_cc1(rnlp.mpcc)],
+                x[get_ind_cc2(rnlp.mpcc)],
+                get_lvar(rnlp.mpcc)[get_ind_cc2(rnlp.mpcc)],
             )
     end
     return obj
@@ -125,12 +131,12 @@ function NLPModels.grad!(
 ) where {T, VT}
     NLPModels.grad!(rnlp.mpcc, x, gx)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
-    for i in 1:rnlp.mpcc.meta.ncc
-        icc1 = rnlp.mpcc.meta.ind_cc1[i]
-        icc2 = rnlp.mpcc.meta.ind_cc2[i]
+    for i in 1:get_ncc(rnlp.mpcc)
+        icc1 = get_ind_cc1(rnlp.mpcc)[i]
+        icc2 = get_ind_cc2(rnlp.mpcc)[i]
         (d1, d2) = dlasrylions(
-            (x[icc1] - rnlp.mpcc.meta.lvar[icc1]),
-            (x[icc2] - rnlp.mpcc.meta.lvar[icc2]),
+            (x[icc1] - get_lvar(rnlp.mpcc)[icc1]),
+            (x[icc2] - get_lvar(rnlp.mpcc)[icc2]),
             rnlp.λ[],
             rnlp.β[],
         )
@@ -152,18 +158,18 @@ function NLPModels.objgrad!(
             sense * mapreduce(
                 (x1, lx1, x2, lx2)->lasrylions(x1-lx1, x2-lx2, rnlp.λ[], rnlp.β[]),
                 +,
-                x[rnlp.mpcc.meta.ind_cc1],
-                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc1],
-                x[rnlp.mpcc.meta.ind_cc2],
-                rnlp.mpcc.meta.lvar[rnlp.mpcc.meta.ind_cc2],
+                x[get_ind_cc1(rnlp.mpcc)],
+                get_lvar(rnlp.mpcc)[get_ind_cc1(rnlp.mpcc)],
+                x[get_ind_cc2(rnlp.mpcc)],
+                get_lvar(rnlp.mpcc)[get_ind_cc2(rnlp.mpcc)],
             )
     end
-    for i in 1:rnlp.mpcc.meta.ncc
-        icc1 = rnlp.mpcc.meta.ind_cc1[i]
-        icc2 = rnlp.mpcc.meta.ind_cc2[i]
+    for i in 1:get_ncc(rnlp.mpcc)
+        icc1 = get_ind_cc1(rnlp.mpcc)[i]
+        icc2 = get_ind_cc2(rnlp.mpcc)[i]
         (d1, d2) = dlasrylions(
-            (x[icc1] - rnlp.mpcc.meta.lvar[icc1]),
-            (x[icc2] - rnlp.mpcc.meta.lvar[icc2]),
+            (x[icc1] - get_lvar(rnlp.mpcc)[icc1]),
+            (x[icc2] - get_lvar(rnlp.mpcc)[icc2]),
             rnlp.λ[],
             rnlp.β[],
         )
@@ -174,7 +180,7 @@ function NLPModels.objgrad!(
 end
 
 function NLPModels.cons!(rnlp::LasryLionsPenalty, x::AbstractVector, cx::AbstractVector)
-    mpcc_ncon = rnlp.mpcc.meta.ncon
+    mpcc_ncon = get_ncon(rnlp.mpcc)
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
@@ -190,7 +196,7 @@ function NLPModels.cons_lin!(rnlp::LasryLionsPenalty, x::AbstractVector, cx::Abs
 end
 
 function NLPModels.cons_nln!(rnlp::LasryLionsPenalty, x::AbstractVector, cx::AbstractVector)
-    mpcc_nnln = rnlp.mpcc.meta.nnln
+    mpcc_nnln = get_nnln(rnlp.mpcc)
     # This if statement is necessary as it seems that without it c!(cx,x) does not exist in a possible underlying ADNLPModel
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
@@ -205,8 +211,8 @@ function NLPModels.jac_structure!(
 )
     @views jac_structure!(
         rnlp.mpcc,
-        rows[1:rnlp.mpcc.meta.nnzj],
-        cols[1:rnlp.mpcc.meta.nnzj],
+        rows[1:get_nnzj(rnlp.mpcc)],
+        cols[1:get_nnzj(rnlp.mpcc)],
     ) # get including complementarities
 
     return rows, cols
@@ -228,15 +234,15 @@ function NLPModels.jac_nln_structure!(
 )
     @views jac_nln_structure!(
         rnlp.mpcc,
-        rows[1:rnlp.mpcc.meta.nln_nnzj],
-        cols[1:rnlp.mpcc.meta.nln_nnzj],
+        rows[1:get_nln_nnzj(rnlp.mpcc)],
+        cols[1:get_nln_nnzj(rnlp.mpcc)],
     ) # get including complementarities
 
     return rows, cols
 end
 
 function NLPModels.jac_coord!(rnlp::LasryLionsPenalty, x::AbstractVector, j::AbstractVector)
-    jac_coord!(rnlp.mpcc, x, @view(j[1:rnlp.mpcc.meta.nnzj]))
+    jac_coord!(rnlp.mpcc, x, @view(j[1:get_nnzj(rnlp.mpcc)]))
 
     return j
 end
@@ -254,7 +260,7 @@ function NLPModels.jac_nln_coord!(
     x::AbstractVector,
     jac::AbstractVector,
 )
-    jac_nln_coord!(rnlp.mpcc, x, @view(jac[1:rnlp.mpcc.meta.nln_nnzj]))
+    jac_nln_coord!(rnlp.mpcc, x, @view(jac[1:get_nln_nnzj(rnlp.mpcc)]))
 
     return jac
 end
@@ -310,26 +316,26 @@ function NLPModels.hess_structure!(
 )
     @views hess_structure!(
         rnlp.mpcc,
-        rows[1:rnlp.mpcc.meta.nnzh],
-        cols[1:rnlp.mpcc.meta.nnzh],
+        rows[1:get_nnzh(rnlp.mpcc)],
+        cols[1:get_nnzh(rnlp.mpcc)],
     )
     # TODO(@anton) it seems hard to vectorize in one operation this because there is no efficient unzip in Base:
     #              See https://github.com/JuliaLang/julia/issues/13942 for details
-    nnzh = rnlp.mpcc.meta.nnzh
-    ncc = rnlp.mpcc.meta.ncc
+    nnzh = get_nnzh(rnlp.mpcc)
+    ncc = get_ncc(rnlp.mpcc)
     # Off diagonal terms
     for i in 1:ncc
         cols[i+nnzh], rows[i+nnzh] =
-            minmax(rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc2[i])
+            minmax(get_ind_cc1(rnlp.mpcc)[i], get_ind_cc2(rnlp.mpcc)[i])
     end
     # Diagonal terms
     for i in 1:ncc
         cols[i+nnzh+ncc], rows[i+nnzh+ncc] =
-            rnlp.mpcc.meta.ind_cc1[i], rnlp.mpcc.meta.ind_cc1[i]
+            get_ind_cc1(rnlp.mpcc)[i], get_ind_cc1(rnlp.mpcc)[i]
     end
     for i in 1:ncc
         cols[i+nnzh+2*ncc], rows[i+nnzh+2*ncc] =
-            rnlp.mpcc.meta.ind_cc2[i], rnlp.mpcc.meta.ind_cc2[i]
+            get_ind_cc2(rnlp.mpcc)[i], get_ind_cc2(rnlp.mpcc)[i]
     end
     return rows, cols
 end
@@ -343,21 +349,21 @@ function NLPModels.hess_coord!(
     @views hess_coord!(
         rnlp.mpcc,
         x,
-        y[1:rnlp.mpcc.meta.ncon],
-        H[1:rnlp.mpcc.meta.nnzh];
+        y[1:get_ncon(rnlp.mpcc)],
+        H[1:get_nnzh(rnlp.mpcc)];
         obj_weight=obj_weight,
     )
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     # TODO(@anton) deduplicate by maybe having one more buffer for a^2 + b^2
-    nnzh = rnlp.mpcc.meta.nnzh
-    ncc = rnlp.mpcc.meta.ncc
-    ncon = rnlp.mpcc.meta.ncon
+    nnzh = get_nnzh(rnlp.mpcc)
+    ncc = get_ncc(rnlp.mpcc)
+    ncon = get_ncon(rnlp.mpcc)
     for i in 1:ncc
-        icc1 = rnlp.mpcc.meta.ind_cc1[i]
-        icc2 = rnlp.mpcc.meta.ind_cc2[i]
+        icc1 = get_ind_cc1(rnlp.mpcc)[i]
+        icc2 = get_ind_cc2(rnlp.mpcc)[i]
         (q11, q22, q12) = ddlasrylions(
-            (x[icc1] - rnlp.mpcc.meta.lvar[icc1]),
-            (x[icc2] - rnlp.mpcc.meta.lvar[icc2]),
+            (x[icc1] - get_lvar(rnlp.mpcc)[icc1]),
+            (x[icc2] - get_lvar(rnlp.mpcc)[icc2]),
             rnlp.λ[],
             rnlp.β[],
         )
@@ -376,13 +382,13 @@ function NLPModels.hprod!(
     Hv::AbstractVector;
     obj_weight::Real=one(T),
 ) where {T, VT}
-    @views hprod!(rnlp.mpcc, x, y[1:rnlp.mpcc.meta.ncon], v, Hv; obj_weight=obj_weight)
+    @views hprod!(rnlp.mpcc, x, y[1:get_ncon(rnlp.mpcc)], v, Hv; obj_weight=obj_weight)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
-    for i in 1:rnlp.mpcc.meta.ncc
-        Hv[rnlp.mpcc.meta.ind_cc1[i]] +=
-            obj_weight*sense*v[rnlp.mpcc.meta.ind_cc2[i]]*(rnlp.ρ[])
-        Hv[rnlp.mpcc.meta.ind_cc2[i]] +=
-            obj_weight*sense*v[rnlp.mpcc.meta.ind_cc1[i]]*(rnlp.ρ[])
+    for i in 1:get_ncc(rnlp.mpcc)
+        Hv[get_ind_cc1(rnlp.mpcc)[i]] +=
+            obj_weight*sense*v[get_ind_cc2(rnlp.mpcc)[i]]*(rnlp.ρ[])
+        Hv[get_ind_cc2(rnlp.mpcc)[i]] +=
+            obj_weight*sense*v[get_ind_cc1(rnlp.mpcc)[i]]*(rnlp.ρ[])
     end
     return Hv
 end

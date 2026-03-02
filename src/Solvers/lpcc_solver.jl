@@ -51,23 +51,23 @@ struct LpccMILP{T, VT, MT, ST}
             error("Linearization to LpccMILP currently expects a vertical form MPCC")
         end
         arows::Vector{Int32}, acols::Vector{Int32} = jac_structure(mpcc)
-        avals = jac_coord(mpcc, mpcc.meta.x0)
-        nvar = mpcc.meta.nvar
-        ncon = mpcc.meta.ncon
-        ncc = mpcc.meta.ncc
+        avals = jac_coord(mpcc, get_x0(mpcc))
+        nvar = get_nvar(mpcc)
+        ncon = get_ncon(mpcc)
+        ncc = get_ncc(mpcc)
         # Build remaining COO representation
         for ii in 1:ncc
             # Ms-x_1 > -lbx_2
             push!(arows, ncon + ii)
             push!(arows, ncon + ii)
-            push!(acols, mpcc.meta.ind_cc1[ii])
+            push!(acols, get_ind_cc1(mpcc)[ii])
             push!(acols, nvar + ii)
             push!(avals, -1.0)
             push!(avals, M) # M
             # -Ms-x_2 > -M - lbx_2
             push!(arows, ncon + ncc + ii)
             push!(arows, ncon + ncc + ii)
-            push!(acols, mpcc.meta.ind_cc2[ii])
+            push!(acols, get_ind_cc2(mpcc)[ii])
             push!(acols, nvar + ii)
             push!(avals, -1.0)
             push!(avals, -M) # M
@@ -83,7 +83,7 @@ struct LpccMILP{T, VT, MT, ST}
         csrnzval = VT(undef, length(arows))
 
         c = VT(undef, n)
-        @views grad!(mpcc, mpcc.meta.x0, c[1:nvar])
+        @views grad!(mpcc, get_x0(mpcc), c[1:nvar])
         c[(nvar+1):end] .= 0.0
         lba = VT(undef, m)
         uba = VT(undef, m)
@@ -126,14 +126,14 @@ end
 
 function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binaries=true)
     mpcc = lpcc.mpcc
-    nvar = mpcc.meta.nvar
-    ncon = mpcc.meta.ncon
-    ncc = mpcc.meta.ncc
+    nvar = get_nvar(mpcc)
+    ncon = get_ncon(mpcc)
+    ncc = get_ncc(mpcc)
     @views begin
         # Update gradient
         grad!(mpcc, x, lpcc.c[1:nvar])
         # Update COO:
-        jac_coord!(mpcc, x, lpcc.avals[1:mpcc.meta.nnzj])
+        jac_coord!(mpcc, x, lpcc.avals[1:get_nnzj(mpcc)])
     end
     # Rebuild Sparse Matrix:
     # TODO(@anton) is there a better way of doing this through the HIGHS interface itself?
@@ -157,48 +157,48 @@ function linearize!(lpcc::LpccMILP, x::AbstractVector; tr=1e-1, presolve_binarie
     )
 
     # Apply trust region
-    ind_x = mpcc.meta.ind_x
-    ind_cc1 = mpcc.meta.ind_cc1
-    ind_cc2 = mpcc.meta.ind_cc2
+    ind_x = get_ind_x(mpcc)
+    ind_cc1 = get_ind_cc1(mpcc)
+    ind_cc2 = get_ind_cc2(mpcc)
     @views begin
         # Lower bound on x0
-        lpcc.lbx[ind_x] .= max.(mpcc.meta.lvar[ind_x] .- x[ind_x], -tr)
+        lpcc.lbx[ind_x] .= max.(get_lvar(mpcc)[ind_x] .- x[ind_x], -tr)
         # Lower bound on x1 and x2
-        lpcc.lbx[ind_cc1] .= max.(mpcc.meta.lvar[ind_cc1] .- x[ind_cc1], -tr)
-        lpcc.lbx[ind_cc2] .= max.(mpcc.meta.lvar[ind_cc2] .- x[ind_cc2], -tr)
+        lpcc.lbx[ind_cc1] .= max.(get_lvar(mpcc)[ind_cc1] .- x[ind_cc1], -tr)
+        lpcc.lbx[ind_cc2] .= max.(get_lvar(mpcc)[ind_cc2] .- x[ind_cc2], -tr)
         # upper bound on all
-        lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
+        lpcc.ubx[1:get_nvar(mpcc)] .= min.(get_uvar(mpcc) .- x, tr)
     end
     # Preprocess the binaries based on the trust region
     if presolve_binaries
         a = 0
         for ii in 1:ncc
-            if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
-                lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
-                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
-            elseif x[ind_cc2[ii]] - tr > mpcc.meta.lvar[ind_cc2[ii]]
-                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
-                lpcc.ubx[mpcc.meta.nvar+ii] = 0.0
+            if x[ind_cc1[ii]] - tr > get_lvar(mpcc)[ind_cc1[ii]]
+                lpcc.lbx[get_nvar(mpcc)+ii] = 1.0
+                lpcc.ubx[get_nvar(mpcc)+ii] = 1.0
+            elseif x[ind_cc2[ii]] - tr > get_lvar(mpcc)[ind_cc2[ii]]
+                lpcc.lbx[get_nvar(mpcc)+ii] = 0.0
+                lpcc.ubx[get_nvar(mpcc)+ii] = 0.0
             else
-                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
-                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+                lpcc.lbx[get_nvar(mpcc)+ii] = 0.0
+                lpcc.ubx[get_nvar(mpcc)+ii] = 1.0
                 a += 1
             end
         end
     else
-        lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
-        lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
+        lpcc.lbx[(get_nvar(mpcc)+1):end] .= 0.0
+        lpcc.ubx[(get_nvar(mpcc)+1):end] .= 1.0
     end
     # Calculate linearization bounds
     # TODO(@anton) we don't need to re-eval this actually. Fix this
     @views begin
         cons!(lpcc.mpcc, x, lpcc.lba[1:ncon])
-        lpcc.uba[1:ncon] .= lpcc.mpcc.meta.ucon .- lpcc.lba[1:ncon]
-        lpcc.lba[1:ncon] .= lpcc.mpcc.meta.lcon .- lpcc.lba[1:ncon]
+        lpcc.uba[1:ncon] .= get_ucon(lpcc.mpcc) .- lpcc.lba[1:ncon]
+        lpcc.lba[1:ncon] .= get_lcon(lpcc.mpcc) .- lpcc.lba[1:ncon]
     end
     lpcc.uba[(ncon+1):end] .= Inf
-    lpcc.lba[(ncon+1):(ncon+ncc)] = x[mpcc.meta.ind_cc1] .- mpcc.meta.lvar[ind_cc1]
-    lpcc.lba[(ncon+ncc+1):end] = x[mpcc.meta.ind_cc2] .- lpcc.M .- mpcc.meta.lvar[ind_cc2]
+    lpcc.lba[(ncon+1):(ncon+ncc)] = x[get_ind_cc1(mpcc)] .- get_lvar(mpcc)[ind_cc1]
+    lpcc.lba[(ncon+ncc+1):end] = x[get_ind_cc2(mpcc)] .- lpcc.M .- get_lvar(mpcc)[ind_cc2]
 
     return lpcc
 end
@@ -210,38 +210,38 @@ function tr!(
     presolve_binaries=true,
 ) where {T, VT}
     mpcc = lpcc.mpcc
-    ind_x = mpcc.meta.ind_x
-    ind_cc1 = mpcc.meta.ind_cc1
-    ind_cc2 = mpcc.meta.ind_cc2
-    nvar = mpcc.meta.nvar
-    ncon = mpcc.meta.ncon
-    ncc = mpcc.meta.ncc
+    ind_x = get_ind_x(mpcc)
+    ind_cc1 = get_ind_cc1(mpcc)
+    ind_cc2 = get_ind_cc2(mpcc)
+    nvar = get_nvar(mpcc)
+    ncon = get_ncon(mpcc)
+    ncc = get_ncc(mpcc)
     @views begin
         # Lower bound on x0
-        lpcc.lbx[ind_x] .= max.(mpcc.meta.lvar[ind_x] .- x[ind_x], -tr)
+        lpcc.lbx[ind_x] .= max.(get_lvar(mpcc)[ind_x] .- x[ind_x], -tr)
         # Lower bound on x1 and x2
-        lpcc.lbx[ind_cc1] .= max.(mpcc.meta.lvar[ind_cc1] .- x[ind_cc1], -tr)
-        lpcc.lbx[ind_cc2] .= max.(mpcc.meta.lvar[ind_cc2] .- x[ind_cc2], -tr)
+        lpcc.lbx[ind_cc1] .= max.(get_lvar(mpcc)[ind_cc1] .- x[ind_cc1], -tr)
+        lpcc.lbx[ind_cc2] .= max.(get_lvar(mpcc)[ind_cc2] .- x[ind_cc2], -tr)
         # upper bound on all
-        lpcc.ubx[1:mpcc.meta.nvar] .= min.(mpcc.meta.uvar .- x, tr)
+        lpcc.ubx[1:get_nvar(mpcc)] .= min.(get_uvar(mpcc) .- x, tr)
     end
     # Preprocess the binaries based on the trust region
     if presolve_binaries
         for ii in 1:ncc
-            if x[ind_cc1[ii]] - tr > mpcc.meta.lvar[ind_cc1[ii]]
-                lpcc.lbx[mpcc.meta.nvar+ii] = 1.0
-                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
-            elseif x[ind_cc2[ii]] - tr > mpcc.meta.lvar[ind_cc2[ii]]
-                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
-                lpcc.ubx[mpcc.meta.nvar+ii] = 0.0
+            if x[ind_cc1[ii]] - tr > get_lvar(mpcc)[ind_cc1[ii]]
+                lpcc.lbx[get_nvar(mpcc)+ii] = 1.0
+                lpcc.ubx[get_nvar(mpcc)+ii] = 1.0
+            elseif x[ind_cc2[ii]] - tr > get_lvar(mpcc)[ind_cc2[ii]]
+                lpcc.lbx[get_nvar(mpcc)+ii] = 0.0
+                lpcc.ubx[get_nvar(mpcc)+ii] = 0.0
             else
-                lpcc.lbx[mpcc.meta.nvar+ii] = 0.0
-                lpcc.ubx[mpcc.meta.nvar+ii] = 1.0
+                lpcc.lbx[get_nvar(mpcc)+ii] = 0.0
+                lpcc.ubx[get_nvar(mpcc)+ii] = 1.0
             end
         end
     else
-        lpcc.lbx[(mpcc.meta.nvar+1):end] .= 0.0
-        lpcc.ubx[(mpcc.meta.nvar+1):end] .= 1.0
+        lpcc.lbx[(get_nvar(mpcc)+1):end] .= 0.0
+        lpcc.ubx[(get_nvar(mpcc)+1):end] .= 1.0
     end
 end
 
@@ -282,7 +282,7 @@ function build(
     set_opts!(model, lpcc, opts)
 
     @variable(model, lpcc.lbx[i] <= x[i=1:length(lpcc.lbx)] <= lpcc.ubx[i])
-    @objective(model, lpcc.mpcc.meta.minimize ? MIN_SENSE : MAX_SENSE, sum(lpcc.c .* x))
+    @objective(model, get_minimize(lpcc.mpcc) ? MIN_SENSE : MAX_SENSE, sum(lpcc.c .* x))
     @constraint(model, lpcc.lba .<= lpcc.A * x .<= lpcc.uba)
     for ii in 1:length(lpcc.integrality)
         lpcc.integrality[ii] == one(Int32) && JuMP.set_binary(x[ii])
@@ -322,7 +322,7 @@ function solve_highs(lpcc::LpccMILP)
     )
     # Add objective and set sense
     Highs_changeColsCostByRange(highs, zero(Int32), lpcc.A.n-1, lpcc.c)
-    Highs_changeObjectiveSense(highs, lpcc.mpcc.meta.minimize ? one(Int32) : -one(Int32))
+    Highs_changeObjectiveSense(highs, get_minimize(lpcc.mpcc) ? one(Int32) : -one(Int32))
     # Set integrality
     Highs_changeColsIntegralityByRange(highs, zero(Int32), lpcc.A.n-1, lpcc.integrality)
 

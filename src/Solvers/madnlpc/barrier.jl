@@ -36,8 +36,8 @@ function set_aug_rhs_aff!(
     pzl = MadNLP.dual_lb(ipm.p)
     pzu = MadNLP.dual_ub(ipm.p)
 
-    ncon = solver.mpcc.meta.ncon
-    ncc = solver.mpcc.meta.ncc
+    ncon = get_ncon(solver.mpcc)
+    ncc = get_ncc(solver.mpcc)
 
     px .= .-f .+ zl .- zu .- ipm.jacl
     py .= .-c
@@ -58,8 +58,8 @@ function MadNLP.set_centering_aug_rhs!(
     pzl = MadNLP.dual_lb(ipm.p)
     pzu = MadNLP.dual_ub(ipm.p)
 
-    ncon = solver.mpcc.meta.ncon
-    ncc = solver.mpcc.meta.ncc
+    ncon = get_ncon(solver.mpcc)
+    ncc = get_ncc(solver.mpcc)
 
     px .= 0
     py .= 0
@@ -108,9 +108,9 @@ function MadNLP._evaluate_quality_function(
 )
     ipm = solver.ipm
     n, m = ipm.n, ipm.m
-    ncc = solver.mpcc.meta.ncc
-    ind_cc1 = solver.mpcc.meta.ind_cc1
-    ind_cc2 = solver.mpcc.meta.ind_cc2
+    ncc = get_ncc(solver.mpcc)
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
     nlb, nub = ipm.nlb, ipm.nub
     tau = ipm.tau
     d = ipm.d # Load buffer
@@ -282,7 +282,7 @@ function MadNLP.get_adaptive_mu(
     # Affine step
     set_aug_rhs_aff!(solver, ipm.kkt, ipm.c)
     # Get primal and dual infeasibility directly 1from the values in RHS p
-    res_primal = norm(@view(MadNLP.dual(ipm.p)[1:solver.mpcc.meta.ncon]))
+    res_primal = norm(@view(MadNLP.dual(ipm.p)[1:get_ncon(solver.mpcc)]))
     res_dual = norm(MadNLP.primal(ipm.p))
 
     # Get approximate solution without iterative refinement

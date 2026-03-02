@@ -19,9 +19,9 @@ end
 function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     return HomotopySolverStats(
         MadNLP.INITIAL,
-        VT(undef, mpcc.meta.nvar),
+        VT(undef, get_nvar(mpcc)),
         zero(T),
-        VT(undef, mpcc.meta.ncon),
+        VT(undef, get_ncon(mpcc)),
         zero(T),
         0.0,
         0.0,
@@ -183,7 +183,7 @@ function solve_rnlp(
         solver.opts.max_inner_iter-solver.stats.iter,
     )
     nlp_opts_i[:max_iter] = max_iter
-    return SolverCore.solve!(solver.solver; nlp_opts_i...)
+    return MadNLP.solve!(solver.solver; nlp_opts_i...)
 end
 
 function set_silent!(
@@ -371,7 +371,7 @@ function solve!(
         stats.status = MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
     end
     stats.solution = solver.x_k
-    stats.multipliers = solver.y_k[1:mpcc.meta.ncon] # Unreliable
+    stats.multipliers = solver.y_k[1:get_ncon(mpcc)] # Unreliable
     stats.inf_cc = solver.inf_cc
     stats.objective = solver.f_k
     stats.wall_time = time() - solver.start_time;
