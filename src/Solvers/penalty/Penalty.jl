@@ -7,17 +7,17 @@
     gamma::T = 0.4
 
     # Algorithm options
-    dynamic_rho_update::Bool = false # Switch between classic and dynamic algorithm from
+    dynamic_rho_update::Bool = true # Switch between classic and dynamic algorithm from
     # Leyffer2006 paper
-    comp_history_length::Int = 5 # Length of history buffer (default from Leyffer2006)
+    comp_history_length::Int = 10 # Length of history buffer (default from Leyffer2006)
     eta_dynamic_update::T = 0.99 # "sufficient decrease" parameter (default from Leyffer2006)
 
     # regularization
-    kkt_regularization::Symbol = :none
+    q_regularization::Symbol = :critical_rho
     min_eig_value::T = 1e-4
     max_eig_value::T = Inf
-    critical_rho_factor::T = 0.9
-    min_reg_mu::T = 1e-5
+    critical_rho_factor::T = 0.99
+    min_reg_mu::T = 1e0
 
     # Output options
     output_file::String = ""
@@ -25,10 +25,16 @@
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
 end
 
-mutable struct PenaltySolver{T, VT}
-    mpcc::AbstractMPCCModel{T, VT}
-    pnlp::AbstractMPCCPenaltyModel{T, VT}
-    ipm::MadNLP.MadNLPSolver{T, VT}
+mutable struct PenaltySolver{
+    T,
+    VT,
+    MPCC <: AbstractMPCCModel{T, VT},
+    PNLP <: AbstractMPCCPenaltyModel{T, VT},
+    SOLVER <: MadNLP.MadNLPSolver{T, VT},
+}
+    mpcc::MPCC
+    pnlp::PNLP
+    ipm::SOLVER
     logger::MadNLP.MadNLPLogger
     opts::PenaltyOptions{T}
 

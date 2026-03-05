@@ -161,7 +161,7 @@ end
 
     # complementarity homotopy options
     relaxation_update::RELAX = ProportionalRelaxationUpdate()
-    sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
+    sigma_min::T = 1e-8 # TODO(@anton) I think this should be probably be related to ipm tolerance
     delta_init::T = 0.0
 
     # Endgame options
@@ -285,7 +285,12 @@ function RelaxationSolver(
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
+    #println(ind_cc1)
+    #println(ind_cc2)
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
+    #println(ipm.kkt.ind_lb)
+    #println(ind_cc1)
+    #println(ind_cc2)
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
     return solver = RelaxationSolver(

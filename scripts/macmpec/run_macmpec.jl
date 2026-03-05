@@ -19,6 +19,8 @@ function run_macmpec(args...; plot=false, range=:)
         load_ampl_benchmark(joinpath(dirname(@__FILE__), "../../data/macMPEC/nls/"))
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
+        names, probs =
+            load_ampl_benchmark(joinpath(dirname(@__FILE__), "../../data/macMPEC/nls/"))
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] = dffun(
@@ -1925,27 +1927,29 @@ function test_q_regularization(; range=:)
 end
 
 function benchmark_macmpec(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
+        :barrier => MadNLP.QualityFunctionUpdate(),
     )
 
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
         :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c = MadMPEC.MadNLPCOptions(center_complementarities=true)
 
     opts_exact_penalty =
         MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
@@ -1954,7 +1958,7 @@ function benchmark_macmpec(; range=:)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
-        :max_iter=>1000,
+        :max_iter=>3000,
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )

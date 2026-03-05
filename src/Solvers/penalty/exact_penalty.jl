@@ -218,7 +218,7 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
                 )
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(nlp.rho[])."
+                    "Updating the penalty parameter to $(get_penalty(solver.pnlp))."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 MadNLP.@trace(
@@ -240,7 +240,7 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
                 )
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(nlp.rho[])."
+                    "Updating the penalty parameter to $(get_penalty(solver.pnlp))."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 empty!(ipm.filter)
@@ -315,7 +315,7 @@ function update!(stats::MadNLP.MadNLPExecutionStats, solver::PenaltySolver)
 end
 
 function regularize_Q!(solver::PenaltySolver{T}) where {T}
-    if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
+    if solver.opts.q_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
     end
 
@@ -326,7 +326,7 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
     n = length(ipm.x_ur)
     ncc = get_ncc(solver.mpcc)
     nnzh = get_nnzh(solver.mpcc)
-    rho = solver.pnlp.rho[]
+    rho = get_penalty(solver.pnlp)
     ind_cc1 = get_ind_cc1(solver.mpcc)
     ind_cc2 = get_ind_cc2(solver.mpcc)
     A = Array{T}(undef, 2, 2)
@@ -335,7 +335,7 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
         cc1 = ind_cc1[i]
         cc2 = ind_cc2[i]
 
-        if solver.opts.kkt_regularization == :eigenvalue_decomposition
+        if solver.opts.q_regularization == :eigenvalue_decomposition
             A[1, 1] = kkt.pr_diag[cc1]
             A[2, 2] = kkt.pr_diag[cc2]
             A[2, 1] = rho*cb.obj_scale[]
@@ -352,7 +352,7 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
                 kkt.hess_raw.V[nnzh+i] = A[1, 2]
                 regularized = true
             end
-        elseif solver.opts.kkt_regularization == :critical_rho
+        elseif solver.opts.q_regularization == :critical_rho
             rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
             if rho*cb.obj_scale[] > rho_max
                 kkt.hess_raw.V[nnzh+i] =
@@ -376,7 +376,7 @@ function unregularize_Q!(solver::PenaltySolver{T}) where {T}
     n = length(ipm.x_ur)
     ncc = get_ncc(solver.mpcc)
     nnzh = get_nnzh(solver.mpcc)
-    rho = cb.obj_scale[]*solver.pnlp.rho[]
+    rho = cb.obj_scale[]*get_penalty(solver.pnlp)
     ind_cc1 = get_ind_cc1(solver.mpcc)
     ind_cc2 = get_ind_cc2(solver.mpcc)
     A = Array{T}(undef, 2, 2)
