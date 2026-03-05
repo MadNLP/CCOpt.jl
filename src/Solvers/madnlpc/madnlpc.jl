@@ -440,8 +440,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ipm.mu,
             ipm.opt.kappa_d,
         )
-        MadNLP.inertia_correction!(ipm.inertia_corrector, solver) ||
-            return MadNLP.ROBUST, solver.status
+        MadNLP.inertia_correction!(ipm.inertia_corrector, solver) || return MadNLP.ROBUST
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)
@@ -549,7 +548,6 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
     kkt = solver.ipm.kkt
     n = length(ipm.x_ur)
     ncc = get_ncc(solver.mpcc)
-    nnzh = get_nnzh(solver.mpcc)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
     A = Array{T}(undef, 2, 2)
@@ -574,19 +572,19 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
                 kkt.reg[cc2] = A[2, 2] - kkt.pr_diag[cc2]
                 kkt.pr_diag[cc1] = A[1, 1]
                 kkt.pr_diag[cc2] = A[2, 2]
-                kkt.hess_raw.V[nnzh+i] = A[1, 2]
+                kkt.hess_raw.V[end-ncc+i] = A[1, 2]
                 regularized = true
             end
         elseif solver.opts.q_regularization == :critical_rho
             ys_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
 
             if ys*scale > ys_max
-                println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
-                println(
-                    "regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[nnzh+i])",
-                )
+                # println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
+                # println(
+                #     "regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[end-ncc+i])",
+                # )
                 #println(kkt.hess_raw.V)
-                kkt.hess_raw.V[nnzh+i] =
+                kkt.hess_raw.V[end-ncc+i] =
                     solver.opts.critical_rho_factor*ys_max*(
                         rnlp.meta.minimize ? one(T) : -one(T)
                     )
@@ -615,7 +613,7 @@ function unregularize_Q!(solver::MadNLPCSolver{T}) where {T}
     kkt.pr_diag[ind_cc2] .-= kkt.reg[ind_cc2]
     kkt.reg[ind_cc1] .= 0
     kkt.reg[ind_cc2] .= 0
-    kkt.hess_raw.V[(nnzh+1):(nnzh+ncc)] .=
+    kkt.hess_raw.V[(end-ncc+1):end] .=
         ipm.y[(end-ncc+1):end] .* cb.con_scale[(end-ncc+1):end] # TODO(@anton): this may allocate
     # We modify hess_raw so need to compress_hessian again.
     MadNLP.compress_hessian!(kkt)
