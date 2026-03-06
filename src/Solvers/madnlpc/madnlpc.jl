@@ -341,7 +341,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         estimate_mpec_multipliers(solver)
 
         MadNLP.print_iter(solver)
-        #println.(MadNLP.full(ipm.f) .- MadNLP.full(ipm.zl) .+ MadNLP.full(ipm.zu) .+ ipm.jacl)
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
@@ -567,7 +566,7 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
         if solver.opts.q_regularization == :eigenvalue_decomposition
             A[1, 1] = kkt.pr_diag[cc1]
             A[2, 2] = kkt.pr_diag[cc2]
-            A[2, 1] = ys*scale # TODO is this correct
+            A[2, 1] = ys*scale
             A[1, 2] = ys*scale
             E = eigen(Symmetric(A))
             if E.values[1] < 0 || E.values[2] > solver.opts.max_eig_value
@@ -585,11 +584,6 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
             ys_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
 
             if ys*scale > ys_max
-                # println("pr_diag[cc1]=$(kkt.pr_diag[cc1]) pr_diag[cc2]=$(kkt.pr_diag[cc2])")
-                # println(
-                #     "regularizing $i with conscale=$(cb.con_scale[end-ncc+i]) ys = $(ys) and ysmax=$(ys_max), old off diag = $(kkt.hess_raw.V[end-ncc+i])",
-                # )
-                #println(kkt.hess_raw.V)
                 kkt.hess_raw.V[end-ncc+i] =
                     solver.opts.critical_rho_factor*ys_max*(
                         rnlp.meta.minimize ? one(T) : -one(T)

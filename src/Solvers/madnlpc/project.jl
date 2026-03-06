@@ -16,7 +16,6 @@ function project_scholtes_bisect(
     while !stop
         m = (l+r)/2
         fm = m^4 - xk*m^3 + yk*𝜏*m - 𝜏^2
-        println(m, " ", fm)
         if fm < 0.0
             l = m
         else
@@ -137,24 +136,6 @@ function project_scholtes_explicit(
     fcos(x) = ((𝜏/x)*(xk-x) + (x)*(yk-𝜏/x))/(norm((xk, yk))*norm((x, 𝜏/x)))
     if isempty(real_roots)
         @warn "something went wrong in scholtes projection, we have no positive real roots"
-        println(xk)
-        println(yk)
-        println(xk*yk)
-        println(𝜏)
-        println("a=$(a)")
-        println("b=$(b)")
-        println(
-            "$((3*𝜏*yk)^2 - (3*𝜏*xk)^2 + sqrt(3)*𝜏^(3/2)*sqrt(a)) = $((3*𝜏*yk)^2) - $((3*𝜏*xk)^2) + $(sqrt(3)*𝜏^(3/2)*sqrt(a))",
-        )
-        println("c=$(c)")
-        println("d=$(d)")
-        println("e=$(e)")
-        println("f=$(f)")
-        println("g=$(g)")
-        println("h=$(h)")
-        println("i=$(i)")
-        println("j=$(j)")
-        println(roots)
     elseif length(real_roots) == 1
         return real_roots[1]+xl, 𝜏/real_roots[1]+yl
     else # We have multiple roots (check distances and then min norm(x-y), this is a heuristic)

@@ -76,13 +76,6 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
         jac1 = ipm.jacl[cc1]
         jac2 = ipm.jacl[cc2]
 
-        # println("multipliers1: $(z1) - $(zs)*$(x2) = $(z1 - zs*x2)")
-        # println("grad1: $(f1) + $(jac1 - zs*x2) = $(f1 + jac1 - zs*x2)")
-        # println("multipliers2: $(z2) - $(zs)*$(x1) = $(z2 - zs*x1)")
-        # println("grad2: $(f2) + $(jac2 - zs*x1) = $(f2 + jac2 - zs*x1)")
-        #solver.multipliers_cc1[ii] = f1 + jac1 - zs*x2
-        #solver.multipliers_cc2[ii] = f2 + jac2 - zs*x1
-
         solver.multipliers_cc1[ii] = z1 - zs*x2
         solver.multipliers_cc2[ii] = z2 - zs*x1
     end
