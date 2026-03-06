@@ -369,7 +369,12 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         end
         MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
 
-        # update the barrier parameter
+        # update the homotopy parameter
+        # TODO(@anton) this should be done in a specific order depending on
+        #              the types of ipm.opt.barrier, solver.opts.relaxation_update,
+        #              and solver.endgame_strategy
+
+        # First update mu.
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
         mu_old = ipm.mu
         MadNLP.update_barrier!(ipm.opt.barrier, solver, sc)
@@ -378,9 +383,18 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             solver.logger,
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
+
+        # Next update tau
         MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
+
+        # Then do endgame strategy.
+        kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
+        if kkt_error <= solver.opts.endgame_threshold
+            MadNLP.@trace(solver.logger, "In endgame, using requested endgame strategy.")
+            do_endgame!(solver, solver.rnlp, solver.opts.endgame_strategy)
+        end
         log_iter(solver.iterate_logger, solver)
 
         if mu_updated && solver.opts.use_magic_step
@@ -447,42 +461,35 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             return status
         end
 
-        if is_relaxation_acceptable(solver, solver.rnlp, solver.opts.relaxation_update)
-            solver.delta_rollback = false
-            MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
-            copyto!(MadNLP.full(ipm.x), MadNLP.full(ipm.x_trial))
-            copyto!(ipm.c, ipm.c_trial)
-            ipm.obj_val = ipm.obj_val_trial
-            MadNLP.adjust_boundary!(ipm.x_lr, ipm.xl_r, ipm.x_ur, ipm.xu_r, ipm.mu)
+        MadNLP.@trace(ipm.logger, "Updating primal-dual variables.")
+        copyto!(MadNLP.full(ipm.x), MadNLP.full(ipm.x_trial))
+        copyto!(ipm.c, ipm.c_trial)
+        ipm.obj_val = ipm.obj_val_trial
+        MadNLP.adjust_boundary!(ipm.x_lr, ipm.xl_r, ipm.x_ur, ipm.xu_r, ipm.mu)
 
-            MadNLP.axpy!(ipm.alpha, MadNLP.dual(ipm.d), ipm.y)
+        MadNLP.axpy!(ipm.alpha, MadNLP.dual(ipm.d), ipm.y)
 
-            ipm.zl_r .+= ipm.alpha_z .* MadNLP.dual_lb(ipm.d)
-            ipm.zu_r .+= ipm.alpha_z .* MadNLP.dual_ub(ipm.d)
-            MadNLP.reset_bound_dual!(
-                MadNLP.primal(ipm.zl),
-                MadNLP.primal(ipm.x),
-                MadNLP.primal(ipm.xl),
-                ipm.mu,
-                ipm.opt.kappa_sigma,
-            )
-            MadNLP.reset_bound_dual!(
-                MadNLP.primal(ipm.zu),
-                MadNLP.primal(ipm.xu),
-                MadNLP.primal(ipm.x),
-                ipm.mu,
-                ipm.opt.kappa_sigma,
-            )
+        ipm.zl_r .+= ipm.alpha_z .* MadNLP.dual_lb(ipm.d)
+        ipm.zu_r .+= ipm.alpha_z .* MadNLP.dual_ub(ipm.d)
+        MadNLP.reset_bound_dual!(
+            MadNLP.primal(ipm.zl),
+            MadNLP.primal(ipm.x),
+            MadNLP.primal(ipm.xl),
+            ipm.mu,
+            ipm.opt.kappa_sigma,
+        )
+        MadNLP.reset_bound_dual!(
+            MadNLP.primal(ipm.zu),
+            MadNLP.primal(ipm.xu),
+            MadNLP.primal(ipm.x),
+            ipm.mu,
+            ipm.opt.kappa_sigma,
+        )
 
-            MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
+        MadNLP.eval_grad_f_wrapper!(ipm, ipm.f, ipm.x)
 
-            ipm.cnt.k+=1
-            MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
-        else
-            ipm.cnt.k+=1
-            solver.delta_rollback = true
-            MadNLP.@info(ipm.logger, "Rejecting step due to faulty relaxation.")
-        end
+        ipm.cnt.k+=1
+        MadNLP.@trace(ipm.logger, "Proceeding to the next interior point iteration.")
     end
 end
 

@@ -57,30 +57,21 @@ end
     sigma_min::T = 1e-8
 end
 
+abstract type AbstractEndgameStrategy{T} end
+
+struct NoEndgameStrategy{T} <: AbstractEndgameStrategy{T} end
+
 """
-  Propotional Relaxation update which updates σ = aμ^b
-  Also relaxes the complementarity lower bounds by mu_factor*μ when:
-    μ ≤ relax_threshold
+  Relaxes the complementarity lower bounds when:
+    du_inf ≤ relax_threshold
     the corresponding estimated mpec multiplier is negative (the scholtes bound is active)
     identified by the multiplier being smaller than μ^tau
-
-  When unrelax is set to true we try to recover erroneously relaxed lower bounds (identified by the lower bound being active)
-  this is done by taking steps which push the bound towards zero while making sure to reduce the distance from the iterate
-  to the boundary by a factor of k_ftb.
 """
-@kwdef mutable struct RelaxLBUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
-    sigma_mu_ratio::T = 1.0
-    sigma_mu_exp::T = 1.0
-    monotone::Bool = false
-    mu_factor::T = 1.0
-    delta_max::T = 1e-3
-    tau::T = 0.4
-    relax_threshold::T = 1e-6
-    k_ftb::T = 0.9
-    unrelax::Bool = false
+@kwdef mutable struct RelaxLBEndgameStrategy{T} <: AbstractEndgameStrategy{T}
+    delta_max::T = 1e-4
     use_filtered::Bool = false
-    reject_steps::Bool = false
-    sigma_min::T = 1e-9
+    min_delta_inc_factor::T = 1.1
+    tau::T = 0.4
 end
 
 # Iterate saving structure
@@ -125,8 +116,11 @@ struct MadNLPCIterate{T, VT}
 end
 
 # Options struct
-@kwdef struct MadNLPCOptions{T, RELAX <: AbstractRelaxationUpdate{T}} <:
-              MadNLP.AbstractOptions
+@kwdef struct MadNLPCOptions{
+    T,
+    RELAX <: AbstractRelaxationUpdate{T},
+    EG <: AbstractEndgameStrategy{T},
+} <: MadNLP.AbstractOptions
     # Relaxation type
     relaxation::Type = ScholtesRelaxation
 
@@ -137,6 +131,10 @@ end
     relaxation_update::RELAX = ProportionalRelaxationUpdate()
     sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
     delta_init::T = 0.0
+
+    # Endgame options
+    endgame_threshold::T = 1e-6
+    endgame_strategy::EG = NoEndgameStrategy{Float64}() # TODO(@anton) this will break for other precisions
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
@@ -201,9 +199,6 @@ mutable struct MadNLPCSolver{
     const multipliers_cc2::VT
     const multipliers_cc1_filt::VT
     const multipliers_cc2_filt::VT
-    const prev_delta1::VT
-    const prev_delta2::VT
-    delta_rollback::Bool
     const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc1_lb::Vector{Int}
@@ -249,8 +244,6 @@ function MadNLPCSolver(
     multipliers_cc2 = VT(undef, get_ncc(mpcc))
     multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
     multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
-    prev_delta1 = VT(undef, get_ncc(mpcc))
-    prev_delta2 = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
@@ -272,9 +265,6 @@ function MadNLPCSolver(
         multipliers_cc2,
         multipliers_cc1_filt,
         multipliers_cc2_filt,
-        prev_delta1,
-        prev_delta2,
-        false,
         ind_cc1,
         ind_cc2,
         ind_cc1_lb,
@@ -288,4 +278,5 @@ include("utils.jl")
 include("kernels.jl")
 include("barrier.jl")
 include("relaxation.jl")
+include("endgame.jl")
 include("madnlpc.jl")
