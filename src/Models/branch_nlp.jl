@@ -1,7 +1,9 @@
-struct BranchNLP{T, VT} <: NLPModels.AbstractNLPModel{T, VT}
-    mpcc::AbstractMPCCModel{T, VT}
+struct BranchNLP{T, VT, MPCC <: AbstractMPCCModel{T, VT}} <:
+       NLPModels.AbstractNLPModel{T, VT}
+    mpcc::MPCC
     meta::NLPModels.NLPModelMeta{T, VT}
     b::Vector{Bool}
+    counters::NLPModels.Counters
 end
 
 function BranchNLP(mpcc::AbstractMPCCModel{T, VT}, b::Vector{Bool}) where {T, VT}
@@ -21,16 +23,7 @@ function BranchNLP(mpcc::AbstractMPCCModel{T, VT}, b::Vector{Bool}) where {T, VT
     x0=copy(get_x0(mpcc))
     # Copy x0 so changing BNLP x0 does not change mpcc x0
     meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, uvar=uvar, x0=x0)
-    return BranchNLP(mpcc, meta, b)
-end
-
-# Counters should be forwarded
-function Base.getproperty(rnlp::BranchNLP, sym::Symbol)
-    if sym ∈ [:counters]
-        getproperty(rnlp.mpcc.nlp, sym)
-    else
-        getfield(rnlp, sym)
-    end
+    return BranchNLP(mpcc, meta, b, mpcc.counters)
 end
 
 ######################### NLPModels Callbacks #########################
