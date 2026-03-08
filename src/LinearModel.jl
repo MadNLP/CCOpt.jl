@@ -1,20 +1,24 @@
-struct LinearModel{T,VT,MAT<:AbstractMatrix{T},NLP_META} <: NLPModels.AbstractNLPModel{T, VT}
-  c::VT
-  A::MAT
-  x0::VT
+struct LinearModel{T,VT,MAT<:AbstractMatrix{T}} <: NLPModels.AbstractNLPModel{T, VT}
+    f0::T
+    c::VT
+    A::MAT
+    x0::VT
 
-  meta::NLPModelMeta{T,VT,NLP_META}
+    meta::NLPModelMeta{T,VT}
+    counters::NLPModels.Counters
 end
 
-function LinearModel(nlp::AbstractNLPModel{T,VT}, x0::VT; tr::T=Inf) where {T,VT}
-    lvar = copy!(get_lvar(nlp))
-    uvar = copy!(get_uvar(nlp))
-    lvar .-= x0
-    uvar .-= x0
+function LinearModel(nlp::AbstractNLPModel{T,VT}, x_lin::VT; tr=Inf) where {T,VT}
+    lvar = copy(get_lvar(nlp))
+    uvar = copy(get_uvar(nlp))
+    lvar .-= x_lin
+    uvar .-= x_lin
+    lvar .= max.(.-tr,lvar)
+    uvar .= min.(tr,uvar)
     
-    A = jac(nlp, x0)
-    lcon = mul(A, x0)
-    ucon = copy!(lcon)
+    A = jac(nlp, x_lin)
+    lcon = cons(nlp, x_lin)
+    ucon = copy(lcon)
     lcon .= get_lcon(nlp) - lcon
     ucon .= get_ucon(nlp) - ucon
     x0 = similar(get_x0(nlp))
@@ -23,34 +27,39 @@ function LinearModel(nlp::AbstractNLPModel{T,VT}, x0::VT; tr::T=Inf) where {T,VT
     fill!(y0, 0.0)
     
     meta = NLPModels.NLPModelMeta(
-        nlp.meta,
+        nlp.meta;
         lcon=lcon,
         ucon=ucon,
         lvar=lvar,
         uvar=uvar,
         x0=x0,
-        nnzh=get_nnzj(nlp),
+        nnzj=get_nnzj(nlp),
         nln_nnzj=0,
         lin_nnzj=get_nnzj(nlp),
         nnzh=0,
-        nln_nnzh=0,
-        lin_nnzh=0,
-        lin=get_ncon(nlp),
+        lin=1:get_ncon(nlp),
         islp=true,
         y0=y0,
     )
+
+    return LinearModel(
+        obj(nlp, x_lin),
+        grad(nlp, x_lin),
+        A,
+        x0,
+        meta,NLPModels.Counters())
 end
 
 function NLPModels.obj(lp::LinearModel, x::AbstractVector)
-    return NLPModels.obj(lp.nlp, view(x, 1:get_nvar(lp.nlp)))
+    return lp.f0 + dot(lp.c, x)
 end
 function NLPModels.grad!(lp::LinearModel, x::AbstractVector, gx::AbstractVector)
-    @views NLPModels.grad!(lp.nlp, x[1:get_nvar(lp.nlp)], gx[1:get_nvar(lp.nlp)])
-    gx[(get_nvar(lp.nlp)+1):get_nvar(lp)] .= 0
+    gx .= lp.c
     return gx
 end
-function NLPModels.objgrad!(lp::LinearModel, x::AbstractVector, g::AbstractVector)
-    return NLPModels.objgrad!(lp.nlp, view(x, 1:get_nvar(lp.nlp)), g)
+function NLPModels.objgrad!(lp::LinearModel, x::AbstractVector, gx::AbstractVector)
+    gx .= lp.c
+    return obj(lp, x), gx
 end
 
 function NLPModels.cons!(lp::LinearModel, x::AbstractVector, cx::AbstractVector)
@@ -83,19 +92,19 @@ function fill_coord!(S::SparseMatrixCSC, vals)
 end
 
 function NLPModels.jac_structure!(
-    lp::LinearModel{T,VT,SparseMatrixCSC},
+    lp::LinearModel{T,VT,MT},
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
-) where {T,VT}
+) where {T,VT,MT<:SparseMatrixCSC}
     fill_structure!(lp.A, rows, cols)
     return rows, cols
 end
 
 function NLPModels.jac_lin_structure!(
-    lp::LinearModel{T,VT,SparseMatrixCSC},
+    lp::LinearModel{T,VT,MT},
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
-) where {T,VT}
+) where {T,VT, MT<:SparseMatrixCSC}
     fill_structure!(lp.A, rows, cols)
     return rows, cols
 end
@@ -201,6 +210,7 @@ function NLPModels.hess_coord!(
     obj_weight::Real=one(T),
 ) where {T, VT}
     return H
+end
 
 function NLPModels.hprod!(
     lp::LinearModel{T, VT},
