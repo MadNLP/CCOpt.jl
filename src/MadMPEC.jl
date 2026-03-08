@@ -1,7 +1,5 @@
 module MadMPEC
 using NLPModels, SolverCore, LinearAlgebra, SparseArrays
-using MathOptInterface
-const MOI = MathOptInterface
 using Serialization
 using Printf
 using DataStructures: CircularBuffer
