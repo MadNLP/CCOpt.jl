@@ -104,6 +104,17 @@ function NLPModels.jac_nln_coord!(bnlp::BranchNLP, x::AbstractVector, jac::Abstr
     return jac_nln_coord!(bnlp.mpcc, x, jac)
 end
 
+function NLPModels.jprod!(
+    bnlp::BranchNLP,
+    x::AbstractVector,
+    v::AbstractVector,
+    Jv::AbstractVector,
+)
+    # TODO(@anton) do this in a smarter way
+    Jv[1:bnlp.meta.nlin] = jac(bnlp, x) * v
+    return Jv
+end
+
 function NLPModels.jprod_lin!(
     bnlp::BranchNLP,
     x::AbstractVector,
@@ -124,6 +135,17 @@ function NLPModels.jprod_nln!(
     # TODO(@anton) do this in a smarter way
     Jv[1:bnlp.meta.nnln] = jac_nln(bnlp, x) * v
     return Jv
+end
+
+function NLPModels.jtprod!(
+    bnlp::BranchNLP,
+    x::AbstractVector,
+    v::AbstractVector,
+    Jtv::AbstractVector,
+)
+    # TODO(@anton) do this in a smarter way
+    Jtv[1:bnlp.meta.nvar] = jac(bnlp, x)' * v
+    return Jtv
 end
 
 function NLPModels.jtprod_lin!(

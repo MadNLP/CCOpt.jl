@@ -1,4 +1,4 @@
-const LPCCModel{T,VT} = MPCCModel{T,VT,LinearModel{T,VT}} where {T,VT}
+const LPCCModel = MPCCModel{T,VT,LinearModel{T,VT,MAT}} where {T,VT,MAT}
 
 ######################### linearize! #########################
 function LPCCModel(mpcc::MPCCModel{T,VT}, x0::VT; tr::T=T(Inf)) where {T,VT}
