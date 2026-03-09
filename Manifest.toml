@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.3"
 manifest_format = "2.0"
-project_hash = "c892ce96c58b497f4cdf58939730d7c965ee6609"
+project_hash = "af4a7ffb91aecbbede9d34dca73c71c7902dfbf4"
 
 [[deps.AMD]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -132,30 +132,6 @@ version = "1.3.2"
     [deps.ForwardDiff.weakdeps]
     StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
-[[deps.Gurobi]]
-deps = ["Gurobi_jll", "Libdl", "MathOptInterface", "PrecompileTools"]
-git-tree-sha1 = "0c937687e3f5812ecdba2b9986418cac7a873874"
-uuid = "2e9cd046-0924-5485-92f1-d5272153d98b"
-version = "1.9.2"
-
-[[deps.Gurobi_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "ec2817f5a9be1e84ebc0ee8207a4bfd8d22b99a5"
-uuid = "c018c7e6-a5b0-4aea-8f80-9c1ef9991411"
-version = "13.0.0"
-
-[[deps.HiGHS]]
-deps = ["HiGHS_jll", "LinearAlgebra", "MathOptIIS", "MathOptInterface", "OpenBLAS32_jll", "PrecompileTools", "SparseArrays"]
-git-tree-sha1 = "900d431a604b096953437855a3d5fd03a18c3a6c"
-uuid = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
-version = "1.21.1"
-
-[[deps.HiGHS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Zlib_jll", "libblastrampoline_jll"]
-git-tree-sha1 = "621d773f277b9eadac7e049eaa6418af65c7b9d7"
-uuid = "8fd58aa0-07eb-5a78-9b36-339c94fd15ea"
-version = "1.13.1+0"
-
 [[deps.Hwloc_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "XML2_jll", "Xorg_libpciaccess_jll"]
 git-tree-sha1 = "157e2e5838984449e44af851a52fe374d56b9ada"
@@ -205,18 +181,6 @@ version = "1.4.0"
 
     [deps.JSON.weakdeps]
     ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
-
-[[deps.JuMP]]
-deps = ["LinearAlgebra", "MacroTools", "MathOptInterface", "MutableArithmetics", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays"]
-git-tree-sha1 = "8e4088727b5a130c12b1fedbc316306b6bbf2b9d"
-uuid = "4076af6c-e467-56ae-b986-b466b2749572"
-version = "1.29.4"
-
-    [deps.JuMP.extensions]
-    JuMPDimensionalDataExt = "DimensionalData"
-
-    [deps.JuMP.weakdeps]
-    DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 
 [[deps.JuliaSyntaxHighlighting]]
 deps = ["StyledStrings"]
@@ -329,10 +293,18 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.MadMPEC]]
-deps = ["DataStructures", "Gurobi", "HiGHS", "JuMP", "LinearAlgebra", "MadNLP", "MathOptInterface", "NLPModels", "NLPModelsIpopt", "Printf", "Serialization", "SolverCore", "SparseArrays"]
+deps = ["DataStructures", "LinearAlgebra", "MadNLP", "MathOptInterface", "NLPModels", "NLPModelsIpopt", "Printf", "Serialization", "SolverCore", "SparseArrays"]
 path = "."
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
 version = "0.1.0"
+
+    [deps.MadMPEC.extensions]
+    MadMPECGurobi = ["Gurobi"]
+    MadMPECHiGHS = ["HiGHS"]
+
+    [deps.MadMPEC.weakdeps]
+    Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
+    HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 
 [[deps.MadNLP]]
 deps = ["LDLFactorizations", "LinearAlgebra", "Logging", "MUMPS_seq_jll", "NLPModels", "OpenBLAS32_jll", "Pkg", "PrecompileTools", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
@@ -351,12 +323,6 @@ deps = ["Base64", "JuliaSyntaxHighlighting", "StyledStrings"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
 
-[[deps.MathOptIIS]]
-deps = ["MathOptInterface"]
-git-tree-sha1 = "12f262200198606174e28c59da634e9d9da839ed"
-uuid = "8c4f8055-bd93-4160-a86b-a0c04941dbff"
-version = "0.1.2"
-
 [[deps.MathOptInterface]]
 deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "ForwardDiff", "JSON", "LinearAlgebra", "MutableArithmetics", "NaNMath", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays", "SpecialFunctions", "Test"]
 git-tree-sha1 = "7fb98657926ccb4de8f9bb96cda453700ca39a8b"
@@ -365,7 +331,7 @@ version = "1.49.0"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2025.11.4"
+version = "2025.5.20"
 
 [[deps.MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
