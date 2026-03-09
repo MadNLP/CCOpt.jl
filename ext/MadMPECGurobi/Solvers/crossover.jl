@@ -64,7 +64,7 @@ function MadMPEC.solve_lpcc(
     col_value = Vector{Float64}(undef, get_nvar(bigm))
     GRBgetdblattrarray(model.x, GRB_DBL_ATTR_X, 0, get_nvar(bigm), col_value)
     status_ref = Ref{Cint}()
-    GRBgetintattr(model.x, "Status", status_ref)
+    GRBgetintattr(model.x, GRB_INT_ATTR_STATUS, status_ref)
     status = status_ref.x
     objective_ref = Ref{Float64}()
     GRBgetdblattr(model.x, GRB_DBL_ATTR_OBJVAL, objective_ref)
