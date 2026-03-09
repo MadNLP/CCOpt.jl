@@ -25,7 +25,6 @@ include("Models/big_m_model.jl")
 
 include("Solvers/AbstractMPCCSolver.jl")
 include("Solvers/homotopy_solver.jl")
-#include("Solvers/lpcc_solver.jl")
 include("Solvers/madnlpc/MadNLPC.jl")
 include("Solvers/exact_penalty/ExactPenalty.jl")
 include("Solvers/crossover.jl")
