@@ -1,10 +1,10 @@
-# options for LPCC solving with HiGHS
-@kwdef struct HiGHSOptions{T}
+# options for LPCC solving with Gurobi
+@kwdef struct GurobiLPCCSolverOptions{T}
     M::T = 1000.0
 end
 
-# options for LPCC solving with Gurobi
-@kwdef struct GurobiOptions{T}
+# options for LPCC solving with HiGHS
+@kwdef struct HiGHSLPCCSolverOptions{T}
     M::T = 1000.0
 end
 
@@ -68,8 +68,10 @@ function crossover(
             lpcc = LPCCModel(mpcc, x_curr; tr=tr)
             success, lpcc_sol, y_next =
                 solve_lpcc(lpcc, lpcc_solver_opts; lpcc_solver_kwargs...)
-            if norm(lpcc_sol.solution) <= stationarity_tol ||
-               f_curr - lpcc_sol.objective <= stationarity_tol
+            d_f =
+                get_minimize(mpcc) ? f_curr - lpcc_sol.objective :
+                lpcc_sol.objective - f_curr
+            if norm(lpcc_sol.solution) <= stationarity_tol || d_f <= stationarity_tol
                 return :b_stat, x_curr, y_curr
             end
             if any(y_next .!= y_curr)

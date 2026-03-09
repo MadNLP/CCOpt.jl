@@ -1,6 +1,6 @@
 function MadMPEC.solve_lpcc(
     lpcc::MadMPEC.LPCCModel,
-    solver_opts::MadMPEC.HiGHSOptions;
+    solver_opts::MadMPEC.HiGHSLPCCSolverOptions;
     kwargs...,
 )
     bigm = MadMPEC.BigMModel(lpcc, solver_opts.M)
@@ -24,7 +24,7 @@ function MadMPEC.solve_lpcc(
         get_ncon(bigm),#num_row
         get_nnzj(bigm),# num_nz
         kHighsMatrixFormatColwise,# a_format
-        kHighsObjSenseMinimize,# sense TODO(also maximize)
+        get_minimize(bigm) ? kHighsObjSenseMinimize : kHighsObjSenseMaximize,# sense TODO(also maximize)
         lpcc.nlp.f0,# offset
         grad(bigm, get_x0(bigm)),# col_cost
         get_lvar(bigm),# col_lower

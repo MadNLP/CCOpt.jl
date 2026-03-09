@@ -1,7 +1,6 @@
-
 function MadMPEC.solve_lpcc(
     lpcc::MadMPEC.LPCCModel,
-    solver_opts::MadMPEC.GurobiOptions;
+    solver_opts::MadMPEC.GurobiLPCCSolverOptions;
     method=-1,
     kwargs...,
 )
@@ -17,20 +16,18 @@ function MadMPEC.solve_lpcc(
     # -1=automatic, 0=primal simplex, 1=dual simplex, 2=barrier,
     # 3=concurrent, 4=deterministic concurrent, 5=deterministic concurrent simplex.
     # default to barrier
-    GRBsetintparam(env, "Method", method)
+    GRBsetintparam(env, GRB_INT_PAR_METHOD, method)
     # use kwargs change to presolve, scaling and crossover mode
     # example: gurobi(QM, presolve=0) (see gurobi doc for other options)
     for (k, v) in kwargs
         if k==:presolve
-            GRBsetintparam(env, "Presolve", v) # 0 = no presolve
+            GRBsetintparam(env, GRB_INT_PAR_PRESOLVE, v) # 0 = no presolve
         elseif k==:scaling
-            GRBsetintparam(env, "ScaleFlag", v) # 0 = no scaling
-        elseif k==:crossover
-            GRBsetintparam(env, "Crossover", v) # 0 = no crossover
+            GRBsetintparam(env, GRB_INT_PAR_SCALEFLAG, v) # 0 = no scaling
         elseif k==:display
-            GRBsetintparam(env, "OutputFlag", v) # 0 = no display
+            GRBsetintparam(env, GRB_INT_PAR_OUTPUTFLAG, v) # 0 = no display
         elseif k==:threads
-            GRBsetintparam(env, "Threads", v)
+            GRBsetintparam(env, GRB_INT_PAR_THREADS, v)
         end
     end
 
@@ -46,7 +43,7 @@ function MadMPEC.solve_lpcc(
         int,
         C_NULL,
     )
-    GRBsetdblattr(model.x, "ObjCon", lpcc.nlp.f0)
+    GRBsetdblattr(model.x, GRB_DBL_ATTR_OBJCON, lpcc.nlp.f0)
 
     GRBaddrangeconstrs(
         model.x,
@@ -59,16 +56,18 @@ function MadMPEC.solve_lpcc(
         get_ucon(bigm),
         C_NULL,
     )
-
+    if !get_minimize(bigm)
+        GRBsetintattr(model, GRB_INT_ATTR_MODELSENSE, GRB_MAXIMIZE);
+    end
     GRBoptimize(model.x)
 
     col_value = Vector{Float64}(undef, get_nvar(bigm))
-    GRBgetdblattrarray(model.x, "X", 0, get_nvar(bigm), col_value)
+    GRBgetdblattrarray(model.x, GRB_DBL_ATTR_X, 0, get_nvar(bigm), col_value)
     status_ref = Ref{Cint}()
     GRBgetintattr(model.x, "Status", status_ref)
     status = status_ref.x
     objective_ref = Ref{Float64}()
-    GRBgetdblattr(model.x, "ObjVal", objective_ref)
+    GRBgetdblattr(model.x, GRB_DBL_ATTR_OBJVAL, objective_ref)
     objective = objective_ref.x
 
     y = Vector{Bool}(undef, get_ncc(lpcc))
