@@ -346,7 +346,7 @@ function MadNLP.get_adaptive_mu(
 
     # Get approximate solution without iterative refinement
     copyto!(MadNLP.full(step_aff), MadNLP.full(ipm.p))
-    MadNLP.solve!(linear_solver, MadNLP.full(step_aff))
+    MadNLP.solve_kkt!(ipm.kkt, step_aff)
 
     # Get average complementarity
     mu = MadNLP.get_average_complementarity(solver)
@@ -362,7 +362,7 @@ function MadNLP.get_adaptive_mu(
     )
     # Get (again) approximate solution without iterative refinement
     copyto!(MadNLP.full(step_cen), MadNLP.full(ipm.p))
-    MadNLP.solve!(linear_solver, MadNLP.full(step_cen))
+    MadNLP.solve_kkt!(ipm.kkt, step_cen)
 
     # Refine the search interval using Ipopt's heuristics
     # First, check if sigma is greater than 1.
