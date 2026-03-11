@@ -478,8 +478,8 @@ function NLPModels.jac_lin_structure!(
     _cols = view(mpcc._i2, 1:get_lin_nnzj(mpcc.nlp))
     jac_lin_structure!(mpcc.nlp, _rows, _cols) # get including complementarities
     @views begin
-        rows .= _lin_rows[get_ind_j_lin_triplets(mpcc)]
-        cols .= _lin_cols[get_ind_j_lin_triplets(mpcc)]
+        rows .= _rows[get_ind_j_lin_triplets(mpcc)]
+        cols .= _cols[get_ind_j_lin_triplets(mpcc)]
     end
     # Convert row values adjusting for the number of linear complementarities
     map!((x) -> get_ind_j_lin_row_map(mpcc)[x], rows, rows)
@@ -494,7 +494,7 @@ function NLPModels.jac_nln_structure!(
 )
     _rows = view(mpcc._i1, 1:get_nln_nnzj(mpcc.nlp))
     _cols = view(mpcc._i2, 1:get_nln_nnzj(mpcc.nlp))
-    jac_lin_structure!(mpcc.nlp, _rows, _cols) # get including complementarities
+    jac_nln_structure!(mpcc.nlp, _rows, _cols) # get including complementarities
     @views begin
         rows .= _rows[get_ind_j_nln_triplets(mpcc)]
         cols .= _cols[get_ind_j_nln_triplets(mpcc)]
