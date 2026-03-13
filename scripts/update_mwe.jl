@@ -4,8 +4,8 @@ problem_path = "data/macMPEC/nls/bem-milanc30-s.nl"
 model = AmplNLReader.AmplModel(problem_path)
 mpcc = CCOpt.vertical_form(mpcc_from_ampl(model))
 
-opts1 = CCOpt.ExactPenaltyOptions(kkt_regularization=:eigenvalue_decomposition);
-solver1 = CCOpt.ExactPenaltySolver(
+opts1 = CCOpt.PenaltyOptions(kkt_regularization=:eigenvalue_decomposition);
+solver1 = CCOpt.PenaltySolver(
     mpcc;
     solver_opts=opts1,
     bound_relax_factor=0.0,
@@ -15,8 +15,8 @@ solver1 = CCOpt.ExactPenaltySolver(
 );
 st1 = CCOpt.solve_homotopy!(solver1)
 
-opts2 = CCOpt.ExactPenaltyOptions(kkt_regularization=:eigenvalue_decomposition);
-solver2 = CCOpt.ExactPenaltySolver(
+opts2 = CCOpt.PenaltyOptions(kkt_regularization=:eigenvalue_decomposition);
+solver2 = CCOpt.PenaltySolver(
     mpcc;
     solver_opts=opts2,
     bound_relax_factor=0.0,

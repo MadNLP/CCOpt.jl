@@ -15,8 +15,8 @@ function SimpleMPCCModel(T::Type)
 end
 
 mpcc = SimpleMPCCModel(Float64)
-madnlpc_opts = CCOpt.MadNLPCOptions(; use_magic_step=true, plot_iterates=true)
-solver = CCOpt.MadNLPCSolver(
+madnlpc_opts = CCOpt.RelaxationOptions(; use_magic_step=true, plot_iterates=true)
+solver = CCOpt.RelaxationSolver(
     mpcc;
     madnlpc_opts=madnlpc_opts,
     print_level=MadNLP.INFO,

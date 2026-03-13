@@ -5,8 +5,8 @@
 iters = 3000
 idx_prob = 173
 
-opts = CCOpt.MadNLPCOptions(; print_level=MadNLP.ERROR, reset_slacks_on_update=true);
-solver = CCOpt.MadNLPCSolver(
+opts = CCOpt.RelaxationOptions(; print_level=MadNLP.ERROR, reset_slacks_on_update=true);
+solver = CCOpt.RelaxationSolver(
     probs[idx_prob];
     solver_opts=opts,
     print_level=MadNLP.INFO,

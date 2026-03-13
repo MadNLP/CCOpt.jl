@@ -354,11 +354,11 @@ function test_no_degen(; n_probs=7, max_size=100, multiproc=true)
         :mu_init=>10.0,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = CCOpt.MadNLPCOptions()
+    opts_madnlp_c = CCOpt.RelaxationOptions()
 
-    opts_exact_penalty = CCOpt.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty = CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE)
     opts_exact_penalty_dynamic =
-        CCOpt.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+        CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>1e-12,
         :print_level=>MadNLP.ERROR,
@@ -455,11 +455,11 @@ function test_some_degen(; n_probs=7, max_size=100, multiproc=true, kwargs...)
         :mu_init=>10.0,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = CCOpt.MadNLPCOptions()
+    opts_madnlp_c = CCOpt.RelaxationOptions()
 
-    opts_exact_penalty = CCOpt.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty = CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE)
     opts_exact_penalty_dynamic =
-        CCOpt.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+        CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>1e-12,
         :print_level=>MadNLP.ERROR,

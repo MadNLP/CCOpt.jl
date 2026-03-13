@@ -1,7 +1,7 @@
 using Serialization
 
 function readlog(filename::AbstractString)
-    iters = Vector{CCOpt.MadNLPCIterate}()
+    iters = Vector{CCOpt.RelaxationIterate}()
     open(filename, "r") do iter_file
         while (!eof(iter_file))
             push!(iters, deserialize(iter_file))
