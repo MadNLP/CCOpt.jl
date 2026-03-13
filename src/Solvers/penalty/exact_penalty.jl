@@ -1,18 +1,14 @@
-function solve_homotopy!(
-    nlp::AbstractMPCCPenaltyModel,
-    solver::ExactPenaltySolver;
-    kwargs...,
-)
+function solve_homotopy!(nlp::AbstractMPCCPenaltyModel, solver::PenaltySolver; kwargs...)
     return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
 end
 
-function solve_homotopy!(solver::ExactPenaltySolver; kwargs...)
+function solve_homotopy!(solver::PenaltySolver; kwargs...)
     return solve_homotopy!(solver.pnlp, solver; kwargs...)
 end
 
 function solve_homotopy!(
     nlp::AbstractMPCCPenaltyModel,
-    solver::CCOpt.ExactPenaltySolver,
+    solver::CCOpt.PenaltySolver,
     stats::MadNLP.MadNLPExecutionStats;
     x=nothing,
     y=nothing,
@@ -109,7 +105,7 @@ function solve_homotopy!(
     return stats
 end
 
-function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
+function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
     ipm = solver.ipm
     nlp = solver.pnlp
     mpcc = solver.mpcc
@@ -312,13 +308,13 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
 end
 
 # evaluate mpcc objective instead of ell1 objective (though they should be the same)
-function update!(stats::MadNLP.MadNLPExecutionStats, solver::ExactPenaltySolver)
+function update!(stats::MadNLP.MadNLPExecutionStats, solver::PenaltySolver)
     MadNLP.update!(stats, solver.ipm)
     stats.objective = CCOpt.obj(solver.mpcc, stats.solution)
     return stats
 end
 
-function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
+function regularize_Q!(solver::PenaltySolver{T}) where {T}
     if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
     end
@@ -372,7 +368,7 @@ function regularize_Q!(solver::ExactPenaltySolver{T}) where {T}
     return regularized
 end
 
-function unregularize_Q!(solver::ExactPenaltySolver{T}) where {T}
+function unregularize_Q!(solver::PenaltySolver{T}) where {T}
     ipm = solver.ipm
     cb = ipm.cb
     pnlp = solver.pnlp
@@ -397,7 +393,7 @@ end
 
 function MadNLP.inertia_correction!(
     inertia_corrector::MadNLP.InertiaBased,
-    solver::ExactPenaltySolver{T},
+    solver::PenaltySolver{T},
 ) where {T}
     ipm = solver.ipm
     n_trial = 0
@@ -483,7 +479,7 @@ end
 
 function MadNLP.inertia_correction!(
     inertia_corrector::MadNLP.AbstractInertiaCorrector,
-    solver::ExactPenaltySolver{T},
+    solver::PenaltySolver{T},
 ) where {T}
     return MadNLP.inertia_correction!(inertia_corrector, solver.ipm)
 end
