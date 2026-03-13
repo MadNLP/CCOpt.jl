@@ -2,12 +2,25 @@
     file::Union{IOStream, Nothing} = nothing
 end
 # Relaxation updates
+
+"""
+  Method by which the Scholtes relaxation parameter σ is calculated at each iteration.
+"""
 abstract type AbstractRelaxationUpdate{T} end
+
+"""
+  Fixed relaxation update methods define a function ``σ(μ)`` which is used to calculate the
+  Scholtes relaxation parameter from the barrier parameter.
+"""
 abstract type AbstractFixedRelaxationUpdate{T} <: AbstractRelaxationUpdate{T} end
+
+"""
+  Adaptive relaxation update methods update σ independently of μ.
+"""
 abstract type AbstractAdaptiveRelaxationUpdate{T} <: AbstractRelaxationUpdate{T} end
 
 """
-  Proportional Relaxation update which updates σ = aμ^b
+  Proportional Relaxation update which updates ``σ = aμ^b``
 """
 @kwdef struct ProportionalRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0 # a
@@ -17,7 +30,7 @@ abstract type AbstractAdaptiveRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
 end
 
 """
-  Rolloff Relaxation update which updates σ = c*μ^a/(sqrt(μ^a^2)+b)
+  Rolloff Relaxation update which updates ``σ = c*μ^a/(sqrt(μ^a^2)+b)``
 """
 @kwdef struct RolloffRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
     rolloff_slope::T = 1.6 # a
@@ -27,7 +40,14 @@ end
     sigma_min::T = 1e-8
 end
 
-@kwdef struct LOQORelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
+"""
+  LOQO based algorithm for adaptively selecting the Scholtes relaxation parameter σ.
+
+  ``ξ = (ncc*min(x₁,x₂))/(x₁ᵀx₂)``
+  ``k = γ*min((1-r)(1-ξ)/ξ, 2)³``
+  ``σ = k(x₁ᵀx₂)/ncc``
+"""
+@kwdef struct LOQORelaxationUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
     gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
     mu_factor::T = 1e-5 # smallest factor of reduction allowed
@@ -47,6 +67,12 @@ end
     sigma_min::T = 1e-8
 end
 
+"""
+  A scheduled update for σ, that is the Fiacco-McCormick rule is applied when the RNLP(σ) is solved to a target accuracy.
+  The target accuracy is calculated as a piecewise function: base accuracy if σ > accuracy shoulder, and
+  ((target accuaracy - base accuracy)/(target accuracy - accuracy shoulder))*σ otherwise.
+  This is done independently of the μ (barrier parameter) update.
+"""
 @kwdef struct ScheduledRelaxationUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
     base_accuracy::T = 1e-3
     target_accuracy::T = 1e-8
@@ -57,15 +83,21 @@ end
     sigma_min::T = 1e-8
 end
 
+"""
+  Strategies taken once an accuracy threshold is reached in order to promote convergence.
+"""
 abstract type AbstractEndgameStrategy{T} end
 
+"""
+  No special strategy is used.
+"""
 struct NoEndgameStrategy{T} <: AbstractEndgameStrategy{T} end
 
 """
   Relaxes the complementarity lower bounds when:
     du_inf ≤ relax_threshold
     the corresponding estimated mpec multiplier is negative (the scholtes bound is active)
-    identified by the multiplier being smaller than μ^tau
+    identified by the multiplier being smaller than μ^tau.
 """
 @kwdef mutable struct RelaxLBEndgameStrategy{T} <: AbstractEndgameStrategy{T}
     delta_max::T = 1e-4

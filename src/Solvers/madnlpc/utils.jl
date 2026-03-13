@@ -105,8 +105,7 @@ function log_iter(
     delta2 = solver.rnlp.δ2
 
     W = ipm.kkt.aug_com
-    #K = Array(Symmetric(W, :L))
-    KKT_s = VT()#eigvals(K)
+    KKT_s = VT()#K = Array(Symmetric(W, :L)); eigvals(K)
 
     iter = MadNLPCIterate(
         k,

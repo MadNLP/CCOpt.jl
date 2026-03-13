@@ -25,9 +25,9 @@ end
 # Calculate the new duals for a given relaxation
 function calculate_relax_magic_step(x, x_other, z, zs, delta, nu, nu_other, mu)
     mu_r = mu + (x*z - mu)
-    z_hat = inv(x+delta)*mu_r # TODO(@anton): maybe do mu+r where r is the old residual
-    zs_hat = inv(x_other)*(-nu + z_hat) # TODO(@anton): if this doesn't work then calculate ther real residual instead of -nu1.
-    z_other_hat = x*zs_hat + nu_other # TODO(@anton) same here
+    z_hat = inv(x+delta)*mu_r
+    zs_hat = inv(x_other)*(-nu + z_hat)
+    z_other_hat = x*zs_hat + nu_other
 
     return z_hat, z_other_hat, zs_hat
 end
@@ -39,9 +39,6 @@ function set_relax_magic_step!(solver, ii, z1, z2, zs, x1, x2, delta_zs)
     ipm = solver.ipm
     cb = ipm.cb
 
-    ## TODO(@anton) Set the new slack?
-    ## TODO(@anton) also adjust x1?
-    #MadNLP.slack(ipm.x)[end-ncc+ii] = -mu*inv(zs_hat)
     ## Set the new duals
     MadNLP.variable(ipm.zl)[cc1] = z1
     MadNLP.variable(ipm.zl)[cc2] = z2
@@ -49,13 +46,13 @@ function set_relax_magic_step!(solver, ii, z1, z2, zs, x1, x2, delta_zs)
     ipm.y[end-ncc+ii] = zs
 
     ## Set the new J'y_c
-    # TODO(@anton) is this correct
     ipm.jacl[cc1] += x2*delta_zs*cb.con_scale[end-ncc+ii]
     ipm.jacl[cc2] += x1*delta_zs*cb.con_scale[end-ncc+ii]
     ipm.jacl[end-ncc+ii] -= delta_zs*cb.con_scale[end-ncc+ii]
 
     ## Set the multiplier contribution in the Hessian of the Lagrangian
-    return ipm.kkt.hess[end-ncc+ii] = zs_hat*cb.con_scale[end-ncc+ii]
+    ipm.kkt.hess[end-ncc+ii] = zs_hat*cb.con_scale[end-ncc+ii]
+    return nothing
 end
 
 # If using Scholtes do LB relaxation
