@@ -161,17 +161,17 @@ git-tree-sha1 = "afbaaa0fa2f001ad8091e27885d69973f8eae3d7"
 uuid = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
 version = "500.800.200+0"
 
-[[deps.MadMPEC]]
+[[deps.CCOpt]]
 deps = ["DataStructures", "LinearAlgebra", "MadNLP", "NLPModels", "Printf", "Serialization", "SolverCore", "SparseArrays"]
 path = "."
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
 version = "0.1.0"
 
-    [deps.MadMPEC.extensions]
+    [deps.CCOpt.extensions]
     CCOptGurobi = ["Gurobi"]
     CCOptHiGHS = ["HiGHS"]
 
-    [deps.MadMPEC.weakdeps]
+    [deps.CCOpt.weakdeps]
     Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
     HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 
