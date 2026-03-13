@@ -207,7 +207,7 @@ end
 end
 
 @kwdef mutable struct RelaxationCounters
-    counters::MadNLP.Relaxationounters
+    counters::MadNLP.MadNLPCounters
     solver_time::Float64 = 0
 end
 
