@@ -1,9 +1,9 @@
 @testset "MadNLP-C Test" begin
     @testset "Default Options" begin
         mpcc = SimpleMPCCModel(Float64)
-        madnlpc_opts = CCOpt.MadNLPCOptions(; print_level=MadNLP.ERROR)
+        madnlpc_opts = CCOpt.RelaxationOptions(; print_level=MadNLP.ERROR)
         solver =
-            CCOpt.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
+            CCOpt.RelaxationSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
         copyto!(get_x0(mpcc), [2; 1])
 
@@ -16,9 +16,10 @@
 
     @testset "With Magic Steps" begin
         mpcc = SimpleMPCCModel(Float64)
-        madnlpc_opts = CCOpt.MadNLPCOptions(; print_level=MadNLP.ERROR, use_magic_step=true)
+        madnlpc_opts =
+            CCOpt.RelaxationOptions(; print_level=MadNLP.ERROR, use_magic_step=true)
         solver =
-            CCOpt.MadNLPCSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
+            CCOpt.RelaxationSolver(mpcc; solver_opts=madnlpc_opts, print_level=MadNLP.ERROR)
 
         copyto!(get_x0(mpcc), [2; 1])
 
