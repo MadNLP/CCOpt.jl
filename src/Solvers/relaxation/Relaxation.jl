@@ -107,7 +107,7 @@ struct NoEndgameStrategy{T} <: AbstractEndgameStrategy{T} end
 end
 
 # Iterate saving structure
-struct MadNLPCIterate{T, VT}
+struct RelaxationIterate{T, VT}
     k::Int
 
     x0::VT
@@ -148,7 +148,7 @@ struct MadNLPCIterate{T, VT}
 end
 
 # Options struct
-@kwdef struct MadNLPCOptions{
+@kwdef struct RelaxationOptions{
     T,
     RELAX <: AbstractRelaxationUpdate{T},
     EG <: AbstractEndgameStrategy{T},
@@ -206,13 +206,13 @@ end
     iterates_fname::String = ""
 end
 
-@kwdef mutable struct MadNLPCCounters
-    counters::MadNLP.MadNLPCounters
+@kwdef mutable struct RelaxationCounters
+    counters::MadNLP.Relaxationounters
     solver_time::Float64 = 0
 end
 
 # MadNLP-C algorithm
-mutable struct MadNLPCSolver{
+mutable struct RelaxationSolver{
     T,
     VT,
     MPCC <: AbstractMPCCModel{T, VT},
@@ -224,8 +224,8 @@ mutable struct MadNLPCSolver{
     const ipm::SOLVER
     const logger::MadNLP.MadNLPLogger
     const iterate_logger::IterateLogger
-    const opts::MadNLPCOptions{T}
-    const cnt::MadNLPCCounters
+    const opts::RelaxationOptions{T}
+    const cnt::RelaxationCounters
     inf_pr_cc::T
     const multipliers_cc1::VT
     const multipliers_cc2::VT
@@ -251,9 +251,9 @@ function _adjust_cc_inds!(cb, ind_cc1, ind_cc2)
     end
 end
 
-function MadNLPCSolver(
+function RelaxationSolver(
     mpcc::AbstractMPCCModel{T, VT};
-    solver_opts=MadNLPCOptions(),
+    solver_opts=RelaxationOptions(),
     ipm_options...,
 ) where {T, VT}
     rnlp = solver_opts.relaxation(mpcc)
@@ -277,14 +277,14 @@ function MadNLPCSolver(
     multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
     multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
-    cnt = MadNLPCCounters(counters=ipm.cnt)
+    cnt = RelaxationCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
-    return solver = MadNLPCSolver(
+    return solver = RelaxationSolver(
         mpcc,
         rnlp,
         ipm,

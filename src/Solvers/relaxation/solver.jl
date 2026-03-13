@@ -1,6 +1,6 @@
 include("project.jl")
 
-function get_eta_heuristic(solver::MadNLPCSolver)
+function get_eta_heuristic(solver::RelaxationSolver)
     if solver.ipm.mu ≤ solver.opts.mu_thresh
         return solver.opts.eta_factor*solver.ipm.mu/(
             1+max(maximum(MadNLP.full(solver.ipm.zu)), maximum(MadNLP.full(solver.ipm.zl)))
@@ -12,7 +12,7 @@ end
 
 function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.AbstractKKTSystem{T},
-    solver::MadNLPCSolver{T, VT},
+    solver::RelaxationSolver{T, VT},
     eta::T,
 ) where {T, VT}
     ipm = solver.ipm
@@ -59,7 +59,7 @@ end
 
 function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.ScaledSparseKKTSystem{T},
-    solver::MadNLPCSolver{T, VT},
+    solver::RelaxationSolver{T, VT},
     eta::T,
 ) where {T, VT}
     ipm = solver.ipm
@@ -88,20 +88,20 @@ end
 
 function solve_homotopy!(
     nlp::ST,
-    solver::MadNLPCSolver;
+    solver::RelaxationSolver;
     kwargs...,
 ) where {ST <: AbstractMPCCRelaxation}
-    return solve_homotopy!(nlp, solver, MadNLPCExecutionStats(solver); kwargs...)
+    return solve_homotopy!(nlp, solver, RelaxationExecutionStats(solver); kwargs...)
 end
 
-function solve_homotopy!(solver::MadNLPCSolver; kwargs...)
+function solve_homotopy!(solver::RelaxationSolver; kwargs...)
     return solve_homotopy!(solver.rnlp, solver; kwargs...)
 end
 
 function solve_homotopy!(
     nlp::ST,
-    solver::CCOpt.MadNLPCSolver,
-    stats::MadNLPCExecutionStats;
+    solver::CCOpt.RelaxationSolver,
+    stats::RelaxationExecutionStats;
     x=nothing,
     y=nothing,
     zl=nothing,
@@ -206,7 +206,7 @@ function solve_homotopy!(
     return stats
 end
 
-function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
+function initialize_comps!(solver::RelaxationSolver{T}) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
     nlp = ipm.nlp
@@ -236,7 +236,7 @@ function initialize_comps!(solver::MadNLPCSolver{T}) where {T}
     end
 end
 
-function MadNLP.initialize!(solver::MadNLPCSolver{T}) where {T}
+function MadNLP.initialize!(solver::RelaxationSolver{T}) where {T}
     ipm = solver.ipm
     nlp = ipm.nlp
     opt = ipm.opt
@@ -306,7 +306,7 @@ function MadNLP.initialize!(solver::MadNLPCSolver{T}) where {T}
     return MadNLP.REGULAR
 end
 
-function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
+function homotopy!(solver::RelaxationSolver{T, VT}) where {T, VT}
     opts = solver.opts
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -492,7 +492,10 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     end
 end
 
-function update!(stats::MadNLPCExecutionStats, solver::MadNLPCSolver{T, VT}) where {T, VT}
+function update!(
+    stats::RelaxationExecutionStats,
+    solver::RelaxationSolver{T, VT},
+) where {T, VT}
     # TODO(@anton) we probably want to return a custom stats object which returns the correct statuses etc.
     ipm = solver.ipm
     n, m = NLPModels.get_nvar(ipm.nlp), get_ncon(solver.mpcc)

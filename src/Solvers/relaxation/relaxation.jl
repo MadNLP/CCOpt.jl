@@ -1,7 +1,7 @@
 function update_sigma!(
     relax::ProportionalRelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -24,7 +24,7 @@ end
 function update_sigma!(
     relax::RolloffRelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -70,7 +70,7 @@ end
 function update_sigma!(
     relax::ScheduledRelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     rnlp = ipm.nlp
@@ -128,7 +128,7 @@ end
 function update_sigma!(
     relax::LOQORelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -166,7 +166,7 @@ end
 
 function kkt_residual_norm(
     rnlp::ScholtesRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     δ1,
     δ2,
     σ,
@@ -205,7 +205,7 @@ end
 function update_sigma!(
     relax::TwoSidedScholtesUpdate{T},
     rnlp::ScholtesRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -301,7 +301,7 @@ end
 function init_sigma!(
     relax::ProportionalRelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -318,7 +318,7 @@ end
 function init_sigma!(
     relax::RolloffRelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -335,7 +335,7 @@ end
 function init_sigma!(
     relax::LOQORelaxationUpdate{T},
     rnlp::AbstractMPCCRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -374,7 +374,7 @@ end
 function init_sigma!(
     relax::TwoSidedScholtesUpdate{T},
     rnlp::ScholtesRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -392,7 +392,7 @@ end
 function init_sigma!(
     relax::ScheduledRelaxationUpdate{T},
     rnlp::ScholtesRelaxation{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -408,7 +408,7 @@ end
 
 # TODO(@anton) this is a hack. Refactor parameter updates entirely at some point
 function sigma_from_mu(
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     relax::AbstractAdaptiveRelaxationUpdate{T},
     mu::T,
 ) where {T}
@@ -416,7 +416,7 @@ function sigma_from_mu(
 end
 
 function sigma_from_mu(
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     relax::ProportionalRelaxationUpdate{T},
     mu::T,
 ) where {T}
@@ -425,7 +425,7 @@ function sigma_from_mu(
 end
 
 function sigma_from_mu(
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     relax::RolloffRelaxationUpdate{T},
     mu::T,
 ) where {T}

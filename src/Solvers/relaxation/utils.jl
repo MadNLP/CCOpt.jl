@@ -1,4 +1,4 @@
-mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
+mutable struct RelaxationExecutionStats{T, VT} <: AbstractExecutionStats
     options::MadNLP.AbstractOptions
     mpcc_options::MadNLP.AbstractOptions
     status::MadNLP.Status
@@ -14,10 +14,10 @@ mutable struct MadNLPCExecutionStats{T, VT} <: AbstractExecutionStats
     primal_feas::T
     inf_pr_cc::T
     iter::Int
-    counters::MadNLPCCounters
+    counters::RelaxationCounters
 end
 
-function MadNLPCExecutionStats(solver::MadNLPCSolver)
+function RelaxationExecutionStats(solver::RelaxationSolver)
     n, m = get_nvar(solver.rnlp), get_ncon(solver.rnlp)
     ncc = get_ncc(solver.mpcc)
     VT = typeof(get_x0(solver.rnlp))
@@ -33,7 +33,7 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
 
-    return MadNLPCExecutionStats(
+    return RelaxationExecutionStats(
         solver.ipm.opt,
         solver.opts,
         solver.ipm.status,
@@ -54,13 +54,13 @@ function MadNLPCExecutionStats(solver::MadNLPCSolver)
 end
 
 # TODO(@anton) this is a hack, fix it
-function SolverCore.getStatus(result::MadNLPCExecutionStats)
+function SolverCore.getStatus(result::RelaxationExecutionStats)
     return MadNLP.get_status_output(result.status, result.options)
 end
 
 function log_iter(
     logger::IterateLogger,
-    solver::MadNLPCSolver{T, VT};
+    solver::RelaxationSolver{T, VT};
     magic=false,
 ) where {T, VT}
     if isnothing(logger.file)
@@ -107,7 +107,7 @@ function log_iter(
     W = ipm.kkt.aug_com
     KKT_s = VT()#K = Array(Symmetric(W, :L)); eigvals(K)
 
-    iter = MadNLPCIterate(
+    iter = RelaxationIterate(
         k,
         x0,
         x1,
@@ -150,7 +150,7 @@ function finalize(logger::IterateLogger)
     return close(logger.file)
 end
 
-function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
+function get_inf_pr_cc(solver::RelaxationSolver{T}) where {T}
     return @views(
         mapreduce(
             (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
@@ -164,7 +164,7 @@ function get_inf_pr_cc(solver::MadNLPCSolver{T}) where {T}
     )
 end
 
-function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
+function MadNLP.print_iter(solver::RelaxationSolver; is_resto=false)
     ipm = solver.ipm
     obj_scale = ipm.cb.obj_scale[]
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(
