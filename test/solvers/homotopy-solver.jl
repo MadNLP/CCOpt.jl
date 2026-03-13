@@ -1,13 +1,13 @@
 @testset "Homotopy Solver Tests" begin
     @testset "Test IPOPT" begin
         mpcc = SimpleMPCCModel(Float64)
-        opts = MadMPEC.HomotopySolverOptions()
+        opts = CCOpt.HomotopySolverOptions()
         opts.print_level = MadNLP.ERROR
         opts.comp_tol = 1e-7
 
-        solver = MadMPEC.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)
+        solver = CCOpt.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)
 
-        stats = MadMPEC.solve!(solver)
+        stats = CCOpt.solve!(solver)
 
         @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
         @test stats.objective ≈ 1 atol=1e-5
@@ -16,15 +16,15 @@
 
     @testset "Test MadNLP" begin
         mpcc = SimpleMPCCModel(Float64)
-        opts = MadMPEC.HomotopySolverOptions()
+        opts = CCOpt.HomotopySolverOptions()
         opts.print_level = MadNLP.ERROR
         opts.nlp_solver_options =
             Dict(:bound_relax_factor=>1e-12, :print_level=>MadNLP.ERROR, :max_iter=>500)
         opts.comp_tol = 1e-7
         copyto!(get_x0(mpcc), [2; 1])
-        solver = MadMPEC.HomotopySolver(mpcc, MadNLP.MadNLPSolver, opts)
+        solver = CCOpt.HomotopySolver(mpcc, MadNLP.MadNLPSolver, opts)
 
-        stats = MadMPEC.solve!(solver)
+        stats = CCOpt.solve!(solver)
         @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
         # These are broken, we for some reason converge to the biactive point
         # in the case of MadNLP but to the true optimum [1,0]

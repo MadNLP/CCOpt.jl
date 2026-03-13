@@ -1,4 +1,4 @@
-name = "MadMPEC"
+name = "CCOpt"
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
 version = "0.1.0"
 authors = ["Anton Edvinovich Pozharskiy <apozharski@gmail.com>"]
@@ -18,8 +18,8 @@ Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 
 [extensions]
-MadMPECGurobi = ["Gurobi"]
-MadMPECHiGHS = ["HiGHS"]
+CCOptGurobi = ["Gurobi"]
+CCOptHiGHS = ["HiGHS"]
 
 [compat]
 DataStructures = "0.18.22"

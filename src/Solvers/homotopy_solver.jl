@@ -278,7 +278,7 @@ function print_headers(solver::HomotopySolver{M, S, T, VT}) where {M, S, T, VT}
         [:iter, :solver_status, :objective, :inf_cc, :nlp_iters],
         [Int, Symbol, T, T, Int],
     )
-    MadNLP.@info(solver.logger, "MadMPEC Homotopy Solver")
+    MadNLP.@info(solver.logger, "CCOpt Homotopy Solver")
     MadNLP.@info(solver.logger, header)
 end
 

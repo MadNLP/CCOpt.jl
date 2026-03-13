@@ -1,4 +1,4 @@
-function MadNLP.get_average_complementarity(solver::MadNLPCSolver{T}) where {T}
+function MadNLP.get_average_complementarity(solver::RelaxationSolver{T}) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
     ncc = ipm.nlb + ipm.nub + get_ncc(mpcc)
@@ -13,7 +13,7 @@ function MadNLP.get_average_complementarity(solver::MadNLPCSolver{T}) where {T}
     return (cc_lb + cc_ub + cc_pr)/ncc
 end
 
-function MadNLP.get_min_complementarity(solver::MadNLPCSolver{T}) where {T}
+function MadNLP.get_min_complementarity(solver::RelaxationSolver{T}) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
     cc_lb = mapreduce(
@@ -49,7 +49,7 @@ end
     return c[(end-ncc+1):end] .+= σ_old - σ
 end
 
-function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
+function estimate_mpec_multipliers(solver::RelaxationSolver{T}) where {T}
     ipm = solver.ipm
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)

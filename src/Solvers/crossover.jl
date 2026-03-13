@@ -10,17 +10,17 @@ end
 
 function solve_lpcc(
     lpcc::LPCC,
-    solver_opts::MadNLPCOptions;
+    solver_opts::RelaxationOptions;
     bound_relax_factor=0.0,
     kwargs...,
 ) where {LPCC <: LPCCModel}
-    solver = MadMPEC.MadNLPCSolver(
+    solver = CCOpt.RelaxationSolver(
         lpcc;
         solver_opts=solver_opts,
         bound_relax_factor=0.0,
         kwargs...,
     )
-    stats = MadMPEC.solve_homotopy!(solver)
+    stats = CCOpt.solve_homotopy!(solver)
 
     y = Vector{Bool}(undef, get_ncc(lpcc))
     y .= comp_res_left(lpcc, stats.solution) .> comp_res_right(lpcc, stats.solution)

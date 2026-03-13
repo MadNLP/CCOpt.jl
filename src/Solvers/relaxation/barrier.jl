@@ -1,6 +1,6 @@
 function _update_monotone!(
     barrier::MadNLP.AbstractBarrierUpdate{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     sc::T,
 ) where {T}
     ipm = solver.ipm
@@ -59,14 +59,14 @@ end
 
 function MadNLP.update_barrier!(
     barrier::MadNLP.MonotoneUpdate{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     sc::T,
 ) where {T}
     return _update_monotone!(barrier, solver, sc)
 end
 
 function MadNLP.get_adaptive_mu(
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     barrier::MadNLP.LOQOUpdate{T},
 ) where {T}
     ipm = solver.ipm
@@ -79,7 +79,7 @@ end
 
 # Set RHS
 function set_aug_rhs_aff!(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     kkt::MadNLP.AbstractKKTSystem,
     c::AbstractVector,
 )
@@ -107,7 +107,7 @@ function set_aug_rhs_aff!(
 end
 
 function MadNLP.set_centering_aug_rhs!(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     kkt::MadNLP.AbstractKKTSystem,
     mu,
 )
@@ -130,7 +130,7 @@ end
 
 function MadNLP._check_progress(
     barrier::MadNLP.AbstractAdaptiveUpdate{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     # TODO(@anton): We need need to specialize the filter here if we want to be correct
     #               for now we try without.
@@ -149,7 +149,7 @@ function MadNLP._check_progress(
 end
 
 function MadNLP.get_fixed_mu(
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     barrier::MadNLP.AbstractAdaptiveUpdate{T},
 ) where {T}
     # TODO(@anton) This maybe only makes sense if we have the proportional sigma update
@@ -158,7 +158,7 @@ function MadNLP.get_fixed_mu(
 end
 
 function MadNLP._evaluate_quality_function(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     sigma,
     step_aff,
     step_cen,
@@ -242,7 +242,7 @@ function MadNLP._evaluate_quality_function(
 end
 
 function MadNLP._run_golden_search!(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     barrier,
     sigma_lb,
     sigma_ub,
@@ -331,7 +331,7 @@ function MadNLP._run_golden_search!(
 end
 
 function MadNLP.get_adaptive_mu(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     barrier::MadNLP.QualityFunctionUpdate,
 )
     ipm = solver.ipm
@@ -408,7 +408,7 @@ end
 
 function MadNLP.update_barrier!(
     barrier::MadNLP.AbstractAdaptiveUpdate{T},
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     sc::T,
 ) where {T}
     ipm = solver.ipm

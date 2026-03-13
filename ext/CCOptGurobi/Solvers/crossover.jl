@@ -1,10 +1,10 @@
-function MadMPEC.solve_lpcc(
-    lpcc::MadMPEC.LPCCModel,
-    solver_opts::MadMPEC.GurobiLPCCSolverOptions;
+function CCOpt.solve_lpcc(
+    lpcc::CCOpt.LPCCModel,
+    solver_opts::CCOpt.GurobiLPCCSolverOptions;
     method=-1,
     kwargs...,
 )
-    bigm = MadMPEC.BigMModel(lpcc, solver_opts.M)
+    bigm = CCOpt.BigMModel(lpcc, solver_opts.M)
     A = permutedims(jac(bigm, get_x0(bigm))) # @anton This is slow but eh.
     int = Vector{Cchar}(undef, get_nvar(bigm))
     int[1:get_nvar(lpcc)] .= GRB_CONTINUOUS

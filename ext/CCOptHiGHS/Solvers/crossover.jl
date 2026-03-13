@@ -1,9 +1,9 @@
-function MadMPEC.solve_lpcc(
-    lpcc::MadMPEC.LPCCModel,
-    solver_opts::MadMPEC.HiGHSLPCCSolverOptions;
+function CCOpt.solve_lpcc(
+    lpcc::CCOpt.LPCCModel,
+    solver_opts::CCOpt.HiGHSLPCCSolverOptions;
     kwargs...,
 )
-    bigm = MadMPEC.BigMModel(lpcc, solver_opts.M)
+    bigm = CCOpt.BigMModel(lpcc, solver_opts.M)
     A = jac(bigm, get_x0(bigm))
     int = Vector{HiGHS.HighsInt}(undef, get_nvar(bigm))
     int[1:get_nvar(lpcc)] .= kHighsVarTypeContinuous

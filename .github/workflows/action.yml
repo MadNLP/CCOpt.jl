@@ -10,7 +10,7 @@ on:
 
 jobs:
   test-github:
-    name: MadMPEC - ${{ matrix.julia-version }}
+    name: CCOpt - ${{ matrix.julia-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

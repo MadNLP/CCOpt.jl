@@ -1,6 +1,6 @@
 # Default to do nothing
 function do_endgame!(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     rnlp::RNLP,
     endgame::NoEndgameStrategy,
 ) where {RNLP <: AbstractMPCCRelaxation} end
@@ -9,7 +9,7 @@ function do_endgame!(
 # Do nothing for generic RNLPs
 # TODO(@anton) we could do something.
 function do_endgame(
-    solver::MadNLPCSolver,
+    solver::RelaxationSolver,
     rnlp::RNLP,
     endgame::RelaxLBEndgameStrategy,
 ) where {RNLP <: AbstractMPCCRelaxation} end
@@ -57,7 +57,7 @@ end
 
 # If using Scholtes do LB relaxation
 function do_endgame!(
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
     rnlp::ScholtesRelaxation{T},
     endgame::RelaxLBEndgameStrategy{T},
 ) where {T}

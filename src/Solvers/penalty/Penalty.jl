@@ -1,4 +1,4 @@
-@kwdef struct ExactPenaltyOptions{T}
+@kwdef struct PenaltyOptions{T}
     penalty::Type = Ell1Relaxation
     # complementarity homotopy options
     rho_0::T = 1.0
@@ -25,12 +25,12 @@
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
 end
 
-mutable struct ExactPenaltySolver{T, VT}
+mutable struct PenaltySolver{T, VT}
     mpcc::AbstractMPCCModel{T, VT}
     pnlp::AbstractMPCCPenaltyModel{T, VT}
     ipm::MadNLP.MadNLPSolver{T, VT}
     logger::MadNLP.MadNLPLogger
-    opts::ExactPenaltyOptions{T}
+    opts::PenaltyOptions{T}
 
     inf_pr_cc::T
 
@@ -44,9 +44,9 @@ end
   SIAM Journal on Optimization Vol. 17, Issue 1 (2006)
   epubs.siam.org/doi/10.1137/040621065
 """
-function ExactPenaltySolver(
+function PenaltySolver(
     mpcc::AbstractMPCCModel{T, VT};
-    solver_opts=ExactPenaltyOptions{Float64}(),
+    solver_opts=PenaltyOptions{Float64}(),
     ipm_options...,
 ) where {T, VT}
     pnlp = solver_opts.penalty(mpcc)
@@ -59,7 +59,7 @@ function ExactPenaltySolver(
     )
 
     pr_comp_hist = CircularBuffer{T}(solver_opts.comp_history_length)
-    return ExactPenaltySolver(mpcc, pnlp, ipm, logger, solver_opts, 0.0, pr_comp_hist)
+    return PenaltySolver(mpcc, pnlp, ipm, logger, solver_opts, 0.0, pr_comp_hist)
 end
 include("utils.jl")
 include("exact_penalty.jl")

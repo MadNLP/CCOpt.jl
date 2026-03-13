@@ -1,4 +1,4 @@
-function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
+function regularize_Q!(solver::RelaxationSolver{T}) where {T}
     if solver.opts.q_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
         return false
     end
@@ -53,7 +53,7 @@ function regularize_Q!(solver::MadNLPCSolver{T}) where {T}
     return regularized
 end
 
-function unregularize_Q!(solver::MadNLPCSolver{T}) where {T}
+function unregularize_Q!(solver::RelaxationSolver{T}) where {T}
     ipm = solver.ipm
     cb = ipm.cb
     rnlp = solver.rnlp
@@ -78,7 +78,7 @@ end
 
 function MadNLP.inertia_correction!(
     inertia_corrector::MadNLP.InertiaBased,
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     ipm = solver.ipm
     n_trial = 0
@@ -164,7 +164,7 @@ end
 
 function MadNLP.inertia_correction!(
     inertia_corrector::MadNLP.AbstractInertiaCorrector,
-    solver::MadNLPCSolver{T},
+    solver::RelaxationSolver{T},
 ) where {T}
     return MadNLP.inertia_correction!(inertia_corrector, solver.ipm)
 end

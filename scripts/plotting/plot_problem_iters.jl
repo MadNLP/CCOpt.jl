@@ -1,9 +1,9 @@
-using MadMPEC, Plots, LaTeXStrings, LinearAlgebra
+using CCOpt, Plots, LaTeXStrings, LinearAlgebra
 include("../readlog.jl")
 
 function plot_solver_traj(
     name::AbstractString,
-    prob::MadMPEC.MPCCModel,
+    prob::CCOpt.MPCCModel,
     iters_fname::AbstractString;
     range=:,
     save_plt=false,
@@ -197,7 +197,7 @@ end
 
 function plot_mpcc_multiplier_estimate_error(
     name::AbstractString,
-    prob::MadMPEC.MPCCModel,
+    prob::CCOpt.MPCCModel,
     iters_fname::AbstractString;
     range=:,
 )
@@ -270,7 +270,7 @@ end
 
 function plot_mpcc_multipliers(
     name::AbstractString,
-    prob::MadMPEC.MPCCModel,
+    prob::CCOpt.MPCCModel,
     iters_fname::AbstractString;
     range=:,
     tau=0.5,
@@ -305,7 +305,7 @@ function plot_mpcc_multipliers(
 end
 function diagonal_kkt_entries(
     name::AbstractString,
-    prob::MadMPEC.MPCCModel,
+    prob::CCOpt.MPCCModel,
     iters_fname::AbstractString;
     range=:,
     bound_relax=1e-12,

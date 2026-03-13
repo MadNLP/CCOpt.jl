@@ -8,7 +8,7 @@
         H(x, y) = H(x) + y[1] * T[0 1; 1 0]
 
         snlp = SimpleMPCCModel(T)
-        nlp = MadMPEC.ScholtesRelaxation(snlp)
+        nlp = CCOpt.ScholtesRelaxation(snlp)
         n = get_nvar(nlp)
         m = get_ncon(nlp)
         @test n == 2

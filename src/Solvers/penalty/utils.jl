@@ -1,4 +1,4 @@
-function MadNLP.print_iter(solver::ExactPenaltySolver; is_resto=false)
+function MadNLP.print_iter(solver::PenaltySolver; is_resto=false)
     ipm = solver.ipm
     obj_scale = ipm.cb.obj_scale[]
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(
@@ -43,7 +43,7 @@ function MadNLP.print_iter(solver::ExactPenaltySolver; is_resto=false)
     return
 end
 
-function get_inf_pr_cc(solver::ExactPenaltySolver{T}) where {T}
+function get_inf_pr_cc(solver::PenaltySolver{T}) where {T}
     return @views(
         mapreduce(
             (a, la, b, lb) -> max(min(a-la, b-lb), la-a, lb-b),
@@ -57,7 +57,7 @@ function get_inf_pr_cc(solver::ExactPenaltySolver{T}) where {T}
     )
 end
 
-function get_inf_pr_cc_prod(solver::ExactPenaltySolver{T}) where {T}
+function get_inf_pr_cc_prod(solver::PenaltySolver{T}) where {T}
     return @views(
         mapreduce(
             (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
@@ -71,7 +71,7 @@ function get_inf_pr_cc_prod(solver::ExactPenaltySolver{T}) where {T}
     )
 end
 
-function get_inf_pr_cc_sum(solver::ExactPenaltySolver{T}) where {T}
+function get_inf_pr_cc_sum(solver::PenaltySolver{T}) where {T}
     return @views(
         mapreduce(
             (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),

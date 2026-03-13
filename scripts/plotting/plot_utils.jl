@@ -25,7 +25,7 @@ let x1 = [],
         return nothing
     end
 
-    global function plot_complementarities(solver::MadNLPCSolver; magic_step=false)
+    global function plot_complementarities(solver::RelaxationSolver; magic_step=false)
         if magic_step
             push!(colors, 1.0)
         else

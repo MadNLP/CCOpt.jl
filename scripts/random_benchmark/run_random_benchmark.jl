@@ -8,8 +8,8 @@ function run_benchmark(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.HomotopySolverOptions}
-    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
+) where {T <: CCOpt.HomotopySolverOptions}
+    stats_vec = Vector{CCOpt.HomotopySolverStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     names = Vector{String}()
     for (name, prob) in probs
@@ -26,9 +26,9 @@ function run_benchmark_procs(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.HomotopySolverOptions}
+) where {T <: CCOpt.HomotopySolverOptions}
     nprobs = length(probs)
-    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}(undef, nprobs)
+    stats_vec = Vector{CCOpt.HomotopySolverStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()
     futures = []
 
@@ -255,12 +255,12 @@ function run_random_benchmark(
 end
 
 function test_random_benchmark(; n_probs=7, max_size=300, multiproc=false)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>1e-12,
@@ -331,12 +331,12 @@ function test_random_benchmark(; n_probs=7, max_size=300, multiproc=false)
 end
 
 function test_no_degen(; n_probs=7, max_size=100, multiproc=true)
-    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>1e-12,
@@ -354,11 +354,11 @@ function test_no_degen(; n_probs=7, max_size=100, multiproc=true)
         :mu_init=>10.0,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c = CCOpt.RelaxationOptions()
 
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty = CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE)
     opts_exact_penalty_dynamic =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+        CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>1e-12,
         :print_level=>MadNLP.ERROR,
@@ -432,12 +432,12 @@ function test_no_degen(; n_probs=7, max_size=100, multiproc=true)
 end
 
 function test_some_degen(; n_probs=7, max_size=100, multiproc=true, kwargs...)
-    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>1e-12,
@@ -455,11 +455,11 @@ function test_some_degen(; n_probs=7, max_size=100, multiproc=true, kwargs...)
         :mu_init=>10.0,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c = CCOpt.RelaxationOptions()
 
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE)
+    opts_exact_penalty = CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE)
     opts_exact_penalty_dynamic =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
+        CCOpt.PenaltyOptions(; print_level=MadNLP.TRACE, dynamic_sigma_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>1e-12,
         :print_level=>MadNLP.ERROR,
