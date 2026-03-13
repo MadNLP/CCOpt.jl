@@ -35,7 +35,7 @@ end
 function set_relax_magic_step!(solver, ii, z1, z2, zs, x1, x2, delta_zs)
     cc1 = solver.ind_cc1[ii]
     cc2 = solver.ind_cc2[ii]
-    ncc = get_ncc(mpcc)
+    ncc = get_ncc(solver.mpcc)
     ipm = solver.ipm
     cb = ipm.cb
 
