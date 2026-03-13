@@ -1,4 +1,4 @@
-using JuMP, NLPModelsJuMP, ADNLPModels, MadMPEC
+using JuMP, NLPModelsJuMP, ADNLPModels, CCOpt
 using LinearAlgebra
 using Distributions, StatsBase, Random
 import SparseArrays: sprand
@@ -405,10 +405,10 @@ function generate_mpcc_ad(
         Inf*ones(n_cc+n_ineq+n_dupe),
     )
 
-    mpcc = MadMPEC.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
+    mpcc = CCOpt.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
     name = "$(nl_obj)_$(n0)_$(n1)_$(n_ineq)"
 
-    return name, MadMPEC.vertical_form(mpcc)
+    return name, CCOpt.vertical_form(mpcc)
 end
 
 function generate_mpcc_jump(
@@ -644,15 +644,15 @@ function generate_mpcc_jump(
     #     Inf*ones(n_cc+n_ineq+n_dupe),
     # )
     nlp_vc = MathOptNLPModel(model)
-    mpcc = MadMPEC.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
+    mpcc = CCOpt.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
 
     name = "$(nl_obj)_$(n0)_$(n1)_$(n_ineq)"
 
-    return name, MadMPEC.vertical_form(mpcc)
+    return name, CCOpt.vertical_form(mpcc)
 end
 
 function generate_benchmark_ad(n_probs)
-    mpccs = Vector{MadMPEC.MPCCModel}()
+    mpccs = Vector{CCOpt.MPCCModel}()
     names = Vector{String}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter
@@ -674,7 +674,7 @@ function generate_benchmark_ad(n_probs)
 end
 
 function generate_benchmark_jump(n_probs)
-    mpccs = Vector{MadMPEC.MPCCModel}()
+    mpccs = Vector{CCOpt.MPCCModel}()
     names = Vector{String}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter

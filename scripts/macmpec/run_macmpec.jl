@@ -2,11 +2,11 @@ include("../common.jl")
 
 function load_ampl_benchmark(nlpath::AbstractString)
     probs = readdir(abspath(nlpath), join=true)
-    mpccs::Vector{MadMPEC.AbstractMPCCModel} = []
+    mpccs::Vector{CCOpt.AbstractMPCCModel} = []
     names = Vector{String}()
     for i in 1:length(probs)
         model = AmplNLReader.AmplModel(probs[i])
-        mpcc = MadMPEC.vertical_form(mpcc_from_ampl(model))
+        mpcc = CCOpt.vertical_form(mpcc_from_ampl(model))
         push!(mpccs, mpcc)
         push!(names, basename(probs[i]))
     end
@@ -35,11 +35,11 @@ function run_macmpec(args...; plot=false, range=:)
 end
 
 function test_macmpec(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = 4
     opts_ipopt.nlp_solver_options[:print_level] = 5
     opts_ipopt.nlp_solver_options[:max_iter] = 500
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.nlp_solver_options =
         Dict(:bound_relax_factor=>0.0, :print_level=>MadNLP.DEBUG, :max_iter=>500)
 
@@ -68,27 +68,27 @@ function test_macmpec(; range=:)
 end
 
 function test_ipopt_mu_update(; range=:)
-    opts_ipopt_monotone = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_monotone = CCOpt.HomotopySolverOptions()
     opts_ipopt_monotone.print_level = 5
     opts_ipopt_monotone.nlp_solver_options[:print_level] = 5
     opts_ipopt_monotone.nlp_solver_options[:max_iter] = 3000
     opts_ipopt_monotone.nlp_solver_options[:mu_strategy] = "monotone"
 
-    opts_ipopt_adaptive_quality = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_adaptive_quality = CCOpt.HomotopySolverOptions()
     opts_ipopt_adaptive_quality.print_level = 5
     opts_ipopt_adaptive_quality.nlp_solver_options[:print_level] = 5
     opts_ipopt_adaptive_quality.nlp_solver_options[:max_iter] = 3000
     opts_ipopt_adaptive_quality.nlp_solver_options[:mu_strategy] = "adaptive"
     opts_ipopt_adaptive_quality.nlp_solver_options[:mu_oracle] = "quality-function"
 
-    opts_ipopt_adaptive_probing = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_adaptive_probing = CCOpt.HomotopySolverOptions()
     opts_ipopt_adaptive_probing.print_level = 5
     opts_ipopt_adaptive_probing.nlp_solver_options[:print_level] = 5
     opts_ipopt_adaptive_probing.nlp_solver_options[:max_iter] = 3000
     opts_ipopt_adaptive_probing.nlp_solver_options[:mu_strategy] = "adaptive"
     opts_ipopt_adaptive_probing.nlp_solver_options[:mu_oracle] = "probing"
 
-    opts_ipopt_adaptive_loqo = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_adaptive_loqo = CCOpt.HomotopySolverOptions()
     opts_ipopt_adaptive_loqo.print_level = 5
     opts_ipopt_adaptive_loqo.nlp_solver_options[:print_level] = 5
     opts_ipopt_adaptive_loqo.nlp_solver_options[:max_iter] = 3000
@@ -136,7 +136,7 @@ function test_ipopt_mu_update(; range=:)
 end
 
 function test_homotopy_bound_push(; range=:)
-    opts_ipopt1 = MadMPEC.HomotopySolverOptions()
+    opts_ipopt1 = CCOpt.HomotopySolverOptions()
     opts_ipopt1.print_level = 5
     opts_ipopt1.nlp_solver_options[:print_level] = 5
     opts_ipopt1.nlp_solver_options[:max_iter] = 3000
@@ -149,7 +149,7 @@ function test_homotopy_bound_push(; range=:)
         (NLPModelsIpopt.IpoptSolver,),
     )
 
-    opts_ipopt2 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-5)
+    opts_ipopt2 = CCOpt.HomotopySolverOptions(warm_start_bound_push=1e-5)
     opts_ipopt2.print_level = 5
     opts_ipopt2.nlp_solver_options[:print_level] = 5
     opts_ipopt2.nlp_solver_options[:max_iter] = 3000
@@ -162,7 +162,7 @@ function test_homotopy_bound_push(; range=:)
         (NLPModelsIpopt.IpoptSolver,),
     )
 
-    opts_ipopt3 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-9)
+    opts_ipopt3 = CCOpt.HomotopySolverOptions(warm_start_bound_push=1e-9)
     opts_ipopt3.print_level = 5
     opts_ipopt3.nlp_solver_options[:print_level] = 5
     opts_ipopt3.nlp_solver_options[:max_iter] = 3000
@@ -175,7 +175,7 @@ function test_homotopy_bound_push(; range=:)
         (NLPModelsIpopt.IpoptSolver,),
     )
 
-    opts_madnlp1 = MadMPEC.HomotopySolverOptions()
+    opts_madnlp1 = CCOpt.HomotopySolverOptions()
     opts_madnlp1.print_level = 5
     opts_madnlp1.nlp_solver_options =
         Dict(:bound_relax_factor=>0.0, :print_level=>MadNLP.ERROR, :max_iter=>3000)
@@ -188,7 +188,7 @@ function test_homotopy_bound_push(; range=:)
         (MadNLP.MadNLPSolver,),
     )
 
-    opts_madnlp2 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-5)
+    opts_madnlp2 = CCOpt.HomotopySolverOptions(warm_start_bound_push=1e-5)
     opts_madnlp2.print_level = 5
     opts_madnlp2.nlp_solver_options =
         Dict(:bound_relax_factor=>0.0, :print_level=>MadNLP.ERROR, :max_iter=>3000)
@@ -201,7 +201,7 @@ function test_homotopy_bound_push(; range=:)
         (MadNLP.MadNLPSolver,),
     )
 
-    opts_madnlp3 = MadMPEC.HomotopySolverOptions(warm_start_bound_push=1e-9)
+    opts_madnlp3 = CCOpt.HomotopySolverOptions(warm_start_bound_push=1e-9)
     opts_madnlp3.print_level = 5
     opts_madnlp3.nlp_solver_options =
         Dict(:bound_relax_factor=>0.0, :print_level=>MadNLP.ERROR, :max_iter=>3000)
@@ -221,7 +221,7 @@ function test_homotopy_bound_push(; range=:)
 end
 
 function test_ipopt_norm_type(; range=:)
-    opts_ipopt_1_norm = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_1_norm = CCOpt.HomotopySolverOptions()
     opts_ipopt_1_norm.print_level = MadNLP.INFO
     opts_ipopt_1_norm.nlp_solver_options[:print_level] = 0
     opts_ipopt_1_norm.nlp_solver_options[:max_iter] = 3000
@@ -229,7 +229,7 @@ function test_ipopt_norm_type(; range=:)
     opts_ipopt_1_norm.nlp_solver_options[:mu_oracle] = "quality-function"
     opts_ipopt_1_norm.nlp_solver_options[:quality_function_norm_type] = "1-norm"
 
-    opts_ipopt_2_norm_squared = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_2_norm_squared = CCOpt.HomotopySolverOptions()
     opts_ipopt_2_norm_squared.print_level = MadNLP.INFO
     opts_ipopt_2_norm_squared.nlp_solver_options[:print_level] = 0
     opts_ipopt_2_norm_squared.nlp_solver_options[:max_iter] = 3000
@@ -237,7 +237,7 @@ function test_ipopt_norm_type(; range=:)
     opts_ipopt_2_norm_squared.nlp_solver_options[:mu_oracle] = "quality-function"
     opts_ipopt_2_norm_squared.nlp_solver_options[:quality_function_norm_type] = "2-norm-squared"
 
-    opts_ipopt_max_norm = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_max_norm = CCOpt.HomotopySolverOptions()
     opts_ipopt_max_norm.print_level = MadNLP.INFO
     opts_ipopt_max_norm.nlp_solver_options[:print_level] = 0
     opts_ipopt_max_norm.nlp_solver_options[:max_iter] = 3000
@@ -245,7 +245,7 @@ function test_ipopt_norm_type(; range=:)
     opts_ipopt_max_norm.nlp_solver_options[:mu_oracle] = "quality-function"
     opts_ipopt_max_norm.nlp_solver_options[:quality_function_norm_type] = "max-norm"
 
-    opts_ipopt_2_norm = MadMPEC.HomotopySolverOptions()
+    opts_ipopt_2_norm = CCOpt.HomotopySolverOptions()
     opts_ipopt_2_norm.print_level = MadNLP.INFO
     opts_ipopt_2_norm.nlp_solver_options[:print_level] = 0
     opts_ipopt_2_norm.nlp_solver_options[:max_iter] = 3000
@@ -294,12 +294,12 @@ function test_ipopt_norm_type(; range=:)
 end
 
 function test_macmpec_hsl(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -340,12 +340,12 @@ function test_macmpec_hsl(; range=:)
 end
 
 function test_vs_madnlp_c(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -358,7 +358,7 @@ function test_vs_madnlp_c(; range=:)
     #opts_madnlp.nlp_solver_options = Dict(:print_level=>MadNLP.INFO)
 
     opts_madnlp_c =
-        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
+        CCOpt.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -366,15 +366,15 @@ function test_vs_madnlp_c(; range=:)
         :linear_solver=>Ma27Solver,
     )
 
-    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_magic = CCOpt.MadNLPCOptions(
         use_magic_step=true,
         kkt_regularization=:vicente_wright,
         print_level=MadNLP.ERROR,
     )
 
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+    opts_exact_penalty = CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
     opts_exact_penalty_dynamic =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
+        CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -447,12 +447,12 @@ function test_vs_madnlp_c(; range=:)
 end
 
 function test_madnlp_c_opts(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.INFO
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions()
+    opts_madnlp = CCOpt.HomotopySolverOptions()
     opts_madnlp.print_level = MadNLP.INFO
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -467,10 +467,10 @@ function test_madnlp_c_opts(; range=:)
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = MadMPEC.MadNLPCOptions()
-    opts_madnlp_c_reg = MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright)
-    opts_madnlp_c_magic = MadMPEC.MadNLPCOptions(use_magic_step=true, magic_step_kappa=0.5)
-    opts_madnlp_c_magic_reg = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c = CCOpt.MadNLPCOptions()
+    opts_madnlp_c_reg = CCOpt.MadNLPCOptions(kkt_regularization=:vicente_wright)
+    opts_madnlp_c_magic = CCOpt.MadNLPCOptions(use_magic_step=true, magic_step_kappa=0.5)
+    opts_madnlp_c_magic_reg = CCOpt.MadNLPCOptions(
         use_magic_step=true,
         kkt_regularization=:vicente_wright,
         magic_step_kappa=0.5,
@@ -531,20 +531,20 @@ function test_magic_opts(; range=:)
         :max_iter=>1000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c_magic_all = MadMPEC.MadNLPCOptions(use_magic_step=true)
-    opts_madnlp_c_magic_primal = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_magic_all = CCOpt.MadNLPCOptions(use_magic_step=true)
+    opts_madnlp_c_magic_primal = CCOpt.MadNLPCOptions(
         use_magic_step=true,
         magic_step_duals=false,
         magic_step_slack=false,
         magic_step_slack_dual=false,
     )
-    opts_madnlp_c_magic_primal_dual = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_magic_primal_dual = CCOpt.MadNLPCOptions(
         use_magic_step=true,
         magic_step_duals=true,
         magic_step_slack=false,
         magic_step_slack_dual=false,
     )
-    opts_madnlp_c_magic_primal_dual_slack = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_magic_primal_dual_slack = CCOpt.MadNLPCOptions(
         use_magic_step=true,
         magic_step_duals=true,
         magic_step_slack=true,
@@ -592,7 +592,7 @@ function test_magic_opts(; range=:)
 end
 
 function test_adaptive(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
@@ -614,8 +614,8 @@ function test_adaptive(; range=:)
         :barrier=>MadNLP.QualityFunctionUpdate(),
         :rethrow_error=>false,
     )
-    opts_madnlpc_adaptive = MadMPEC.MadNLPCOptions()
-    opts_madnlpc_adaptive_sigma = MadMPEC.MadNLPCOptions()
+    opts_madnlpc_adaptive = CCOpt.MadNLPCOptions()
+    opts_madnlpc_adaptive_sigma = CCOpt.MadNLPCOptions()
 
     madnlpc_loqo_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -624,7 +624,7 @@ function test_adaptive(; range=:)
         :linear_solver=>Ma27Solver,
         :barrier=>MadNLP.LOQOUpdate(gamma=0.05),
     )
-    opts_madnlpc_loqo = MadMPEC.MadNLPCOptions()
+    opts_madnlpc_loqo = CCOpt.MadNLPCOptions()
 
     madnlpc_monotone_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -632,7 +632,7 @@ function test_adaptive(; range=:)
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlpc_monotone = MadMPEC.MadNLPCOptions()
+    opts_madnlpc_monotone = CCOpt.MadNLPCOptions()
 
     monotone_madnlp_c = (
         "ma27 madNLP-C monotone",
@@ -684,8 +684,8 @@ function test_bound_respect(; range=:)
         :max_iter=>1000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlpc_no_respect = MadMPEC.MadNLPCOptions(respect_comp_bounds=false)
-    opts_madnlpc_respect = MadMPEC.MadNLPCOptions(respect_comp_bounds=true)
+    opts_madnlpc_no_respect = CCOpt.MadNLPCOptions(respect_comp_bounds=false)
+    opts_madnlpc_respect = CCOpt.MadNLPCOptions(respect_comp_bounds=true)
 
     no_respect_madnlp_c = (
         "ma27 madNLP-C no respect",
@@ -723,11 +723,11 @@ function test_loqo_sigma(; range=:)
         :barrier=>MadNLP.LOQOUpdate(gamma=0.05),
     )
 
-    opts_madnlpc_loqo = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.LOQORelaxationUpdate(mu_factor=1e-2);
+    opts_madnlpc_loqo = CCOpt.MadNLPCOptions(
+        relaxation_update=CCOpt.LOQORelaxationUpdate(mu_factor=1e-2);
         use_specialized_barrier_update=false,
     )
-    opts_madnlpc_default = MadMPEC.MadNLPCOptions()
+    opts_madnlpc_default = CCOpt.MadNLPCOptions()
 
     default_madnlp_c = (
         "madNLP-C default update",
@@ -780,12 +780,10 @@ function test_loqo_sigma_params(; range=:)
         :linear_solver=>Ma27Solver,
     )
     opts_madnlpc_loqo_8 =
-        MadMPEC.MadNLPCOptions(relaxation_update=MadMPEC.LOQORelaxationUpdate())
-    opts_madnlpc_loqo_9 = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.LOQORelaxationUpdate(),
-        sigma_min=1e-9,
-    )
-    opts_madnlpc_default = MadMPEC.MadNLPCOptions()
+        CCOpt.MadNLPCOptions(relaxation_update=CCOpt.LOQORelaxationUpdate())
+    opts_madnlpc_loqo_9 =
+        CCOpt.MadNLPCOptions(relaxation_update=CCOpt.LOQORelaxationUpdate(), sigma_min=1e-9)
+    opts_madnlpc_default = CCOpt.MadNLPCOptions()
 
     default_madnlp_c = (
         "madNLP-C default update",
@@ -817,16 +815,16 @@ function test_loqo_sigma_params(; range=:)
 end
 
 function test_mpecopt(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
 
-    opts_madnlp_c = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
         use_specialized_barrier_update=false,
-        relaxation_update=MadMPEC.LOQORelaxationUpdate(mu_factor=1e-2),
+        relaxation_update=CCOpt.LOQORelaxationUpdate(mu_factor=1e-2),
     )
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -836,7 +834,7 @@ function test_mpecopt(; range=:)
         :barrier=>MadNLP.LOQOUpdate(gamma=0.05),
     )
 
-    opts_mpecopt = MadMPEC.MadNLPCOptions(
+    opts_mpecopt = CCOpt.MadNLPCOptions(
         kkt_regularization=:vicente_wright,
         phase_I_oracle=:naive,
         print_level=MadNLP.ERROR,
@@ -853,7 +851,7 @@ function test_mpecopt(; range=:)
     )
 
     default_madnlp_c = (
-        "MadMPEC madNLP-C",
+        "CCOpt madNLP-C",
         solve_benchmark_problem,
         save_madnlp_c_df,
         opts_madnlp_c,
@@ -879,13 +877,13 @@ function test_mpecopt(; range=:)
 end
 
 function test_fb(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
 
-    opts_scholtes = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+    opts_scholtes = CCOpt.MadNLPCOptions(print_level=MadNLP.ERROR)
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -893,17 +891,17 @@ function test_fb(; range=:)
         :linear_solver=>Ma27Solver,
     )
 
-    opts_fb = MadMPEC.MadNLPCOptions(
+    opts_fb = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation=MadMPEC.FischerBurmeisterRelaxation,
+        relaxation=CCOpt.FischerBurmeisterRelaxation,
     )
-    opts_cck = MadMPEC.MadNLPCOptions(
+    opts_cck = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation=MadMPEC.ChenChenKanzowRelaxation,
+        relaxation=CCOpt.ChenChenKanzowRelaxation,
     )
-    opts_nr = MadMPEC.MadNLPCOptions(
+    opts_nr = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation=MadMPEC.NaturalResidualRelaxation,
+        relaxation=CCOpt.NaturalResidualRelaxation,
     )
 
     default_ipopt = (
@@ -959,13 +957,13 @@ function test_fb(; range=:)
 end
 
 function test_sigma_mu_ratio(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
 
-    opts_1 = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+    opts_1 = CCOpt.MadNLPCOptions(print_level=MadNLP.ERROR)
 
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -975,22 +973,22 @@ function test_sigma_mu_ratio(; range=:)
         #:barrier=>MadNLP.MonotoneUpdate(mu_min=1e-16)
     )
 
-    opts_10 = MadMPEC.MadNLPCOptions(
+    opts_10 = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_ratio=10.0),
+        relaxation_update=CCOpt.ProportionalRelaxationUpdate(sigma_mu_ratio=10.0),
     )
-    opts_01 = MadMPEC.MadNLPCOptions(
+    opts_01 = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_ratio=0.1),
+        relaxation_update=CCOpt.ProportionalRelaxationUpdate(sigma_mu_ratio=0.1),
     )
-    opts_sqr = MadMPEC.MadNLPCOptions(
+    opts_sqr = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_exp=2.0),
+        relaxation_update=CCOpt.ProportionalRelaxationUpdate(sigma_mu_exp=2.0),
     )
 
-    opts_sqrt = MadMPEC.MadNLPCOptions(
+    opts_sqrt = CCOpt.MadNLPCOptions(
         print_level=MadNLP.ERROR,
-        relaxation_update=MadMPEC.ProportionalRelaxationUpdate(sigma_mu_exp=0.5),
+        relaxation_update=CCOpt.ProportionalRelaxationUpdate(sigma_mu_exp=0.5),
     )
 
     default_ipopt = (
@@ -1054,13 +1052,13 @@ function test_sigma_mu_ratio(; range=:)
 end
 
 function test_mu_init(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
 
-    madmpec_opts = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+    madmpec_opts = CCOpt.MadNLPCOptions(print_level=MadNLP.ERROR)
 
     nlp_opts_1 = Dict(
         :bound_relax_factor=>0.0,
@@ -1129,15 +1127,14 @@ function test_mu_init(; range=:)
 end
 
 function test_slack_reset(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions()
+    opts_ipopt = CCOpt.HomotopySolverOptions()
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
 
-    opts_reset =
-        MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR, reset_slacks_on_update=true)
-    opts_default = MadMPEC.MadNLPCOptions(print_level=MadNLP.ERROR)
+    opts_reset = CCOpt.MadNLPCOptions(print_level=MadNLP.ERROR, reset_slacks_on_update=true)
+    opts_default = CCOpt.MadNLPCOptions(print_level=MadNLP.ERROR)
 
     madnlpc_solver_options = Dict(
         :bound_relax_factor=>0.0,
@@ -1187,10 +1184,10 @@ function test_madnlp_c_reg(; range=:)
         :linear_solver=>Ma27Solver,
     )
     opts_madnlp_c_no_reg =
-        MadMPEC.MadNLPCOptions(kkt_regularization=:none, print_level=MadNLP.ERROR)
+        CCOpt.MadNLPCOptions(kkt_regularization=:none, print_level=MadNLP.ERROR)
     opts_madnlp_c_reg =
-        MadMPEC.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
-    opts_madnlp_c_reg_larger_eta = MadMPEC.MadNLPCOptions(
+        CCOpt.MadNLPCOptions(kkt_regularization=:vicente_wright, print_level=MadNLP.ERROR)
+    opts_madnlp_c_reg_larger_eta = CCOpt.MadNLPCOptions(
         kkt_regularization=:vicente_wright,
         eta_factor=10.0,
         print_level=MadNLP.ERROR,
@@ -1233,15 +1230,15 @@ function test_two_sided(; range=:)
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )
-    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=true)
-    opts_madnlp_c_two_sided = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.TwoSidedScholtesUpdate(),
+    opts_madnlp_c_default = CCOpt.MadNLPCOptions(center_complementarities=true)
+    opts_madnlp_c_two_sided = CCOpt.MadNLPCOptions(
+        relaxation_update=CCOpt.TwoSidedScholtesUpdate(),
         center_complementarities=true,
         centering_factor=0.9,
     )
-    opts_madnlp_c_lb = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_lb = CCOpt.MadNLPCOptions(
         kkt_regularization=:none,
-        relaxation_update=MadMPEC.RelaxLBUpdate(),
+        relaxation_update=CCOpt.RelaxLBUpdate(),
         center_complementarities=true,
     )
 
@@ -1310,8 +1307,8 @@ function test_bound_push(; range=:)
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )
-    opts_madnlp_c_default = MadMPEC.MadNLPCOptions()
-    opts_madnlp_c_center = MadMPEC.MadNLPCOptions(center_complementarities=true)
+    opts_madnlp_c_default = CCOpt.MadNLPCOptions()
+    opts_madnlp_c_center = CCOpt.MadNLPCOptions(center_complementarities=true)
 
     default_madnlp_c = (
         "ma27 madNLP-C",
@@ -1364,38 +1361,38 @@ function test_bound_push(; range=:)
 end
 
 function test_eigenvalue_decomp(; range=:)
-    opts_exact_penalty = MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
-    opts_exact_penalty_eig_8 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty = CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR)
+    opts_exact_penalty_eig_8 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-8,
     )
-    opts_exact_penalty_eig_6 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_6 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-6,
     )
-    opts_exact_penalty_eig_4 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_4 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-4,
     )
-    opts_exact_penalty_eig_2 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_2 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-2,
     )
-    opts_exact_penalty_eig_1 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_1 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-1,
     )
-    opts_exact_penalty_critical_rho = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_critical_rho = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:critical_rho,
     )
     # opts_exact_penalty_dynamic =
-    #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+    #     CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -1471,39 +1468,39 @@ end
 
 function test_dynamic_reg(; range=:)
     opts_exact_penalty =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
-    opts_exact_penalty_eig_8 = MadMPEC.ExactPenaltyOptions(;
+        CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+    opts_exact_penalty_eig_8 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-8,
     )
-    opts_exact_penalty_eig_6 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_6 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-6,
     )
-    opts_exact_penalty_eig_4 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_4 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-4,
     )
-    opts_exact_penalty_eig_2 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_2 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-2,
     )
-    opts_exact_penalty_eig_1 = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_eig_1 = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:eigenvalue_decomposition,
         min_eig_value=1e-1,
     )
-    opts_exact_penalty_critical_rho = MadMPEC.ExactPenaltyOptions(;
+    opts_exact_penalty_critical_rho = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
         kkt_regularization=:critical_rho,
         dynamic_tau_update=true,
     )
     # opts_exact_penalty_dynamic =
-    #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+    #     CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -1577,17 +1574,16 @@ function test_dynamic_reg(; range=:)
     return solnames, names, stats
 end
 
-
 function test_ll(; range=:)
     opts_exact_penalty =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
-    opts_exact_penalty_ll = MadMPEC.ExactPenaltyOptions(;
+        CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
+    opts_exact_penalty_ll = CCOpt.ExactPenaltyOptions(;
         print_level=MadNLP.ERROR,
-        penalty=MadMPEC.LasryLionsPenalty,
+        penalty=CCOpt.LasryLionsPenalty,
         dynamic_rho_update=false,
     )
     # opts_exact_penalty_dynamic =
-    #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+    #     CCOpt.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -1647,35 +1643,35 @@ function test_lb_kkt_bound(; range=:)
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )
-    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=true)
-    opts_madnlp_c_lb3 = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_default = CCOpt.MadNLPCOptions(center_complementarities=true)
+    opts_madnlp_c_lb3 = CCOpt.MadNLPCOptions(
         kkt_regularization=:none,
-        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-3),
+        relaxation_update=CCOpt.RelaxLBUpdate(relax_threshold=1e-3),
         center_complementarities=true,
     )
-    opts_madnlp_c_lb4 = MadMPEC.MadNLPCOptions(
+    opts_madnlp_c_lb4 = CCOpt.MadNLPCOptions(
         kkt_regularization=:none,
-        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-4),
-        center_complementarities=true,
-    )
-
-    opts_madnlp_c_lb5 = MadMPEC.MadNLPCOptions(
-        kkt_regularization=:none,
-        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-5),
-        center_complementarities=true,
-    )
-    opts_madnlp_c_lb6 = MadMPEC.MadNLPCOptions(
-        kkt_regularization=:none,
-        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-6),
-        center_complementarities=true,
-    )
-    opts_madnlp_c_lb7 = MadMPEC.MadNLPCOptions(
-        kkt_regularization=:none,
-        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-7),
+        relaxation_update=CCOpt.RelaxLBUpdate(relax_threshold=1e-4),
         center_complementarities=true,
     )
 
-    opts_madnlp = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_madnlp_c_lb5 = CCOpt.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=CCOpt.RelaxLBUpdate(relax_threshold=1e-5),
+        center_complementarities=true,
+    )
+    opts_madnlp_c_lb6 = CCOpt.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=CCOpt.RelaxLBUpdate(relax_threshold=1e-6),
+        center_complementarities=true,
+    )
+    opts_madnlp_c_lb7 = CCOpt.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=CCOpt.RelaxLBUpdate(relax_threshold=1e-7),
+        center_complementarities=true,
+    )
+
+    opts_madnlp = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -1758,7 +1754,7 @@ function test_rolloff(; range=:)
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )
-    opts_madnlp = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_madnlp = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -1766,9 +1762,9 @@ function test_rolloff(; range=:)
         :barrier=>MadNLP.QualityFunctionUpdate(),
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=false)
-    opts_madnlp_c_rolloff = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+    opts_madnlp_c_default = CCOpt.MadNLPCOptions(center_complementarities=false)
+    opts_madnlp_c_rolloff = CCOpt.MadNLPCOptions(
+        relaxation_update=CCOpt.RolloffRelaxationUpdate(
             rolloff_slope=2.5,
             rolloff_point=1e-12,
             rolloff_max=1.0,
@@ -1776,8 +1772,8 @@ function test_rolloff(; range=:)
         center_complementarities=false,
         sigma_min=1e-8,
     )
-    opts_madnlp_c_rolloff2 = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+    opts_madnlp_c_rolloff2 = CCOpt.MadNLPCOptions(
+        relaxation_update=CCOpt.RolloffRelaxationUpdate(
             rolloff_slope=2.0,
             rolloff_point=1e-8,
             rolloff_max=1.0,
@@ -1785,8 +1781,8 @@ function test_rolloff(; range=:)
         center_complementarities=false,
         sigma_min=1e-8,
     )
-    opts_madnlp_c_rolloff3 = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+    opts_madnlp_c_rolloff3 = CCOpt.MadNLPCOptions(
+        relaxation_update=CCOpt.RolloffRelaxationUpdate(
             rolloff_slope=1.5,
             rolloff_point=1e-4,
             rolloff_max=1.0,
@@ -1795,8 +1791,8 @@ function test_rolloff(; range=:)
         sigma_min=1e-8,
     )
 
-    opts_madnlp_c_rolloff4 = MadMPEC.MadNLPCOptions(
-        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+    opts_madnlp_c_rolloff4 = CCOpt.MadNLPCOptions(
+        relaxation_update=CCOpt.RolloffRelaxationUpdate(
             rolloff_slope=2.0,
             rolloff_point=1e-9,
             rolloff_max=0.1,
@@ -1804,7 +1800,7 @@ function test_rolloff(; range=:)
         center_complementarities=false,
         sigma_min=1e-8,
     )
-    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
@@ -1886,14 +1882,9 @@ function test_q_regularization(; range=:)
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
     )
-    opts_madnlp_c_default = MadMPEC.MadNLPCOptions()
-    opts_madnlp_c_eig = MadMPEC.MadNLPCOptions(
-        q_regularization=:eigenvalue_decomposition
-    )
-    opts_madnlp_c_crit = MadMPEC.MadNLPCOptions(
-        q_regularization=:critical_rho
-    )
-
+    opts_madnlp_c_default = CCOpt.MadNLPCOptions()
+    opts_madnlp_c_eig = CCOpt.MadNLPCOptions(q_regularization=:eigenvalue_decomposition)
+    opts_madnlp_c_crit = CCOpt.MadNLPCOptions(q_regularization=:critical_rho)
 
     default_madnlp_c = (
         "ma27 madNLP-C",

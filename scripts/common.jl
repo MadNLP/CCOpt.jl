@@ -1,7 +1,7 @@
 using CSV
 using DataFrames
 using Plots, BenchmarkProfiles
-using AmplNLReader, MadMPEC
+using AmplNLReader, CCOpt
 using NLPModelsIpopt
 using MadNLP, MadNLPHSL
 using MadNCL
@@ -14,12 +14,12 @@ function mpcc_from_ampl(ampl::AmplNLReader.AmplModel)
     ind_ccc2 = findall(!iszero, ampl.meta.cvar)
     # Then we store the corresponding variables
     ind_vcc1 = ampl.meta.cvar[ind_ccc2]
-    return MadMPEC.MPCCModelVarCon(ampl, ind_vcc1, ind_ccc2)
+    return CCOpt.MPCCModelVarCon(ampl, ind_vcc1, ind_ccc2)
 end
 
 function save_madnlp_df(
     names::Vector{<:AbstractString},
-    stats_madnlp::Vector{MadMPEC.HomotopySolverStats{T, VT}},
+    stats_madnlp::Vector{CCOpt.HomotopySolverStats{T, VT}},
     probs::Any,
     name::AbstractString,
 ) where {T, VT}
@@ -45,7 +45,7 @@ end
 
 function save_madnlp_df(
     names::Vector{<:AbstractString},
-    stats_madnlp::Vector{MadMPEC.HomotopySolverStats{T, VT}},
+    stats_madnlp::Vector{CCOpt.HomotopySolverStats{T, VT}},
     probs::Any,
     name::AbstractString,
 ) where {T, VT}
@@ -72,14 +72,14 @@ end
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
     stats_madnlp_c::Vector{MadNLP.MadNLPExecutionStats{T, VT}},
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    probs::Vector{CCOpt.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     inf_cc =
         inf_cc=[
             min(
-                MadMPEC.comp_residual(mpcc, s.solution),
-                MadMPEC.comp_residual_product(mpcc, s.solution),
+                CCOpt.comp_residual(mpcc, s.solution),
+                CCOpt.comp_residual_product(mpcc, s.solution),
             ) for (mpcc, s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
@@ -117,8 +117,8 @@ function save_madnlp_c_df(
     inf_cc =
         inf_cc=[
             min(
-                MadMPEC.comp_residual(mpcc, s.solution),
-                MadMPEC.comp_residual_product(mpcc, s.solution),
+                CCOpt.comp_residual(mpcc, s.solution),
+                CCOpt.comp_residual_product(mpcc, s.solution),
             ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
@@ -147,8 +147,8 @@ end
 
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
-    stats_madnlp_c::Vector{MadMPEC.MadNLPCExecutionStats{T, VT}},
-    probs::Vector{MadMPEC.AbstractMPCCModel},
+    stats_madnlp_c::Vector{CCOpt.MadNLPCExecutionStats{T, VT}},
+    probs::Vector{CCOpt.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     inf_cc = inf_cc=[s.inf_pr_cc for (mpcc, s) in zip(probs, stats_madnlp_c)]
@@ -181,15 +181,15 @@ end
 
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
-    stats_madnlp_c::Vector{MadMPEC.MadNLPCExecutionStats{T, VT}},
+    stats_madnlp_c::Vector{CCOpt.MadNLPCExecutionStats{T, VT}},
     probs::Any,
     name::AbstractString,
 ) where {T, VT}
     inf_cc =
         inf_cc=[
             min(
-                MadMPEC.comp_residual(mpcc, s.solution),
-                MadMPEC.comp_residual_product(mpcc, s.solution),
+                CCOpt.comp_residual(mpcc, s.solution),
+                CCOpt.comp_residual_product(mpcc, s.solution),
             ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
@@ -220,7 +220,7 @@ end
 
 function save_ipopt_df(
     names::Vector{<:AbstractString},
-    stats_ipopt::Vector{MadMPEC.HomotopySolverStats{T, VT}},
+    stats_ipopt::Vector{CCOpt.HomotopySolverStats{T, VT}},
     probs::Any,
     name::AbstractString,
 ) where {T, VT}
@@ -245,15 +245,15 @@ end
 function save_ncl_df(
     names::Vector{<:AbstractString},
     stats_ncl::Vector{Union{MadNCL.NCLStats{T}, Nothing}},
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:CCOpt.AbstractMPCCModel},
     name::AbstractString,
 ) where {T}
     inf_cc =
         inf_cc=[
             !isnothing(s) ?
             min(
-                MadMPEC.comp_residual(mpcc, s.solution),
-                MadMPEC.comp_residual_product(mpcc, s.solution),
+                CCOpt.comp_residual(mpcc, s.solution),
+                CCOpt.comp_residual_product(mpcc, s.solution),
             ) : Inf for (mpcc, s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
@@ -289,8 +289,8 @@ function save_ncl_df(
         inf_cc=[
             !isnothing(s) ?
             min(
-                MadMPEC.comp_residual(mpcc, s.solution),
-                MadMPEC.comp_residual_product(mpcc, s.solution),
+                CCOpt.comp_residual(mpcc, s.solution),
+                CCOpt.comp_residual_product(mpcc, s.solution),
             ) : Inf for ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
@@ -334,41 +334,41 @@ function perf_plot(
 end
 
 function solve_benchmark_problem(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadMPEC.HomotopySolverOptions,
+    mpcc::CCOpt.AbstractMPCCModel,
+    opts::CCOpt.HomotopySolverOptions,
     solver::Type,
 )
-    solver = MadMPEC.HomotopySolver(mpcc, solver, opts)
+    solver = CCOpt.HomotopySolver(mpcc, solver, opts)
 
-    return MadMPEC.solve!(solver)
+    return CCOpt.solve!(solver)
 end
 
 function solve_benchmark_problem(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadMPEC.MadNLPCOptions,
+    mpcc::CCOpt.AbstractMPCCModel,
+    opts::CCOpt.MadNLPCOptions,
     sol_args...,
 )
-    solver = MadMPEC.MadNLPCSolver(mpcc; solver_opts=opts, sol_args...)
-    stats = MadMPEC.solve_homotopy!(solver)
+    solver = CCOpt.MadNLPCSolver(mpcc; solver_opts=opts, sol_args...)
+    stats = CCOpt.solve_homotopy!(solver)
     return stats
 end
 
 function solve_benchmark_problem(
-    mpcc::MadMPEC.AbstractMPCCModel,
-    opts::MadMPEC.ExactPenaltyOptions,
+    mpcc::CCOpt.AbstractMPCCModel,
+    opts::CCOpt.ExactPenaltyOptions,
     sol_args...,
 )
-    solver = MadMPEC.ExactPenaltySolver(mpcc; solver_opts=opts, sol_args...)
-    stats = MadMPEC.solve_homotopy!(solver)
+    solver = CCOpt.ExactPenaltySolver(mpcc; solver_opts=opts, sol_args...)
+    stats = CCOpt.solve_homotopy!(solver)
     return stats
 end
 
 function solve_benchmark_problem(
-    mpcc::MadMPEC.AbstractMPCCModel,
+    mpcc::CCOpt.AbstractMPCCModel,
     opts::MadNCL.NCLOptions,
     sol_args...,
 )
-    nlp = MadMPEC.ScholtesRelaxation(mpcc)
+    nlp = CCOpt.ScholtesRelaxation(mpcc)
 
     try
         stats = MadNCL.madncl(nlp, ncl_options=opts; sol_args...)
@@ -380,12 +380,12 @@ function solve_benchmark_problem(
 end
 
 function run_benchmark(
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:CCOpt.AbstractMPCCModel},
     solfun,
-    opts::MadMPEC.MadNLPCOptions,
+    opts::CCOpt.MadNLPCOptions,
     solargs...,
 )
-    stats_vec = Vector{MadMPEC.MadNLPCExecutionStats{Float64, Vector{Float64}}}()
+    stats_vec = Vector{CCOpt.MadNLPCExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
         println(probs[i].nlp.nlp.meta.name)
@@ -396,9 +396,9 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:CCOpt.AbstractMPCCModel},
     solfun,
-    opts::MadMPEC.ExactPenaltyOptions,
+    opts::CCOpt.ExactPenaltyOptions,
     solargs...,
 )
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
@@ -412,12 +412,12 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:CCOpt.AbstractMPCCModel},
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.HomotopySolverOptions}
-    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}()
+) where {T <: CCOpt.HomotopySolverOptions}
+    stats_vec = Vector{CCOpt.HomotopySolverStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
         push!(stats_vec, solfun(probs[i], opts, solargs...))
@@ -427,7 +427,7 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{<:MadMPEC.AbstractMPCCModel},
+    probs::Vector{<:CCOpt.AbstractMPCCModel},
     solfun,
     opts::T,
     solargs...,
@@ -441,7 +441,7 @@ function run_benchmark(
     return stats_vec
 end
 
-function run_benchmark_procs(probs, solfun, opts::MadMPEC.MadNLPCOptions, solargs...)
+function run_benchmark_procs(probs, solfun, opts::CCOpt.MadNLPCOptions, solargs...)
     nprobs = length(probs)
     stats_vec =
         Vector{MadNLP.MadNLPCExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
@@ -488,7 +488,7 @@ function run_benchmark_procs(probs, solfun, opts::MadMPEC.MadNLPCOptions, solarg
     return names, stats_vec
 end
 
-function run_benchmark_procs(probs, solfun, opts::MadMPEC.ExactPenaltyOptions, solargs...)
+function run_benchmark_procs(probs, solfun, opts::CCOpt.ExactPenaltyOptions, solargs...)
     nprobs = length(probs)
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()
@@ -539,9 +539,9 @@ function run_benchmark_procs(
     solfun,
     opts::T,
     solargs...,
-) where {T <: MadMPEC.HomotopySolverOptions}
+) where {T <: CCOpt.HomotopySolverOptions}
     nprobs = length(probs)
-    stats_vec = Vector{MadMPEC.HomotopySolverStats{Float64, Vector{Float64}}}(undef, nprobs)
+    stats_vec = Vector{CCOpt.HomotopySolverStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()
     futures = []
 
@@ -639,7 +639,7 @@ function run_benchmark_threads(
     solfun,
     opts::T,
     solargs...,
-) where {T <: Union{MadMPEC.MadNLPCOptions, MadMPEC.ExactPenaltyOptions}}
+) where {T <: Union{CCOpt.MadNLPCOptions, CCOpt.ExactPenaltyOptions}}
     nprobs = length(probs)
     stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()

@@ -5,8 +5,8 @@
 iters = 3000
 idx_prob = 173
 
-opts = MadMPEC.MadNLPCOptions(; print_level=MadNLP.ERROR, reset_slacks_on_update=true);
-solver = MadMPEC.MadNLPCSolver(
+opts = CCOpt.MadNLPCOptions(; print_level=MadNLP.ERROR, reset_slacks_on_update=true);
+solver = CCOpt.MadNLPCSolver(
     probs[idx_prob];
     solver_opts=opts,
     print_level=MadNLP.INFO,
@@ -16,7 +16,7 @@ solver = MadMPEC.MadNLPCSolver(
     barrier=MadNLP.MonotoneUpdate(),
 );
 
-stat = MadMPEC.solve_homotopy!(solver)
+stat = CCOpt.solve_homotopy!(solver)
 mpcc = solver.mpcc
 ind_cc1 = mpcc.meta.ind_cc1
 ind_cc2 = mpcc.meta.ind_cc2

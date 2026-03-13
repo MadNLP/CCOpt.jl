@@ -1,4 +1,4 @@
-using MadMPEC, CasADiNLPModels, JSON
+using CCOpt, CasADiNLPModels, JSON
 
 function CasADiMPCCModel(libpath::String, datapath::String)
     nlp = CasADiNLPModel(libpath, datapath)
