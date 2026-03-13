@@ -1,4 +1,4 @@
-@testset "MadNLP-C Test" begin
+@testset "RelaxationSolver Test" begin
     @testset "Default Options" begin
         mpcc = SimpleMPCCModel(Float64)
         madnlpc_opts = CCOpt.RelaxationOptions(; print_level=MadNLP.ERROR)
