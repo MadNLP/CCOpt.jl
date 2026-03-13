@@ -168,7 +168,7 @@ function NLPModels.jac_nln_structure!(
 
     for i in 1:get_nln_nlift(lnlp)
         rows[i+get_nln_nnzj(lnlp.nlp)] = get_ind_nln_lift(lnlp)[i]
-        cols[i+get_nln_nnzj(lnlp/nlp)] = get_ind_nln_lift_var(lnlp)[i]
+        cols[i+get_nln_nnzj(lnlp.nlp)] = get_ind_nln_lift_var(lnlp)[i]
     end
     return rows, cols
 end

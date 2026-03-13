@@ -79,6 +79,10 @@ function log_iter(
     z2 = MadNLP.variable(ipm.zl)[solver.ind_cc2]
     zs = MadNLP.slack(ipm.zu)[(end-ncc+1):end]
 
+    y = ipm.y
+
+    p = ipm.p
+
     alpha_pr = ipm.alpha
     alpha_du = ipm.alpha_z
 
@@ -92,11 +96,16 @@ function log_iter(
     varphi = MadNLP.get_varphi(ipm.obj_val, ipm.x_lr, ipm.xl_r, ipm.xu_r, ipm.x_ur, ipm.mu)
 
     mu = ipm.mu
-    sigma = solver.rnlp.mu
+    sigma = get_relaxation(solver.rnlp)
+    nu1 = solver.multipliers_cc1
+    nu2 = solver.multipliers_cc2
+    nu1_filt = solver.multipliers_cc1_filt
+    nu2_filt = solver.multipliers_cc2_filt
+    delta1 = solver.rnlp.δ1
+    delta2 = solver.rnlp.δ2
 
     W = ipm.kkt.aug_com
-    K = Array(Symmetric(W, :L))
-    KKT_s = eigvals(K)
+    KKT_s = VT()#K = Array(Symmetric(W, :L)); eigvals(K)
 
     iter = MadNLPCIterate(
         k,
@@ -107,6 +116,8 @@ function log_iter(
         z1,
         z2,
         zs,
+        y,
+        p,
         alpha_pr,
         alpha_du,
         ls,
@@ -117,6 +128,12 @@ function log_iter(
         varphi,
         mu,
         sigma,
+        nu1,
+        nu2,
+        nu1_filt,
+        nu2_filt,
+        delta1,
+        delta2,
         KKT_s,
         magic,
     )
@@ -153,7 +170,7 @@ function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(
         ipm.logger,
         @sprintf(
-            "iter    objective    inf_pr   inf_du inf_compl lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls lg(σ)   inf_cc"
+            "iter    objective    inf_pr  inf_rnlp   inf_du inf_comp lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls lg(σ)   inf_cc"
         )
     )
     if is_resto
@@ -171,11 +188,12 @@ function MadNLP.print_iter(solver::MadNLPCSolver; is_resto=false)
     MadNLP.@info(
         ipm.logger,
         @sprintf(
-            "%4i%s% 10.7e %6.2e %6.2e %7.2e %5.1f %6.2e %s %6.2e %6.2e%s  %i %5.1f  %6.2e",
+            "%4i%s% 10.7e %6.2e %6.2e %6.2e %7.2e %5.1f %6.2e %s %6.2e %6.2e%s  %i %5.1f  %6.2e",
             ipm.cnt.k,
             is_resto ? "r" : " ",
             ipm.obj_val/obj_scale,
             inf_pr,
+            MadNLP.get_inf_pr(ipm.c),
             inf_du,
             inf_compl,
             mu,

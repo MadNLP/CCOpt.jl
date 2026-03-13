@@ -138,11 +138,11 @@ function solve_homotopy!(
             MadNLP.print_init(ipm)
             # Also reset sigma
             ipm.status = MadNLP.initialize!(solver)
-            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
+            init_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma
-            update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
+            init_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             ipm.status = MadNLP.reinitialize!(ipm)
             solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
         end
@@ -186,6 +186,7 @@ function solve_homotopy!(
             ipm.opt.rethrow_error && rethrow(e)
         end
     finally
+        log_iter(solver.iterate_logger, solver)
         ipm.cnt.total_time = time() - ipm.cnt.start_time
         if !(ipm.status < MadNLP.SOLVE_SUCCEEDED)
             MadNLP.print_summary(ipm)
@@ -309,7 +310,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
     opts = solver.opts
     ipm = solver.ipm
     mpcc = solver.mpcc
-    log_iter(solver.iterate_logger, solver) # Log initial state
     while true
         if (ipm.cnt.k!=0 && !ipm.opt.jacobian_constant)
             MadNLP.eval_jac_wrapper!(ipm, ipm.kkt, ipm.x)
@@ -341,7 +341,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         estimate_mpec_multipliers(solver)
 
         MadNLP.print_iter(solver)
-        log_iter(solver.iterate_logger, solver)
         # evaluate termination criteria
         MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl) <= ipm.opt.tol &&
@@ -359,7 +358,6 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
 
         # Now go back to using relaxed inf_pr
         ipm.inf_pr = MadNLP.get_inf_pr(ipm.c)
-
         MadNLP.@trace(solver.logger, "Get eta.")
         eta_k = get_eta_heuristic(solver)
 
@@ -369,10 +367,13 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             MadNLP.eval_lag_hess_wrapper!(ipm, ipm.kkt, ipm.x, ipm.y)
         end
         MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
-        MadNLP.@trace(solver.logger, "Factorizing the KKT system.")
-        MadNLP.inertia_correction!(ipm.inertia_corrector, ipm) || return MadNLP.ROBUST
 
-        # update the barrier parameter
+        # update the homotopy parameter
+        # TODO(@anton) this should be done in a specific order depending on
+        #              the types of ipm.opt.barrier, solver.opts.relaxation_update,
+        #              and solver.endgame_strategy
+
+        # First update mu.
         MadNLP.@trace(ipm.logger, "Updating the barrier parameter.")
         mu_old = ipm.mu
         MadNLP.update_barrier!(ipm.opt.barrier, solver, sc)
@@ -381,8 +382,19 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             solver.logger,
             "Updated the barrier parameter from mu=$(mu_old) to mu=$(ipm.mu)"
         )
+
+        # Next update tau
         MadNLP.@trace(solver.logger, "Updating the relaxation parameter.")
+        MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         update_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
+
+        # Then do endgame strategy.
+        kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
+        if kkt_error <= solver.opts.endgame_threshold
+            MadNLP.@trace(solver.logger, "In endgame, using requested endgame strategy.")
+            do_endgame!(solver, solver.rnlp, solver.opts.endgame_strategy)
+        end
+        log_iter(solver.iterate_logger, solver)
 
         if mu_updated && solver.opts.use_magic_step
             ncc = get_ncc(mpcc)
@@ -429,9 +441,9 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
                     min.(.-(x1 .* x2 .- get_relaxation(solver.rnlp)), -ipm.mu)
             end
         end
-
         MadNLP.@trace(ipm.logger, "Calculating the newton step.")
         # TODO(@anton) update ipm.x ipm.zl, ipm.zu
+        MadNLP.set_aug_diagonal!(ipm.kkt, solver, eta_k)
         MadNLP.set_aug_rhs!(ipm, ipm.kkt, ipm.c, ipm.mu)
         MadNLP.dual_inf_perturbation!(
             MadNLP.primal(ipm.p),
@@ -440,7 +452,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
             ipm.mu,
             ipm.opt.kappa_d,
         )
-        MadNLP.solve_refine_wrapper!(ipm.d, ipm, ipm.p, ipm._w4)
+        MadNLP.inertia_correction!(ipm.inertia_corrector, solver) || return MadNLP.ROBUST
 
         MadNLP.@trace(ipm.logger, "Backtracking line search initiated.")
         status = MadNLP.filter_line_search!(ipm)

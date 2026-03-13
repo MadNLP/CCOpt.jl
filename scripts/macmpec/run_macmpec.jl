@@ -1243,7 +1243,6 @@ function test_two_sided(; range=:)
         kkt_regularization=:none,
         relaxation_update=MadMPEC.RelaxLBUpdate(),
         center_complementarities=true,
-        centering_factor=0.9,
     )
 
     default_madnlp_c = (
@@ -1578,6 +1577,7 @@ function test_dynamic_reg(; range=:)
     return solnames, names, stats
 end
 
+
 function test_ll(; range=:)
     opts_exact_penalty =
         MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
@@ -1632,6 +1632,296 @@ function test_ll(; range=:)
         exact_penalty_ll_noscale,
         default_exact_penalty,
         #default_madnlp,
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_lb_kkt_bound(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=true)
+    opts_madnlp_c_lb3 = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-3),
+        center_complementarities=true,
+    )
+    opts_madnlp_c_lb4 = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-4),
+        center_complementarities=true,
+    )
+
+    opts_madnlp_c_lb5 = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-5),
+        center_complementarities=true,
+    )
+    opts_madnlp_c_lb6 = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-6),
+        center_complementarities=true,
+    )
+    opts_madnlp_c_lb7 = MadMPEC.MadNLPCOptions(
+        kkt_regularization=:none,
+        relaxation_update=MadMPEC.RelaxLBUpdate(relax_threshold=1e-7),
+        center_complementarities=true,
+    )
+
+    opts_madnlp = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :barrier=>MadNLP.QualityFunctionUpdate(),
+        :linear_solver=>Ma27Solver,
+    )
+
+    default_madnlp_c = (
+        "ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options...,)),
+    )
+    lb3_madnlp_c = (
+        "ma27 madNLP-C lb thresh=1e-3",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_lb3,
+        ((madnlpc_solver_options...,)),
+    )
+    lb4_madnlp_c = (
+        "ma27 madNLP-C lb thresh=1e-4",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_lb4,
+        ((madnlpc_solver_options...,)),
+    )
+    lb5_madnlp_c = (
+        "ma27 madNLP-C lb thresh=1e-5",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_lb5,
+        ((madnlpc_solver_options...,)),
+    )
+    lb6_madnlp_c = (
+        "ma27 madNLP-C lb thresh=1e-6",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_lb6,
+        ((madnlpc_solver_options...,)),
+    )
+    lb7_madnlp_c = (
+        "ma27 madNLP-C lb thresh=1e-7",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_lb7,
+        ((madnlpc_solver_options...,)),
+    )
+    default_madnlp = (
+        "ma27 madNLP",
+        solve_benchmark_problem,
+        save_madnlp_df,
+        opts_madnlp,
+        (MadNLP.MadNLPSolver,),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #lb3_madnlp_c,
+        #lb4_madnlp_c,
+        #lb5_madnlp_c,
+        #lb6_madnlp_c,
+        lb7_madnlp_c,
+        #two_sided_madnlp_c,
+        default_madnlp_c,
+        default_madnlp;
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_rolloff(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    opts_madnlp = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :barrier=>MadNLP.QualityFunctionUpdate(),
+        :linear_solver=>Ma27Solver,
+    )
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions(center_complementarities=false)
+    opts_madnlp_c_rolloff = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+            rolloff_slope=2.5,
+            rolloff_point=1e-12,
+            rolloff_max=1.0,
+        ),
+        center_complementarities=false,
+        sigma_min=1e-8,
+    )
+    opts_madnlp_c_rolloff2 = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+            rolloff_slope=2.0,
+            rolloff_point=1e-8,
+            rolloff_max=1.0,
+        ),
+        center_complementarities=false,
+        sigma_min=1e-8,
+    )
+    opts_madnlp_c_rolloff3 = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+            rolloff_slope=1.5,
+            rolloff_point=1e-4,
+            rolloff_max=1.0,
+        ),
+        center_complementarities=false,
+        sigma_min=1e-8,
+    )
+
+    opts_madnlp_c_rolloff4 = MadMPEC.MadNLPCOptions(
+        relaxation_update=MadMPEC.RolloffRelaxationUpdate(
+            rolloff_slope=2.0,
+            rolloff_point=1e-9,
+            rolloff_max=0.1,
+        ),
+        center_complementarities=false,
+        sigma_min=1e-8,
+    )
+    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+
+    default_madnlp_c = (
+        "ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options...,)),
+    )
+    rolloff_madnlp_c = (
+        "ma27 madNLP-C rolloff",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_rolloff,
+        ((madnlpc_solver_options...,)),
+    )
+    rolloff2_madnlp_c = (
+        "ma27 madNLP-C rolloff 2",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_rolloff2,
+        ((madnlpc_solver_options...,)),
+    )
+    rolloff3_madnlp_c = (
+        "ma27 madNLP-C rolloff 3",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_rolloff3,
+        ((madnlpc_solver_options...,)),
+    )
+    rolloff4_madnlp_c = (
+        "ma27 madNLP-C rolloff 3",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_rolloff4,
+        ((madnlpc_solver_options...,)),
+    )
+
+    default_madnlp = (
+        "ma27 madNLP",
+        solve_benchmark_problem,
+        save_madnlp_df,
+        opts_madnlp,
+        (MadNLP.MadNLPSolver,),
+    )
+
+    default_ipopt = (
+        "ma27 Ipopt",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+
+    solnames, names, stats = run_macmpec(
+        #rolloff_madnlp_c,
+        #rolloff2_madnlp_c,
+        #rolloff3_madnlp_c,
+        #rolloff4_madnlp_c,
+        #two_sided_madnlp_c,
+        default_madnlp_c,
+        #default_madnlp,
+        default_ipopt;
+        range=range,
+    )
+
+    return solnames, names, stats
+end
+
+function test_q_regularization(; range=:)
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+    )
+    opts_madnlp_c_default = MadMPEC.MadNLPCOptions()
+    opts_madnlp_c_eig = MadMPEC.MadNLPCOptions(
+        q_regularization=:eigenvalue_decomposition
+    )
+    opts_madnlp_c_crit = MadMPEC.MadNLPCOptions(
+        q_regularization=:critical_rho
+    )
+
+
+    default_madnlp_c = (
+        "ma27 madNLP-C",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_default,
+        ((madnlpc_solver_options...,)),
+    )
+    eig_madnlp_c = (
+        "ma27 madNLP-C eig",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_eig,
+        ((madnlpc_solver_options...,)),
+    )
+    crit_madnlp_c = (
+        "ma27 madNLP-C crit",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c_crit,
+        ((madnlpc_solver_options...,)),
+    )
+
+    solnames, names, stats = run_macmpec(
+        eig_madnlp_c,
+        crit_madnlp_c,
+        #two_sided_madnlp_c,
+        default_madnlp_c;
         range=range,
     )
 

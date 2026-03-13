@@ -103,7 +103,7 @@ function NLPModels.cons!(
     @views(
         map!(
             (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
-            cx[(mpcc_ncon+1):(rnlp.meta.ncon)],
+            cx[(mpcc_ncon+1):(get_ncon(rnlp))],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
         )
@@ -139,7 +139,7 @@ function NLPModels.cons_nln!(
     @views(
         map!(
             (a, b) -> a + b - sqrt(a^2 + b^2 + 2*rnlp.σ[]),
-            cx[(mpcc_nnln+1):(rnlp.meta.nnln)],
+            cx[(mpcc_nnln+1):(get_nnln(rnlp))],
             rnlp.cc1_buf,
             rnlp.cc2_buf,
         )
@@ -275,7 +275,7 @@ function NLPModels.jprod_lin!(
     Jv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jv[1:rnlp.meta.nlin] = jac_lin(rnlp, x) * v
+    Jv[1:get_nlin(rnlp)] = jac_lin(rnlp, x) * v
     return Jv
 end
 
@@ -286,7 +286,7 @@ function NLPModels.jprod_nln!(
     Jv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jv[1:rnlp.meta.nnln] = jac_nln(rnlp, x) * v
+    Jv[1:get_nnln(rnlp)] = jac_nln(rnlp, x) * v
     return Jv
 end
 
@@ -297,7 +297,7 @@ function NLPModels.jtprod_lin!(
     Jtv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jtv[1:rnlp.meta.nvar] = jac_lin(rnlp, x)' * v
+    Jtv[1:get_nvar(rnlp)] = jac_lin(rnlp, x)' * v
     return Jtv
 end
 
@@ -308,7 +308,7 @@ function NLPModels.jtprod_nln!(
     Jtv::AbstractVector,
 )
     # TODO(@anton) do this in a smarter way
-    Jtv[1:rnlp.meta.nvar] = jac_nln(rnlp, x)' * v
+    Jtv[1:get_nvar(rnlp)] = jac_nln(rnlp, x)' * v
     return Jtv
 end
 

@@ -1,9 +1,68 @@
+function _update_monotone!(
+    barrier::MadNLP.AbstractBarrierUpdate{T},
+    solver::MadNLPCSolver{T},
+    sc::T,
+) where {T}
+    ipm = solver.ipm
+    rnlp = ipm.nlp
+    ncc = get_ncc(solver.mpcc)
+    inf_compl_mu = MadNLP.get_inf_compl(
+        ipm.x_lr,
+        ipm.xl_r,
+        ipm.zl_r,
+        ipm.xu_r,
+        ipm.x_ur,
+        ipm.zu_r,
+        ipm.mu,
+        sc,
+    )
+    inf_pr = ipm.inf_pr
+    while (ipm.mu > max(barrier.mu_min, ipm.opt.tol/10)) &&
+        (max(inf_pr, ipm.inf_du, inf_compl_mu) <= ipm.opt.barrier_tol_factor*ipm.mu)
+        mu_new = MadNLP.get_mu(
+            ipm.mu,
+            barrier.mu_min,
+            barrier.mu_linear_decrease_factor,
+            barrier.mu_superlinear_decrease_power,
+            ipm.opt.tol,
+        )
+        inf_compl_mu = MadNLP.get_inf_compl(
+            ipm.x_lr,
+            ipm.xl_r,
+            ipm.zl_r,
+            ipm.xu_r,
+            ipm.x_ur,
+            ipm.zu_r,
+            ipm.mu,
+            sc,
+        )
+        ipm.tau = MadNLP.get_tau(ipm.mu, ipm.opt.tau_min)
+        ipm.mu = mu_new
+
+        # calculate new sigma
+        sigma_candidate = sigma_from_mu(solver, solver.opts.relaxation_update, ipm.mu)
+        @views begin
+            inf_relaxed_cc = mapreduce(
+                (c, sigma_old)->abs(c+sigma_old-sigma_candidate),
+                max,
+                ipm.c[(end-ncc+1):end],
+                get_relaxation(rnlp);
+                init=0,
+            )
+        end
+        inf_pr = max(inf_pr, inf_relaxed_cc)
+        empty!(ipm.filter)
+        push!(ipm.filter, (ipm.theta_max, -Inf))
+    end
+    return
+end
+
 function MadNLP.update_barrier!(
     barrier::MadNLP.MonotoneUpdate{T},
     solver::MadNLPCSolver{T},
     sc::T,
 ) where {T}
-    return MadNLP.update_barrier!(barrier, solver.ipm, sc)
+    return _update_monotone!(barrier, solver, sc)
 end
 
 function MadNLP.get_adaptive_mu(
@@ -287,7 +346,7 @@ function MadNLP.get_adaptive_mu(
 
     # Get approximate solution without iterative refinement
     copyto!(MadNLP.full(step_aff), MadNLP.full(ipm.p))
-    MadNLP.solve!(linear_solver, MadNLP.full(step_aff))
+    MadNLP.solve_kkt!(ipm.kkt, step_aff)
 
     # Get average complementarity
     mu = MadNLP.get_average_complementarity(solver)
@@ -303,7 +362,7 @@ function MadNLP.get_adaptive_mu(
     )
     # Get (again) approximate solution without iterative refinement
     copyto!(MadNLP.full(step_cen), MadNLP.full(ipm.p))
-    MadNLP.solve!(linear_solver, MadNLP.full(step_cen))
+    MadNLP.solve_kkt!(ipm.kkt, step_cen)
 
     # Refine the search interval using Ipopt's heuristics
     # First, check if sigma is greater than 1.

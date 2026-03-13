@@ -1,24 +1,58 @@
 @kwdef mutable struct IterateLogger
     file::Union{IOStream, Nothing} = nothing
 end
-
 # Relaxation updates
+
+"""
+  Method by which the Scholtes relaxation parameter σ is calculated at each iteration.
+"""
 abstract type AbstractRelaxationUpdate{T} end
 
 """
-  Proportional Relaxation update which updates σ = aμ^b
+  Fixed relaxation update methods define a function ``σ(μ)`` which is used to calculate the
+  Scholtes relaxation parameter from the barrier parameter.
 """
-@kwdef struct ProportionalRelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+abstract type AbstractFixedRelaxationUpdate{T} <: AbstractRelaxationUpdate{T} end
+
+"""
+  Adaptive relaxation update methods update σ independently of μ.
+"""
+abstract type AbstractAdaptiveRelaxationUpdate{T} <: AbstractRelaxationUpdate{T} end
+
+"""
+  Proportional Relaxation update which updates ``σ = aμ^b``
+"""
+@kwdef struct ProportionalRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
     sigma_mu_ratio::T = 1.0 # a
     sigma_mu_exp::T = 1.0 # b
     monotone::Bool = false
+    sigma_min::T = 1e-8
 end
 
-@kwdef struct LOQORelaxationUpdate{T} <: AbstractRelaxationUpdate{T}
+"""
+  Rolloff Relaxation update which updates ``σ = c*μ^a/(sqrt(μ^a^2)+b)``
+"""
+@kwdef struct RolloffRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
+    rolloff_slope::T = 1.6 # a
+    rolloff_point::T = 1e-5 # b
+    rolloff_max::T = 1.0 # c
+    monotone::Bool = false
+    sigma_min::T = 1e-8
+end
+
+"""
+  LOQO based algorithm for adaptively selecting the Scholtes relaxation parameter σ.
+
+  ``ξ = (ncc*min(x₁,x₂))/(x₁ᵀx₂)``
+  ``k = γ*min((1-r)(1-ξ)/ξ, 2)³``
+  ``σ = k(x₁ᵀx₂)/ncc``
+"""
+@kwdef struct LOQORelaxationUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
     gamma::T = 0.05 # scale factor
     gamma_min::T = 1e-5 # smallest factor of reduction allowed
     mu_factor::T = 1e-5 # smallest factor of reduction allowed
     r::T = 0.95 # Steplength param
+    sigma_min::T = 1e-8
 end
 
 """
@@ -26,32 +60,50 @@ end
   or the lower bounds of x1 and x2 choosing which to decrease by inspecting the estimated mpcc
   lagrange multipliers.
 """
-@kwdef struct TwoSidedScholtesUpdate{T} <: AbstractRelaxationUpdate{T}
+@kwdef struct TwoSidedScholtesUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
     kappa::T = 0.1
     k_ftb::T = 0.9
     tau::T = 0.3
+    sigma_min::T = 1e-8
 end
 
 """
-  Propotional Relaxation update which updates σ = aμ^b
-  Also relaxes the complementarity lower bounds by mu_factor*μ when:
-    μ ≤ relax_threshold
-    the corresponding estimated mpec multiplier is negative (the scholtes bound is active)
-    identified by the multiplier being smaller than μ^tau
-
-  When unrelax is set to true we try to recover erroneously relaxed lower bounds (identified by the lower bound being active)
-  this is done by taking steps which push the bound towards zero while making sure to reduce the distance from the iterate
-  to the boundary by a factor of k_ftb.
+  A scheduled update for σ, that is the Fiacco-McCormick rule is applied when the RNLP(σ) is solved to a target accuracy.
+  The target accuracy is calculated as a piecewise function: base accuracy if σ > accuracy shoulder, and
+  ((target accuaracy - base accuracy)/(target accuracy - accuracy shoulder))*σ otherwise.
+  This is done independently of the μ (barrier parameter) update.
 """
-@kwdef struct RelaxLBUpdate{T} <: AbstractRelaxationUpdate{T}
-    sigma_mu_ratio::T = 1.0
-    sigma_mu_exp::T = 1.0
-    monotone::Bool = false
-    mu_factor::T = 1.0
-    tau::T = 0.5
-    relax_threshold::T = 1e-6
-    k_ftb::T = 0.9
-    unrelax::Bool = false
+@kwdef struct ScheduledRelaxationUpdate{T} <: AbstractAdaptiveRelaxationUpdate{T}
+    base_accuracy::T = 1e-3
+    target_accuracy::T = 1e-8
+    accuracy_shoulder::T = 1e-4
+    sigma_linear_decrease_factor::T = 0.1
+    sigma_superlinear_decrease_power::T = 1.9
+    sigma_init::T = 1e0
+    sigma_min::T = 1e-8
+end
+
+"""
+  Strategies taken once an accuracy threshold is reached in order to promote convergence.
+"""
+abstract type AbstractEndgameStrategy{T} end
+
+"""
+  No special strategy is used.
+"""
+struct NoEndgameStrategy{T} <: AbstractEndgameStrategy{T} end
+
+"""
+  Relaxes the complementarity lower bounds when:
+    du_inf ≤ relax_threshold
+    the corresponding estimated mpec multiplier is negative (the scholtes bound is active)
+    identified by the multiplier being smaller than μ^tau.
+"""
+@kwdef mutable struct RelaxLBEndgameStrategy{T} <: AbstractEndgameStrategy{T}
+    delta_max::T = 1e-4
+    use_filtered::Bool = false
+    min_delta_inc_factor::T = 1.1
+    tau::T = 0.4
 end
 
 # Iterate saving structure
@@ -67,6 +119,10 @@ struct MadNLPCIterate{T, VT}
     z2::VT
     zs::VT
 
+    y::VT
+
+    p::MadNLP.UnreducedKKTVector{T, VT}
+
     alpha_pr::T
     alpha_du::T
 
@@ -78,7 +134,13 @@ struct MadNLPCIterate{T, VT}
     theta::T
     varphi::T
     mu::T
-    sigma::T
+    sigma::VT
+    nu1::VT
+    nu2::VT
+    nu1_filt::VT
+    nu2_filt::VT
+    delta1::VT
+    delta2::VT
 
     KKT_s::VT
 
@@ -86,7 +148,11 @@ struct MadNLPCIterate{T, VT}
 end
 
 # Options struct
-@kwdef struct MadNLPCOptions{T} <: MadNLP.AbstractOptions
+@kwdef struct MadNLPCOptions{
+    T,
+    RELAX <: AbstractRelaxationUpdate{T},
+    EG <: AbstractEndgameStrategy{T},
+} <: MadNLP.AbstractOptions
     # Relaxation type
     relaxation::Type = ScholtesRelaxation
 
@@ -94,9 +160,13 @@ end
     use_specialized_barrier_update::Bool = false
 
     # complementarity homotopy options
-    relaxation_update::AbstractRelaxationUpdate{T} = ProportionalRelaxationUpdate()
+    relaxation_update::RELAX = ProportionalRelaxationUpdate()
     sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
     delta_init::T = 0.0
+
+    # Endgame options
+    endgame_threshold::T = 1e-6
+    endgame_strategy::EG = NoEndgameStrategy{Float64}() # TODO(@anton) this will break for other precisions
 
     # initialization options
     respect_comp_bounds::Bool = false # Essentially don't relax complementarity variables
@@ -105,8 +175,13 @@ end
 
     # regularization options
     kkt_regularization::Symbol = :vicente_wright # Options: :vicente_wright
+    q_regularization::Symbol = :none
     mu_thresh::T = 5e-6
     eta_factor::T = 0.1
+    min_eig_value::T = 1e-4
+    max_eig_value::T = Inf
+    critical_rho_factor::T = 0.99
+    min_reg_mu::T = 5e-6
 
     # Magic step options
     use_magic_step::Bool = false
@@ -118,6 +193,9 @@ end
 
     # Reset slacks
     reset_slacks_on_update::Bool = false
+
+    # MPEC multiplier estimation
+    mpec_multiplier_filter_history::T = 1.01
 
     # Output options
     output_file::String = ""
@@ -151,6 +229,8 @@ mutable struct MadNLPCSolver{
     inf_pr_cc::T
     const multipliers_cc1::VT
     const multipliers_cc2::VT
+    const multipliers_cc1_filt::VT
+    const multipliers_cc2_filt::VT
     const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc1_lb::Vector{Int}
@@ -194,6 +274,8 @@ function MadNLPCSolver(
     x = VT(undef, get_nvar(mpcc))
     multipliers_cc1 = VT(undef, get_ncc(mpcc))
     multipliers_cc2 = VT(undef, get_ncc(mpcc))
+    multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
+    multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
     cnt = MadNLPCCounters(counters=ipm.cnt)
     # TODO(@anton) Can we do this nonquadratically
@@ -213,6 +295,8 @@ function MadNLPCSolver(
         0.0,
         multipliers_cc1,
         multipliers_cc2,
+        multipliers_cc1_filt,
+        multipliers_cc2_filt,
         ind_cc1,
         ind_cc2,
         ind_cc1_lb,
@@ -226,4 +310,6 @@ include("utils.jl")
 include("kernels.jl")
 include("barrier.jl")
 include("relaxation.jl")
+include("inertia_correction.jl")
+include("endgame.jl")
 include("madnlpc.jl")

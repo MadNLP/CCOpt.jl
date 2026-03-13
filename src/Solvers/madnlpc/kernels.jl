@@ -56,17 +56,38 @@ function estimate_mpec_multipliers(solver::MadNLPCSolver{T}) where {T}
     ncon = get_ncon(mpcc)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
+    ind_cc1_orig = mpcc.meta.ind_cc1
+    ind_cc2_orig = mpcc.meta.ind_cc2
+    N = solver.opts.mpec_multiplier_filter_history
 
     for ii in 1:ncc
         cc1 = ind_cc1[ii]
         cc2 = ind_cc2[ii]
-        x1 = MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
+        cc1_orig = ind_cc1_orig[ii]
+        cc2_orig = ind_cc2_orig[ii]
+        x1 = MadNLP.variable(ipm.x)[cc1] - get_lvar(mpcc)[cc1_orig]
         z1 = MadNLP.variable(ipm.zl)[cc1]
-        x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
+        x2 = MadNLP.variable(ipm.x)[cc2] - get_lvar(mpcc)[cc2_orig]
         z2 = MadNLP.variable(ipm.zl)[cc2]
         zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
 
+        f1 = MadNLP.variable(ipm.f)[cc1]
+        f2 = MadNLP.variable(ipm.f)[cc2]
+        jac1 = ipm.jacl[cc1]
+        jac2 = ipm.jacl[cc2]
+
         solver.multipliers_cc1[ii] = z1 - zs*x2
         solver.multipliers_cc2[ii] = z2 - zs*x1
+    end
+
+    if solver.ipm.cnt.k==0
+        solver.multipliers_cc1_filt .= solver.multipliers_cc1
+        solver.multipliers_cc2_filt .= solver.multipliers_cc2
+    else
+        # Do EWMA
+        solver.multipliers_cc1_filt .-= solver.multipliers_cc1_filt ./ N
+        solver.multipliers_cc2_filt .-= solver.multipliers_cc2_filt ./ N
+        solver.multipliers_cc1_filt .+= solver.multipliers_cc1 ./ N
+        solver.multipliers_cc2_filt .+= solver.multipliers_cc2 ./ N
     end
 end
