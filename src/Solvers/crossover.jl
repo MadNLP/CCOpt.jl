@@ -10,11 +10,11 @@ end
 
 function solve_lpcc(
     lpcc::LPCC,
-    solver_opts::MadNLPCOptions;
+    solver_opts::RelaxationOptions;
     bound_relax_factor=0.0,
     kwargs...,
 ) where {LPCC <: LPCCModel}
-    solver = CCOpt.MadNLPCSolver(
+    solver = CCOpt.RelaxationSolver(
         lpcc;
         solver_opts=solver_opts,
         bound_relax_factor=0.0,
