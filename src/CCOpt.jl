@@ -1,4 +1,4 @@
-module MadMPEC
+module CCOpt
 using NLPModels, SolverCore, LinearAlgebra, SparseArrays
 using Serialization
 using Printf
@@ -29,4 +29,4 @@ include("Solvers/madnlpc/MadNLPC.jl")
 include("Solvers/exact_penalty/ExactPenalty.jl")
 include("Solvers/crossover.jl")
 
-end # module MadMPEC
+end # module CCOpt
