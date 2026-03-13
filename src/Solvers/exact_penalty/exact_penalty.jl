@@ -12,7 +12,7 @@ end
 
 function solve_homotopy!(
     nlp::AbstractMPCCPenaltyModel,
-    solver::MadMPEC.ExactPenaltySolver,
+    solver::CCOpt.ExactPenaltySolver,
     stats::MadNLP.MadNLPExecutionStats;
     x=nothing,
     y=nothing,
@@ -43,7 +43,7 @@ function solve_homotopy!(
         if ipm.status == MadNLP.INITIAL
             MadNLP.@notice(
                 solver.logger,
-                "This is $(MadNLP.introduce()), using MadMPEC Ell1 extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
+                "This is $(MadNLP.introduce()), using CCOpt Ell1 extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
             )
             MadNLP.print_init(ipm)
             # Also reset rho
@@ -56,7 +56,7 @@ function solve_homotopy!(
         end
 
         while ipm.status >= MadNLP.REGULAR
-            ipm.status == MadNLP.REGULAR && (ipm.status = MadMPEC.homotopy!(solver))
+            ipm.status == MadNLP.REGULAR && (ipm.status = CCOpt.homotopy!(solver))
             ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
             ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
         end
@@ -149,7 +149,7 @@ function homotopy!(solver::ExactPenaltySolver{T, VT}) where {T, VT}
             ipm.mu,
             sc,
         )
-        inf_pr_comp = MadMPEC.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
+        inf_pr_comp = CCOpt.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
         inf_pr_comp_sum = get_inf_pr_cc_sum(solver) # Primal complementarity residual
         solver.inf_pr_cc = get_inf_pr_cc(solver)
         push!(solver.pr_comp_hist, inf_pr_comp_sum)
@@ -314,7 +314,7 @@ end
 # evaluate mpcc objective instead of ell1 objective (though they should be the same)
 function update!(stats::MadNLP.MadNLPExecutionStats, solver::ExactPenaltySolver)
     MadNLP.update!(stats, solver.ipm)
-    stats.objective = MadMPEC.obj(solver.mpcc, stats.solution)
+    stats.objective = CCOpt.obj(solver.mpcc, stats.solution)
     return stats
 end
 

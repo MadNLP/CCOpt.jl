@@ -100,7 +100,7 @@ end
 
 function solve_homotopy!(
     nlp::ST,
-    solver::MadMPEC.MadNLPCSolver,
+    solver::CCOpt.MadNLPCSolver,
     stats::MadNLPCExecutionStats;
     x=nothing,
     y=nothing,
@@ -133,18 +133,18 @@ function solve_homotopy!(
         if ipm.status == MadNLP.INITIAL
             MadNLP.@notice(
                 solver.logger,
-                "This is $(MadNLP.introduce()), using MadMPEC extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
+                "This is $(MadNLP.introduce()), using CCOpt extension, running with $(MadNLP.introduce(ipm.kkt.linear_solver))\n"
             )
             MadNLP.print_init(ipm)
             # Also reset sigma
             ipm.status = MadNLP.initialize!(solver)
             init_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
-            solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
+            solver.inf_pr_cc = CCOpt.get_inf_pr_cc(solver)
         else # resolving the problem
             # Also reset sigma
             init_sigma!(solver.opts.relaxation_update, solver.rnlp, solver)
             ipm.status = MadNLP.reinitialize!(ipm)
-            solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
+            solver.inf_pr_cc = CCOpt.get_inf_pr_cc(solver)
         end
         # possibly fix complementarity variable upper bounds:
         if solver.opts.respect_comp_bounds
@@ -153,7 +153,7 @@ function solve_homotopy!(
         end
 
         while ipm.status >= MadNLP.REGULAR
-            ipm.status == MadNLP.REGULAR && (ipm.status = MadMPEC.homotopy!(solver))
+            ipm.status == MadNLP.REGULAR && (ipm.status = CCOpt.homotopy!(solver))
             ipm.status == MadNLP.RESTORE && (ipm.status = MadNLP.restore!(ipm))
             ipm.status == MadNLP.ROBUST && (ipm.status = MadNLP.robust!(ipm))
         end
@@ -318,7 +318,7 @@ function homotopy!(solver::MadNLPCSolver{T, VT}) where {T, VT}
         MadNLP.jtprod!(ipm.jacl, ipm.kkt, ipm.y)
         sd = MadNLP.get_sd(ipm.y, ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
         sc = MadNLP.get_sc(ipm.zl_r, ipm.zu_r, T(ipm.opt.s_max))
-        solver.inf_pr_cc = MadMPEC.get_inf_pr_cc(solver)
+        solver.inf_pr_cc = CCOpt.get_inf_pr_cc(solver)
         ipm.inf_pr =
             max(MadNLP.get_inf_pr(@view(ipm.c[1:get_ncon(mpcc)])), solver.inf_pr_cc)
         ipm.inf_du = MadNLP.get_inf_du(

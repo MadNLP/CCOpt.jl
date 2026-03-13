@@ -398,7 +398,7 @@ function NLPModels.hprod!(
     # TODO(@anton) like jprod this is inefficient memory allocation wise
     #              in principle we can do the same efficiency as with the Scholtes relaxation
     #              but it is slightly more complicated.
-    #              As MadMPEC doesn't use hprod we wait for user need to implement this.
+    #              As CCOpt doesn't use hprod we wait for user need to implement this.
     Hv .= hess(rnlp, x, obj_weight=obj_weight) * v
     return Hv
 end
