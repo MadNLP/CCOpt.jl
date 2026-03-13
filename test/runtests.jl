@@ -1,5 +1,5 @@
 using LinearAlgebra, SparseArrays, Test
-using NLPModels, ADNLPModels, MadMPEC
+using NLPModels, ADNLPModels, CCOpt
 using MadNLP, NLPModelsIpopt
 
 include("models/simple-model.jl")
