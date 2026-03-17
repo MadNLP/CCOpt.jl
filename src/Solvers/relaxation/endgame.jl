@@ -35,7 +35,7 @@ end
 function set_relax_magic_step!(solver, ii, z1, z2, zs, x1, x2, delta_zs)
     cc1 = solver.ind_cc1[ii]
     cc2 = solver.ind_cc2[ii]
-    ncc = get_ncc(mpcc)
+    ncc = get_ncc(solver.mpcc)
     ipm = solver.ipm
     cb = ipm.cb
 
@@ -51,7 +51,7 @@ function set_relax_magic_step!(solver, ii, z1, z2, zs, x1, x2, delta_zs)
     ipm.jacl[end-ncc+ii] -= delta_zs*cb.con_scale[end-ncc+ii]
 
     ## Set the multiplier contribution in the Hessian of the Lagrangian
-    ipm.kkt.hess[end-ncc+ii] = zs_hat*cb.con_scale[end-ncc+ii]
+    ipm.kkt.hess[end-ncc+ii] = zs*cb.con_scale[end-ncc+ii]
     return nothing
 end
 
