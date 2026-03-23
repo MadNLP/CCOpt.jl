@@ -217,6 +217,8 @@ mutable struct RelaxationSolver{
     VT,
     MPCC <: AbstractMPCCModel{T, VT},
     RNLP <: AbstractMPCCRelaxation{T, VT},
+    RELAX <: AbstractRelaxationUpdate{T},
+    EG <: AbstractEndgameStrategy{T},
     SOLVER <: MadNLP.MadNLPSolver{T, VT},
 }
     const mpcc::MPCC
@@ -224,9 +226,10 @@ mutable struct RelaxationSolver{
     const ipm::SOLVER
     const logger::MadNLP.MadNLPLogger
     const iterate_logger::IterateLogger
-    const opts::RelaxationOptions{T}
+    const opts::RelaxationOptions{T, RELAX, EG}
     const cnt::RelaxationCounters
     inf_pr_cc::T
+    const _cc1::VT
     const multipliers_cc1::VT
     const multipliers_cc2::VT
     const multipliers_cc1_filt::VT
@@ -272,6 +275,7 @@ function RelaxationSolver(
     )
 
     x = VT(undef, get_nvar(mpcc))
+    _cc1 = VT(undef, get_ncc(mpcc))
     multipliers_cc1 = VT(undef, get_ncc(mpcc))
     multipliers_cc2 = VT(undef, get_ncc(mpcc))
     multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
@@ -293,6 +297,7 @@ function RelaxationSolver(
         solver_opts,
         cnt,
         0.0,
+        _cc1,
         multipliers_cc1,
         multipliers_cc2,
         multipliers_cc1_filt,

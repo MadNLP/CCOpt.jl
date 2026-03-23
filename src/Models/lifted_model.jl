@@ -107,19 +107,19 @@ end
 
 function NLPModels.cons!(lnlp::LiftedNLPModel, x::AbstractVector, cx::AbstractVector)
     cons!(lnlp.nlp, view(x, 1:get_nvar(lnlp.nlp)), cx)
-    cx[get_ind_lift(lnlp)] .-= x[get_ind_lift_var(lnlp)]
+    @views cx[get_ind_lift(lnlp)] .-= x[get_ind_lift_var(lnlp)]
     return cx
 end
 
 function NLPModels.cons_lin!(lnlp::LiftedNLPModel, x::AbstractVector, cx::AbstractVector)
     cons_lin!(lnlp.nlp, view(x, 1:get_nvar(lnlp.nlp)), cx)
-    cx[get_ind_lin_lift(lnlp)] .-= x[get_ind_lin_lift_var(lnlp)]
+    @views cx[get_ind_lin_lift(lnlp)] .-= x[get_ind_lin_lift_var(lnlp)]
     return cx
 end
 
 function NLPModels.cons_nln!(lnlp::LiftedNLPModel, x::AbstractVector, cx::AbstractVector)
     cons_nln!(lnlp.nlp, view(x, 1:get_nvar(lnlp.nlp)), cx)
-    cx[get_ind_nln_lift(lnlp)] .-= x[get_ind_nln_lift_var(lnlp)]
+    @views cx[get_ind_nln_lift(lnlp)] .-= x[get_ind_nln_lift_var(lnlp)]
     return cx
 end
 

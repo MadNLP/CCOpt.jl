@@ -151,17 +151,17 @@ function finalize(logger::IterateLogger)
 end
 
 function get_inf_pr_cc(solver::RelaxationSolver{T}) where {T}
-    return @views(
-        mapreduce(
+    @views begin
+        map!(
             (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
-            max,
+            solver._cc1,
             MadNLP.variable(solver.ipm.x)[solver.ind_cc1],
             get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
             MadNLP.variable(solver.ipm.x)[solver.ind_cc2],
-            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)];
-            init=zero(T),
+            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)],
         )
-    )
+    end
+    return reduce(max, solver._cc1; init=zero(T))
 end
 
 function MadNLP.print_iter(solver::RelaxationSolver; is_resto=false)
