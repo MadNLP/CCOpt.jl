@@ -1,4 +1,5 @@
 using ADNLPModels
+using PolynomialRoots
 # TODO(@anton) This is 100% inefficient but fine for testing
 function magic_step_nlp(w_old, mu, tau, eta)
     f(x) = 0.5*((x[1]-w_old[1])^2 + (x[2] - w_old[2])^2)# + 1e-6*(x[4])^2 + 1e-6*(x[5])^2 + 1e-6*(x[6])^2)
@@ -26,7 +27,43 @@ function magic_step_nlp(w_old, mu, tau, eta)
     return sol.solution
 end
 
-function take_magic_step!(solver::MadNLPCSolver{T}) where {T}
+function magic_cubic(mu, tau, zeta1, zeta2)
+    d = mu*mu*zeta1*zeta2
+    c = -2*mu*mu*zeta2
+    b = -tau*zeta2*zeta2
+    a = tau*zeta2*zeta2/(zeta1)
+    z1_candidates = roots([d, c, b, a])
+
+    candidate_solutions = []
+
+    # TODO(@anton) do checks here.
+    z1 = real(z1_candidates[1])
+    x1 = mu/z1
+    zs = z1*(zeta2*z1/(mu*zeta1) - zeta2/mu)
+    s = mu/zs
+    x2 = (tau-s)/(x1)
+    z2 = mu/x2
+    push!(candidate_solutions, (x1=x1, x2=x2, s=s, z1=z1, z2=z2, zs=zs))
+
+    z1 = real(z1_candidates[2])
+    x1 = mu/z1
+    zs = z1*(zeta2*z1/(mu*zeta1) - zeta2/mu)
+    s = mu/zs
+    x2 = (tau-s)/(x1)
+    z2 = mu/x2
+    push!(candidate_solutions, (x1=x1, x2=x2, s=s, z1=z1, z2=z2, zs=zs))
+
+    z1 = real(z1_candidates[3])
+    x1 = mu/z1
+    zs = z1*(zeta2*z1/(mu*zeta1) - zeta2/mu)
+    s = mu/zs
+    x2 = (tau-s)/(x1)
+    z2 = mu/x2
+    push!(candidate_solutions, (x1=x1, x2=x2, s=s, z1=z1, z2=z2, zs=zs))
+    return candidate_solutions
+end
+
+function take_magic_step!(solver::RelaxationSolver{T}) where {T}
     ncc = get_ncc(solver.mpcc)
     ipm = solver.ipm
     if get_relaxation(solver.rnlp)[1] < 1e-10
