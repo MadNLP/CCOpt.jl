@@ -518,20 +518,23 @@ function update!(
 
     ind_cc1 = get_ind_cc1(solver.mpcc)
     ind_cc2 = get_ind_cc2(solver.mpcc)
-    @views begin
-        stats.multipliers_x1 =
-            stats.multipliers_L[ind_cc1] .-
-            stats.multipliers[(end-ncc+1):end] .*
-            (stats.solution[ind_cc2] - get_lvar(solver.mpcc)[ind_cc2])
-        stats.multipliers_x2 =
-            stats.multipliers_L[ind_cc2] .-
-            stats.multipliers[(end-ncc+1):end] .*
-            (stats.solution[ind_cc1] - get_lvar(solver.mpcc)[ind_cc1])
+    for ii in 1:ncc
+        icc1 = ind_cc1[ii]
+        icc2 = ind_cc2[ii]
+
+        stats.multipliers_x1[ii] =
+            stats.multipliers_L[icc1] -
+            stats.multipliers[end-ncc+ii] *
+            (stats.solution[icc2] - get_lvar(solver.mpcc)[icc2])
+        stats.multipliers_x2[ii] =
+            stats.multipliers_L[icc2] -
+            stats.multipliers[end-ncc+ii] *
+            (stats.solution[icc1] - get_lvar(solver.mpcc)[icc1])
     end
     stats.objective = MadNLP.unpack_obj(ipm.cb, ipm.obj_val)
     MadNLP.unpack_cons!(stats.constraints, ipm.cb, ipm.c)
     stats.constraints .+= ipm.rhs
-    stats.constraints[ipm.ind_ineq] .+= MadNLP.slack(ipm.x)
+    @views stats.constraints[ipm.ind_ineq] .+= MadNLP.slack(ipm.x)
     # Cut out scholtes constraints now we don't need them to calculate multipliers
     resize!(stats.multipliers, m)
     resize!(stats.constraints, m)

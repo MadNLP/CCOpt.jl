@@ -649,17 +649,22 @@ function comp_left!(
     @lencheck get_ncc(mpcc) ccx
     @lencheck get_nvar(mpcc) x
     cvar = 0
+    vert = true
     # First get variables:
     for i in 1:get_ncc(mpcc)
         if get_cc_types(mpcc)[i] ∈ [VarVar, VarCon]
             ccx[i] = x[get_ind_cc1(mpcc)[i]]
             cvar += 1
+        else
+            vert = false
         end
     end
-
-    # TODO(@anton) I am not sure anymore if this is correct for non-vertical form
-    cons!(mpcc.nlp, x, mpcc._c1)
-    @views ccx[(cvar+1):end] .= mpcc._c1[get_cc_l(mpcc)]
+    # TODO(@anton) this should be done via multiple dispatch probably
+    if !vert
+        # TODO(@anton) I am not sure anymore if this is correct for non-vertical form
+        cons!(mpcc.nlp, x, mpcc._c1)
+        @views ccx[(cvar+1):end] .= mpcc._c1[get_cc_l(mpcc)]
+    end
     return ccx
 end
 
@@ -676,17 +681,22 @@ function comp_right!(
     @lencheck get_ncc(mpcc) ccx
     @lencheck get_nvar(mpcc) x
     cvar = 0
+    vert = true
     # First get variables:
     for i in 1:get_ncc(mpcc)
         if get_cc_types(mpcc)[i] ∈ [VarVar, ConVar]
             ccx[i] = x[get_ind_cc2(mpcc)[i]]
             cvar += 1
+        else
+            vert = false
         end
     end
 
-    # TODO(@anton) I am not sure anymore if this is correct for non-vertical form
-    cons!(mpcc.nlp, x, mpcc._c1)
-    @views ccx[(cvar+1):end] .= mpcc._c1[get_cc_r(mpcc)]
+    if !vert
+        # TODO(@anton) I am not sure anymore if this is correct for non-vertical form
+        cons!(mpcc.nlp, x, mpcc._c1)
+        @views ccx[(cvar+1):end] .= mpcc._c1[get_cc_r(mpcc)]
+    end
     return ccx
 end
 
@@ -774,6 +784,17 @@ function comp_res_right!(
         end
     end
     return rccx
+end
+
+function comp_res_prod!(
+    mpcc::AbstractMPCCModel{T, VT},
+    x::AbstractVector{T},
+    ccx::AbstractVector{T},
+) where {T, VT}
+    comp_res_left!(mpcc, x, mpcc._cc1)
+    comp_res_right!(mpcc, x, mpcc._cc2)
+    ccx .= mpcc._cc1 .* mpcc._cc2
+    return ccx
 end
 
 function jac_comp_left_structure(mpcc::AbstractMPCCModel)

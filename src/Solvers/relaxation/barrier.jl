@@ -41,14 +41,11 @@ function _update_monotone!(
 
         # calculate new sigma
         sigma_candidate = sigma_from_mu(solver, solver.opts.relaxation_update, ipm.mu)
-        @views begin
-            inf_relaxed_cc = mapreduce(
-                (c, sigma_old)->abs(c+sigma_old-sigma_candidate),
-                max,
-                ipm.c[(end-ncc+1):end],
-                get_relaxation(rnlp);
-                init=0,
-            )
+        inf_relaxed_cc = zero(T)
+        sigma_old = get_relaxation(rnlp)
+        for ii in 1:ncc
+            inf_relaxed_cc =
+                max(inf_relaxed_cc, abs(ipm.c[end-ncc+ii]+sigma_old[ii]-sigma_candidate))
         end
         inf_pr = max(inf_pr, inf_relaxed_cc)
         empty!(ipm.filter)

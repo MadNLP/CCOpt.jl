@@ -81,9 +81,10 @@ function NLPModels.cons!(rnlp::ScholtesRelaxation, x::AbstractVector, cx::Abstra
     if get_ncon(rnlp.mpcc.nlp) > 0
         cons!(rnlp.mpcc, x, view(cx, 1:mpcc_ncon))
     end
-    cx[(mpcc_ncon+1):(get_ncon(rnlp))] =
-        (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ
+    @views begin
+        comp_res_prod!(rnlp.mpcc, x, cx[(mpcc_ncon+1):(get_ncon(rnlp))])
+        cx[UnitRange((mpcc_ncon+1), (get_ncon(rnlp)))] .-= rnlp.σ
+    end
     return cx
 end
 
@@ -110,9 +111,8 @@ function NLPModels.cons_nln!(
         cons_nln!(rnlp.mpcc, x, view(cx, 1:mpcc_nnln))
     end
     # TODO(@anton) figure out if the intermediate outputs cause allocations
-    cx[(mpcc_nnln+1):(get_nnln(rnlp))] .=
-        (comp_left(rnlp.mpcc, x) .- lcomp_left(rnlp.mpcc)) .*
-        (comp_right(rnlp.mpcc, x) .- lcomp_right(rnlp.mpcc)) .- rnlp.σ
+    @views comp_res_prod!(rnlp.mpcc, x, cx[(mpcc_nnln+1):(get_nnln(rnlp))])
+    cx[(mpcc_nnln+1):(get_nnln(rnlp))] .-= rnlp.σ
     return cx
 end
 
