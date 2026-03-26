@@ -16,8 +16,8 @@
     q_regularization::Symbol = :critical_rho
     min_eig_value::T = 1e-4
     max_eig_value::T = Inf
-    critical_rho_factor::T = 0.99
-    min_reg_mu::T = 1e0
+    critical_rho_factor::T = 0.999
+    min_reg_mu::T = 5e-6
 
     # Output options
     output_file::String = ""
@@ -32,15 +32,17 @@ mutable struct PenaltySolver{
     PNLP <: AbstractMPCCPenaltyModel{T, VT},
     SOLVER <: MadNLP.MadNLPSolver{T, VT},
 }
-    mpcc::MPCC
-    pnlp::PNLP
-    ipm::SOLVER
-    logger::MadNLP.MadNLPLogger
-    opts::PenaltyOptions{T}
+    const mpcc::MPCC
+    const pnlp::PNLP
+    const ipm::SOLVER
+    const logger::MadNLP.MadNLPLogger
+    const opts::PenaltyOptions{T}
 
     inf_pr_cc::T
+    const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
+    const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
 
-    pr_comp_hist::CircularBuffer{T} # Complementarity history
+    const pr_comp_hist::CircularBuffer{T} # Complementarity history
 end
 
 """
@@ -65,7 +67,20 @@ function PenaltySolver(
     )
 
     pr_comp_hist = CircularBuffer{T}(solver_opts.comp_history_length)
-    return PenaltySolver(mpcc, pnlp, ipm, logger, solver_opts, 0.0, pr_comp_hist)
+    ind_cc1 = copy(get_ind_cc1(mpcc))
+    ind_cc2 = copy(get_ind_cc2(mpcc))
+    _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
+    return PenaltySolver(
+        mpcc,
+        pnlp,
+        ipm,
+        logger,
+        solver_opts,
+        0.0,
+        ind_cc1,
+        ind_cc2,
+        pr_comp_hist,
+    )
 end
 include("utils.jl")
 include("exact_penalty.jl")

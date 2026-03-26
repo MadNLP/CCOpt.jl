@@ -23,6 +23,7 @@ include("Models/lasry_lions_penalty.jl")
 include("Models/lifted_model.jl")
 include("Models/big_m_model.jl")
 
+include("Solvers/common.jl")
 include("Solvers/AbstractMPCCSolver.jl")
 include("Solvers/homotopy_solver.jl")
 include("Solvers/relaxation/Relaxation.jl")

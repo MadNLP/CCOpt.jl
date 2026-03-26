@@ -1927,13 +1927,13 @@ function test_q_regularization(; range=:)
 end
 
 function benchmark_macmpec(; range=:)
-    opts_ipopt = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
-    opts_ipopt.print_level = MadNLP.INFO
+    opts_ipopt = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
     opts_ipopt.nlp_solver_options[:max_iter] = 3000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
-    opts_madnlp = MadMPEC.HomotopySolverOptions(max_inner_iter=3000)
-    opts_madnlp.print_level = MadNLP.INFO
+    opts_madnlp = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
+    opts_madnlp.print_level = MadNLP.ERROR
     opts_madnlp.nlp_solver_options = Dict(
         :bound_relax_factor=>0.0,
         :print_level=>MadNLP.ERROR,
@@ -1949,14 +1949,14 @@ function benchmark_macmpec(; range=:)
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
     )
-    opts_madnlp_c = MadMPEC.MadNLPCOptions(center_complementarities=true)
+    opts_madnlp_c =
+        CCOpt.RelaxationOptions(print_level=MadNLP.ERROR, center_complementarities=true)
 
     opts_exact_penalty =
-        MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
-    # opts_exact_penalty_dynamic =
-    #     MadMPEC.ExactPenaltyOptions(; print_level=MadNLP.ERROR, dynamic_tau_update=true)
+        CCOpt.PenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
     exact_penalty_solver_options = Dict(
         :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
         :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
@@ -1964,7 +1964,7 @@ function benchmark_macmpec(; range=:)
     )
 
     default_ipopt = (
-        "Ipopt Homotopy",
+        "IPOPT Homotopy",
         solve_benchmark_problem,
         save_ipopt_df,
         opts_ipopt,
@@ -1993,10 +1993,98 @@ function benchmark_macmpec(; range=:)
     )
     solnames, names, stats = run_macmpec(
         default_ipopt,
-        default_madnlp,
+        #default_madnlp,
         default_madnlp_c,
         default_exact_penalty,
         range=range,
     )
     return solnames, names, stats
+end
+
+function plot_benchmark(solnames, names, stats; cost_col=:wall_time, savepath="test.pdf")
+    default()
+    default(
+        titlefont=(20, "serif"),
+        legendfont=(9, "serif"),
+        guidefont=(10, "serif"),
+        tickfontsize=10,
+        linewidth=3,
+    )
+    pythonplot()
+
+    styles = Dict(
+        "CCOpt Relaxation" => (RGBA(0, 0.4470, 0.7410), :solid),
+        "CCOpt Penalty" => (RGBA(0, 0.4470, 0.7410), :dash),
+        "IPOPT Homotopy" => (RGBA(0.8500, 0.3250, 0.0980), :solid),
+        "IPOPT Penalty" => (RGBA(0.8500, 0.3250, 0.0980), :dash),
+        "Gurobi SOS1" => (RGBA(0.4940, 0.1840, 0.5560), :solid),
+        "Gurobi MIQP" => (RGBA(0.4940, 0.1840, 0.5560), :dash),
+        "LCQPow qpOASES" => (RGBA(0.4660, 0.6740, 0.1880), :solid),
+        "LCQPow OSQP" => (RGBA(0.4660, 0.6740, 0.1880), :dash),
+    )
+    colors = map((x) -> styles[x][1], solnames)
+    line_styles = map((x) -> styles[x][2], solnames)
+
+    display(
+        perf_plot(
+            "",
+            solnames,
+            stats;
+            size=(400, 300),
+            cost_col=cost_col,
+            legend=:bottomright,
+            ylabel="fraction solved",
+            xlabel=L"$2^{x}$ times best",
+            linestyles=line_styles,
+            colors=colors,
+        ),
+    )
+    return PythonPlot.savefig(savepath)
+end
+
+function plot_benchmark_abs(
+    solnames,
+    names,
+    stats;
+    cost_col=:wall_time,
+    savepath="test.pdf",
+)
+    default()
+    default(
+        titlefont=(20, "serif"),
+        legendfont=(9, "serif"),
+        guidefont=(10, "serif"),
+        tickfontsize=10,
+        linewidth=3,
+    )
+    pythonplot()
+
+    styles = Dict(
+        "CCOpt Relaxation" => (RGBA(0, 0.4470, 0.7410), :solid),
+        "CCOpt Penalty" => (RGBA(0, 0.4470, 0.7410), :dash),
+        "IPOPT Homotopy" => (RGBA(0.8500, 0.3250, 0.0980), :solid),
+        "IPOPT Penalty" => (RGBA(0.8500, 0.3250, 0.0980), :dash),
+        "Gurobi SOS1" => (RGBA(0.4940, 0.1840, 0.5560), :solid),
+        "Gurobi MIQP" => (RGBA(0.4940, 0.1840, 0.5560), :dash),
+        "LCQPow qpOASES" => (RGBA(0.4660, 0.6740, 0.1880), :solid),
+        "LCQPow OSQP" => (RGBA(0.4660, 0.6740, 0.1880), :dash),
+    )
+    colors = map((x) -> styles[x][1], solnames)
+    line_styles = map((x) -> styles[x][2], solnames)
+
+    display(
+        abs_plot(
+            "",
+            solnames,
+            stats;
+            size=(400, 300),
+            cost_col=cost_col,
+            legend=:bottomright,
+            ylabel="fraction solved",
+            xlabel="Wall Time (s)",
+            linestyles=line_styles,
+            colors=colors,
+        ),
+    )
+    return PythonPlot.savefig(savepath)
 end

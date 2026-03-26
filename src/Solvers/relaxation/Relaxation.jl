@@ -242,18 +242,6 @@ mutable struct RelaxationSolver{
     const b::Vector{Bool}
 end
 
-# TODO(@anton) fix this to be nonquadratic I guess
-# FIXME(@anton) This is broken for fixed complementarities. For now, ignore that.
-function _adjust_cc_inds!(cb, ind_cc1, ind_cc2)
-    fixed = cb.ind_fixed
-    for ii in 1:length(ind_cc1)
-        n_less1 = count(<(ind_cc1[ii]), fixed)
-        n_less2 = count(<(ind_cc2[ii]), fixed)
-        ind_cc1[ii] -= n_less1
-        ind_cc2[ii] -= n_less2
-    end
-end
-
 function RelaxationSolver(
     mpcc::AbstractMPCCModel{T, VT};
     solver_opts=RelaxationOptions(),
@@ -285,12 +273,7 @@ function RelaxationSolver(
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
-    #println(ind_cc1)
-    #println(ind_cc2)
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
-    #println(ipm.kkt.ind_lb)
-    #println(ind_cc1)
-    #println(ind_cc2)
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
     return solver = RelaxationSolver(

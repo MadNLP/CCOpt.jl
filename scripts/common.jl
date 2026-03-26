@@ -6,6 +6,8 @@ using NLPModelsIpopt
 using MadNLP, MadNLPHSL
 using MadNCL
 using Distributed
+using LaTeXStrings, PythonPlot
+using NaNMath
 
 function mpcc_from_ampl(ampl::AmplNLReader.AmplModel)
     # First we find the nonzero elements in the cvar vector:
@@ -323,14 +325,191 @@ function perf_plot(
     cost_col=:wall_time,
     plot_args...,
 )
+    for v in values(stats)
+        sort!(v, :name)
+    end
     costs = foldl(hcat, [stats[name][!, cost_col] for name in names])
 
     ii=1
     for name in names
-        costs[findall(.!(stats[name].success)), ii] .= -1
+        costs[findall(.!(stats[name].success .== true)), ii] .= -1
         ii += 1
     end
     return performance_profile(PlotsBackend(), costs, names, title=title; plot_args...)
+end
+
+function abs_profile_data(
+    T::Array{Float64, 2};
+    logscale::Bool=true,
+    sampletol::Float64=0.0,
+    drawtol::Float64=0.0,
+)
+    vals = copy(T)
+    max_val = NaNMath.maximum(vals)
+    failures = isnan.(vals)
+    vals[failures] .= 2.0*max_val
+    sort!(vals, dims=1)
+    logscale && vals .= log10.(vals)
+    (np, ns) = size(vals)
+    max_val = NaNMath.maximum(vals)
+
+    vals = [vals; 2.0 * max_val * ones(1, ns)]
+    xs = [1:(np+1);] / np
+
+    x_plot = Vector{Vector{Float64}}(undef, ns)
+    y_plot = Vector{Vector{Float64}}(undef, ns)
+
+    for s in 1:ns
+        rs = view(vals, :, s)
+        xidx = zeros(Int, length(rs) + 1)
+        k = 0
+        rv = minimum(rs)
+        maxval = maximum(rs)
+        #println("1 ", xidx)
+        while rv < max_val
+            k += 1
+            xidx[k] = findlast(rs .<= rv)
+            rv = max(rs[xidx[k]] + sampletol, rs[xidx[k]+1])
+            #println(k)
+        end
+        xidx[k+1] = length(rs)
+        xidx = xidx[xidx .> 0]
+        xidx = unique(xidx) # Needed?
+        yidx = copy(xidx)
+        yidx[end] = yidx[end-1]
+        #println(xs)
+
+        x_plot[s] = rs[xidx]
+        y_plot[s] = xs[yidx]
+
+        #println(x_plot[s])
+        println(y_plot[s])
+    end
+    return (x_plot, y_plot, max_val)
+end
+
+function abs_profile_axis_labels(labels, ns, logscale; kwargs...)
+    length(labels) == 0 && (labels = ["column $col" for col in 1:ns])
+    kwargs = Dict{Symbol, Any}(kwargs)
+    xlabel = pop!(kwargs, :xlabel, "Wall Time (s)")
+    ylabel = pop!(kwargs, :ylabel, "Proportion of problems")
+    return (xlabel, ylabel, labels)
+end
+
+function powertick_10(s::AbstractString)
+    codes = Dict(collect(".1234567890") .=> collect("⋅¹²³⁴⁵⁶⁷⁸⁹⁰"))
+    hidden_latex = !isnothing(match(r"^\$.*\$$", s))
+    ex = r"[0-9.]+"
+    for m in eachmatch(ex, s)
+        s = if hidden_latex
+            replace(s, m.match => "10^{$(m.match)}")
+        else
+            replace(s, m.match => "10" * map(c -> codes[c], m.match))
+        end
+    end
+    return s
+end
+
+function abs_profile_plot(
+    ::PlotsBackend,
+    x_plot,
+    y_plot,
+    max_val,
+    xlabel,
+    ylabel,
+    labels,
+    title,
+    logscale;
+    kwargs...,
+)
+    kwargs = Dict{Symbol, Any}(kwargs)
+    linestyles = pop!(kwargs, :linestyles, Symbol[])
+    colors = pop!(kwargs, :colors, [])
+    profile = Plots.plot(
+        xlabel=xlabel,
+        ylabel=ylabel,
+        title=title,
+        xlims=(1.1*minimum(minimum.(x_plot)), 2.0 * max_val),
+        ylims=(0, 1.1),
+    )  # initial plot
+    for s in 1:length(labels)
+        if length(linestyles) > 0
+            kwargs[:linestyle] = linestyles[s]
+        end
+        if length(colors) > 0
+            kwargs[:color] = colors[s]
+        end
+        Plots.plot!(x_plot[s], y_plot[s], t=:steppost, label=labels[s]; kwargs...)  # add to initial plot
+    end
+    if logscale
+        for xt in Plots.xticks(profile)
+            Plots.plot!(xticks=(xt[1], map(x -> powertick_10(x), xt[2])))
+            Plots.plot!(xtickfontsize=10)
+        end
+    end
+    return profile
+end
+
+function abs_profile(
+    b::PlotsBackend,
+    T::Matrix{Td},
+    labels::Vector{S}=String[];
+    logscale::Bool=true,
+    title::AbstractString="",
+    sampletol::Float64=0.0,
+    drawtol::Float64=0.0,
+    kwargs...,
+) where {Td <: Number, S <: AbstractString}
+    xlabel, ylabel, labels =
+        abs_profile_axis_labels(labels, size(T, 2), logscale; kwargs...)
+    (x_plot, y_plot, max_ratio) =
+        abs_profile_data(T, logscale=logscale, sampletol=sampletol, drawtol=drawtol)
+    return abs_profile_plot(
+        b,
+        x_plot,
+        y_plot,
+        max_ratio,
+        xlabel,
+        ylabel,
+        labels,
+        title,
+        logscale;
+        kwargs...,
+    )
+end
+
+function abs_plot(
+    title::AbstractString,
+    names::Vector{<:AbstractString},
+    stats;
+    cost_col=:wall_time,
+    plot_args...,
+)
+    for v in values(stats)
+        sort!(v, :name)
+    end
+    costs = foldl(hcat, [stats[name][!, cost_col] for name in names])
+
+    ii=1
+    for name in names
+        costs[findall(.!(stats[name].success .== true)), ii] .= NaN
+        ii += 1
+    end
+
+    return abs_profile(PlotsBackend(), costs, names, title=title; plot_args...)
+end
+
+function load_from_matlab_csv(filepath)
+    data = DataFrame(CSV.File(filepath))
+    rename!(data, Dict(:problem_name => :name, :wall_time_total => :wall_time))
+    solnames = unique(data.solver_name)
+    names = unique(data.name)
+
+    stats = Dict()
+    for solname in solnames
+        stats[solname] = sort(data[data.solver_name .== solname, :], :name)
+    end
+    return solnames, names, stats
 end
 
 function solve_benchmark_problem(
