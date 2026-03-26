@@ -14,10 +14,11 @@
 
     # regularization
     q_regularization::Symbol = :critical_rho
-    min_eig_value::T = 1e-4
+    min_eig_value::T = 1e-8
     max_eig_value::T = Inf
-    critical_rho_factor::T = 0.999
+    critical_rho_factor::T = 0.99
     min_reg_mu::T = 5e-6
+    max_reg_mu::T = 1e-1
 
     # Output options
     output_file::String = ""
@@ -54,7 +55,7 @@ end
 """
 function PenaltySolver(
     mpcc::AbstractMPCCModel{T, VT};
-    solver_opts=PenaltyOptions{Float64}(),
+    solver_opts=PenaltyOptions(),
     ipm_options...,
 ) where {T, VT}
     pnlp = solver_opts.penalty(mpcc)

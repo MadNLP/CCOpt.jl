@@ -315,7 +315,9 @@ function update!(stats::MadNLP.MadNLPExecutionStats, solver::PenaltySolver)
 end
 
 function regularize_Q!(solver::PenaltySolver{T}) where {T}
-    if solver.opts.q_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
+    if solver.opts.q_regularization == :none ||
+       solver.ipm.mu < solver.opts.min_reg_mu ||
+       solver.ipm.mu > solver.opts.max_reg_mu
         return false
     end
 
@@ -327,8 +329,8 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
     ncc = get_ncc(solver.mpcc)
     nnzh = get_nnzh(solver.mpcc)
     rho = get_penalty(solver.pnlp)
-    ind_cc1 = get_ind_cc1(solver.mpcc)
-    ind_cc2 = get_ind_cc2(solver.mpcc)
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
     A = Array{T}(undef, 2, 2)
     regularized = false
     for i in 1:ncc
@@ -355,7 +357,7 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
         elseif solver.opts.q_regularization == :critical_rho
             rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
             if rho*cb.obj_scale[] > rho_max
-                kkt.hess_raw.V[nnzh+i] =
+                kkt.hess_raw.V[end-ncc+i] =
                     solver.opts.critical_rho_factor*rho_max*(
                         pnlp.meta.minimize ? one(T) : -one(T)
                     )
