@@ -1948,6 +1948,7 @@ function benchmark_macmpec(; range=:)
         :print_level=>MadNLP.ERROR,
         :max_iter=>3000,
         :linear_solver=>Ma27Solver,
+        :disbale_garbage_collector=>true,
     )
     opts_madnlp_c =
         CCOpt.RelaxationOptions(print_level=MadNLP.ERROR, center_complementarities=true)
@@ -1958,9 +1959,10 @@ function benchmark_macmpec(; range=:)
         :bound_relax_factor=>0.0,
         :bound_push=>1e-2,
         :print_level=>MadNLP.ERROR,
-        :max_iter=>3000,
+        :max_iter=>1000,
         :linear_solver=>Ma27Solver,
         :rethrow_error=>false,
+        :disbale_garbage_collector=>true,
     )
 
     default_ipopt = (

@@ -569,6 +569,7 @@ function run_benchmark(
     for i in 1:length(probs)
         println(probs[i].nlp.nlp.meta.name)
         push!(stats_vec, solfun(probs[i], opts, solargs...))
+        GC.gc()
     end
 
     return stats_vec
@@ -585,6 +586,7 @@ function run_benchmark(
     for i in 1:length(probs)
         println(probs[i].nlp.nlp.meta.name)
         push!(stats_vec, solfun(probs[i], opts, solargs...))
+        GC.gc()
     end
 
     return stats_vec
@@ -615,6 +617,7 @@ function run_benchmark(
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
         push!(stats_vec, solfun(probs[i], opts, solargs...))
+        GC.gc()
     end
 
     return stats_vec

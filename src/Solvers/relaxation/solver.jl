@@ -109,7 +109,7 @@ function solve_homotopy!(
     kwargs...,
 ) where {ST <: AbstractMPCCRelaxation}
     ipm = solver.ipm
-    ipm.cnt.start_time = time()
+    #ipm.cnt.start_time = time()
     if x != nothing
         MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
     end

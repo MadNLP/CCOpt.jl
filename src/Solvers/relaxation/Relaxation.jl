@@ -33,8 +33,8 @@ end
   Rolloff Relaxation update which updates ``σ = c*μ^a/(sqrt(μ^a^2)+b)``
 """
 @kwdef struct RolloffRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
-    rolloff_slope::T = 1.6 # a
-    rolloff_point::T = 1e-5 # b
+    rolloff_slope::T = 2.0 # a
+    rolloff_point::T = 1e-6 # b
     rolloff_max::T = 1.0 # c
     monotone::Bool = false
     sigma_min::T = 1e-8
@@ -131,6 +131,9 @@ struct RelaxationIterate{T, VT}
     obj::T
     inf_pr::T
     inf_du::T
+    inf_compl::T
+    inf_rnlp::T
+    inf_pr_cc::T
     theta::T
     varphi::T
     mu::T

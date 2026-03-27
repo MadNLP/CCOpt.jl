@@ -91,6 +91,9 @@ function log_iter(
     obj = ipm.obj_val
     inf_pr = ipm.inf_pr
     inf_du = ipm.inf_du
+    inf_compl = ipm.inf_compl
+    inf_rnlp = MadNLP.get_inf_pr(ipm.c)
+    inf_pr_cc = solver.inf_pr_cc
 
     theta = MadNLP.get_theta(ipm.c)
     varphi = MadNLP.get_varphi(ipm.obj_val, ipm.x_lr, ipm.xl_r, ipm.xu_r, ipm.x_ur, ipm.mu)
@@ -105,7 +108,8 @@ function log_iter(
     delta2 = solver.rnlp.δ2
 
     W = ipm.kkt.aug_com
-    KKT_s = VT()#K = Array(Symmetric(W, :L)); eigvals(K)
+    K = Array(Symmetric(W, :L));
+    KKT_s = eigvals(K);
 
     iter = RelaxationIterate(
         k,
@@ -124,6 +128,9 @@ function log_iter(
         obj,
         inf_pr,
         inf_du,
+        inf_compl,
+        inf_rnlp,
+        inf_pr_cc,
         theta,
         varphi,
         mu,

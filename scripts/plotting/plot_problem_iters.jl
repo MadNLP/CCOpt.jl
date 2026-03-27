@@ -1,5 +1,152 @@
-using CCOpt, Plots, LaTeXStrings, LinearAlgebra
+using CCOpt, Plots, LaTeXStrings, LinearAlgebra, PythonPlot
+import Plots: plot
 include("../readlog.jl")
+
+function plot_solver_traj_for_paper(
+    name::AbstractString,
+    prob::CCOpt.MPCCModel,
+    iters_fname::AbstractString;
+    range=:,
+    plot_k_mu=true,
+    save_plt=false,
+)
+    default()
+    default(
+        titlefont=(20, "serif"),
+        legendfont=(12, "serif"),
+        guidefont=(12, "serif"),
+        tickfontsize=12,
+        linewidth=3,
+    )
+    pythonplot()
+    iters = readlog(iters_fname)
+    k_newton = [i.k for i in iters[range] if !i.magic];
+    push!(k_newton, k_newton[end]+1)
+    k_magic = [i.k for i in iters[range] if i.magic]
+    k_mu = [iters[i].k for i in 1:(length(iters)-1) if iters[i+1].mu < iters[i].mu]
+    apr = [clamp(i.alpha_pr, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(apr, apr[end])
+    adu = [clamp(i.alpha_du, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(adu, adu[end])
+    inf_pr = [clamp(i.inf_pr, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(inf_pr, inf_pr[end])
+    inf_du = [clamp(i.inf_du, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(inf_du, inf_du[end])
+    inf_compl = [clamp(i.inf_compl, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(inf_compl, inf_compl[end])
+    inf_rnlp = [clamp(i.inf_rnlp, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(inf_rnlp, inf_rnlp[end])
+    inf_pr_cc = [clamp(i.inf_pr_cc, 1e-12, Inf) for i in iters[range] if !i.magic];
+    push!(inf_pr_cc, inf_pr_cc[end])
+    obj = [i.obj for i in iters[range] if !i.magic];
+    push!(obj, obj[end])
+    mu = [i.mu for i in iters[range] if !i.magic];
+    push!(mu, mu[end])
+    sp_min = [minimum(i.KKT_s[i.KKT_s .> 0]) for i in iters[range] if !i.magic];
+    push!(sp_min, sp_min[end])
+    sp_max = [maximum(i.KKT_s[i.KKT_s .> 0]) for i in iters[range] if !i.magic];
+    push!(sp_max, sp_max[end])
+    sn_min = [minimum(i.KKT_s[i.KKT_s .< 0]) for i in iters[range] if !i.magic];
+    push!(sn_min, sn_min[end])
+    sn_max = [maximum(i.KKT_s[i.KKT_s .< 0]) for i in iters[range] if !i.magic];
+    push!(sn_max, sn_max[end])
+
+    a_plt = plot(
+        k_newton[2:end],
+        [apr[2:end], adu[2:end]],
+        size=(1000, 400),
+        ylim=(1e-5, 9),
+        xlim=(1, maximum(k_newton)),
+        yaxis=:log10,
+        ylabel=L"\alpha",
+        xlabel="Iteration",
+        legend=:bottomright,
+        label=[L"\alpha_{\mathrm{pr}}" L"\alpha_{\mathrm{du}}"],
+        #tickfontsize=15,
+        #bottommargin=20Plots.px,
+        #leftmargin=50Plots.px,
+        #labelfontsize=15,
+        linetype=:steppost,
+    )
+    plot_k_mu && vline!(a_plt, k_mu; style=:dot, label="")
+
+    display(a_plt)
+    if save_plt
+        savefig(name*iters_fname*"_alpha"*save_ext)
+    end
+
+    s_plt = plot(
+        k_newton[2:end],
+        [sp_min[2:end], sp_max[2:end], .-sn_min[2:end], .-sn_max[2:end]],
+        size=(1000, 400),
+        xlim=(1, maximum(k_newton)),
+        yaxis=:log10,
+        yticks=[1e-4, 1e-2, 1e0, 1e2, 1e4, 1e6, 1e8, 1e10],
+        legend=:topleft,
+        legend_column=-1,
+        labels=[L"\lambda^+_{min}" L"\lambda^+_{max}" L"\lambda^-_{min}" L"\lambda^-_{max}"],
+        ylabel="KKT matrix eigenvalues",
+        xlabel="Iterations",
+        linetype=:steppost,
+        reuse=false,
+    )
+    display(s_plt)
+    if save_plt
+        savefig(name*iters_fname*"_lam"*save_ext)
+    end
+
+    k_plt = plot(
+        k_newton[2:end],
+        max.(sp_max[2:end], sn_max[2:end]) ./ (min.(sp_min[2:end], .-sn_min[2:end])),
+        size=(1000, 400),
+        xlim=(1, maximum(k_newton)),
+        yaxis=:log10,
+        legend=false,
+        ylabel=L"\kappa(K)",
+        xlabel="Iterations",
+        linetype=:steppost,
+        reuse=false,
+    )
+    display(k_plt)
+    if save_plt
+        savefig(name*iters_fname*"_cond"*save_ext)
+    end
+
+    inf_plt = plot(
+        k_newton[2:end],
+        [inf_pr[2:end], inf_du[2:end], inf_compl[2:end], inf_pr_cc[2:end]],
+        size=(1000, 400),
+        yaxis=:log10,
+        ylabel="Primal-Dual Infeasibility",
+        xlabel="Iterations",
+        labels=[L"||c(x,s)||" L"||\mathcal{L}(x,s,y,z)||" L"||Xz-\mu||" L"||X_1 x_2||"],
+        color=[:blue :red :orange :purple],
+        legend=:topright,
+        linetype=:steppost,
+        reuse=false,
+    )
+
+    plot_k_mu && vline!(inf_plt, k_mu; style=:dot, color=:green, label="")
+    display(inf_plt)
+    if save_plt
+        savefig(name*iters_fname*"_inf"*save_ext)
+    end
+
+    obj_plt = plot(
+        k_newton[2:end],
+        obj[2:end],
+        size=(1000, 400),
+        ylabel="obj",
+        legend=false,
+        linetype=:steppost,
+        plot_title=name*" objective",
+        reuse=false,
+    )
+    display(obj_plt)
+    if save_plt
+        savefig(name*iters_fname*"_obj"*save_ext)
+    end
+end
 
 function plot_solver_traj(
     name::AbstractString,
@@ -10,6 +157,7 @@ function plot_solver_traj(
     save_ext=".png",
     plt_mu_updates=true,
 )
+    pythonplot()
     iters = readlog(iters_fname)
     k_newton = [i.k for i in iters[range] if !i.magic]
     k_magic = [i.k for i in iters[range] if i.magic]
@@ -117,6 +265,7 @@ function plot_solver_traj(
         layout=(3, 1),
         size=(1900, 1000),
         plot_title=name*" infeasibility",
+        reuse=false,
     )
     display(inf_plt)
     if save_plt
@@ -135,6 +284,7 @@ function plot_solver_traj(
         labelfontsize=15,
         linetype=:steppre,
         plot_title=name*" objective",
+        reuse=false,
     )
     display(obj_plt)
     if save_plt
@@ -155,6 +305,7 @@ function plot_solver_traj(
         labelfontsize=15,
         linetype=:steppre,
         plot_title=name*" mu",
+        reuse=false,
     )
     display(mu_plt)
     if save_plt
@@ -174,6 +325,7 @@ function plot_solver_traj(
         leftmargin=50Plots.px,
         labelfontsize=15,
         linetype=:steppre,
+        reuse=false,
     )
     display(s_plt)
     if save_plt
