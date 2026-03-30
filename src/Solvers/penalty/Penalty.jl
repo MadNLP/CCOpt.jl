@@ -1,4 +1,4 @@
-@kwdef struct PenaltyOptions{T}
+@kwdef struct PenaltyOptions{T} <: MadNLP.AbstractOptions
     penalty::Type = Ell1Relaxation
     # complementarity homotopy options
     rho_0::T = 1.0
@@ -36,6 +36,7 @@ mutable struct PenaltySolver{
     const mpcc::MPCC
     const pnlp::PNLP
     const ipm::SOLVER
+    const cnt::CCOptCounters
     const logger::MadNLP.MadNLPLogger
     const opts::PenaltyOptions{T}
 
@@ -44,6 +45,40 @@ mutable struct PenaltySolver{
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
 
     const pr_comp_hist::CircularBuffer{T} # Complementarity history
+end
+
+function CCOptExecutionStats(solver::PenaltySolver)
+    n, m = get_nvar(solver.pnlp), get_ncon(solver.pnlp)
+    ncc = get_ncc(solver.mpcc)
+    VT = typeof(get_x0(solver.pnlp))
+    x = similar(VT, n)
+    zl = similar(VT, n)
+    zu = similar(VT, n)
+    zx1 = similar(VT, ncc)
+    zx2 = similar(VT, ncc)
+    c = similar(VT, m)
+    y = similar(VT, m)
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
+
+    return CCOptExecutionStats(
+        solver.ipm.opt,
+        solver.opts,
+        solver.ipm.status,
+        MadNLP.unpack_obj(solver.ipm.cb, solver.ipm.obj_val),
+        x,
+        c,
+        y,
+        zl,
+        zu,
+        zx1,
+        zx2,
+        solver.ipm.inf_du,
+        solver.ipm.inf_pr,
+        solver.inf_pr_cc,
+        0,
+        solver.cnt,
+    )
 end
 
 """
@@ -58,9 +93,10 @@ function PenaltySolver(
     solver_opts=PenaltyOptions(),
     ipm_options...,
 ) where {T, VT}
+    start_time = time()
     pnlp = solver_opts.penalty(mpcc)
     ipm = MadNLP.MadNLPSolver(pnlp; ipm_options...)
-
+    cnt = CCOptCounters(counters=ipm.cnt)
     logger = MadNLP.MadNLPLogger(
         print_level=solver_opts.print_level,
         file_print_level=solver_opts.file_print_level,
@@ -71,10 +107,11 @@ function PenaltySolver(
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
-    return PenaltySolver(
+    solver = PenaltySolver(
         mpcc,
         pnlp,
         ipm,
+        cnt,
         logger,
         solver_opts,
         0.0,
@@ -82,6 +119,8 @@ function PenaltySolver(
         ind_cc2,
         pr_comp_hist,
     )
+    cnt.init_time = time() - start_time
+    return solver
 end
 include("utils.jl")
 include("exact_penalty.jl")

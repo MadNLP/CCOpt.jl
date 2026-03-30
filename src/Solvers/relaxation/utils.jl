@@ -1,23 +1,4 @@
-mutable struct RelaxationExecutionStats{T, VT} <: AbstractExecutionStats
-    options::MadNLP.AbstractOptions
-    mpcc_options::MadNLP.AbstractOptions
-    status::MadNLP.Status
-    objective::T
-    solution::VT
-    constraints::VT
-    multipliers::VT
-    multipliers_L::VT
-    multipliers_U::VT
-    multipliers_x1::VT
-    multipliers_x2::VT
-    dual_feas::T
-    primal_feas::T
-    inf_pr_cc::T
-    iter::Int
-    counters::RelaxationCounters
-end
-
-function RelaxationExecutionStats(solver::RelaxationSolver)
+function CCOptExecutionStats(solver::RelaxationSolver)
     n, m = get_nvar(solver.rnlp), get_ncon(solver.rnlp)
     ncc = get_ncc(solver.mpcc)
     VT = typeof(get_x0(solver.rnlp))
@@ -33,7 +14,7 @@ function RelaxationExecutionStats(solver::RelaxationSolver)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
 
-    return RelaxationExecutionStats(
+    return CCOptExecutionStats(
         solver.ipm.opt,
         solver.opts,
         solver.ipm.status,
@@ -54,7 +35,7 @@ function RelaxationExecutionStats(solver::RelaxationSolver)
 end
 
 # TODO(@anton) this is a hack, fix it
-function SolverCore.getStatus(result::RelaxationExecutionStats)
+function SolverCore.getStatus(result::CCOptExecutionStats)
     return MadNLP.get_status_output(result.status, result.options)
 end
 

@@ -149,7 +149,7 @@ end
 
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
-    stats_madnlp_c::Vector{CCOpt.RelaxationExecutionStats{T, VT}},
+    stats_madnlp_c::Vector{CCOpt.CCOptExecutionStats{T, VT}},
     probs::Vector{CCOpt.AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
@@ -183,7 +183,7 @@ end
 
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
-    stats_madnlp_c::Vector{CCOpt.RelaxationExecutionStats{T, VT}},
+    stats_madnlp_c::Vector{CCOpt.CCOptExecutionStats{T, VT}},
     probs::Any,
     name::AbstractString,
 ) where {T, VT}
@@ -564,7 +564,7 @@ function run_benchmark(
     opts::CCOpt.RelaxationOptions,
     solargs...,
 )
-    stats_vec = Vector{CCOpt.RelaxationExecutionStats{Float64, Vector{Float64}}}()
+    stats_vec = Vector{CCOpt.CCOptExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
         println(probs[i].nlp.nlp.meta.name)
@@ -581,7 +581,7 @@ function run_benchmark(
     opts::CCOpt.PenaltyOptions,
     solargs...,
 )
-    stats_vec = Vector{MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}}}()
+    stats_vec = Vector{CCOpt.CCOptExecutionStats{Float64, Vector{Float64}}}()
     sizehint!(stats_vec, length(probs))
     for i in 1:length(probs)
         println(probs[i].nlp.nlp.meta.name)
@@ -625,8 +625,7 @@ end
 
 function run_benchmark_procs(probs, solfun, opts::CCOpt.RelaxationOptions, solargs...)
     nprobs = length(probs)
-    stats_vec =
-        Vector{MadNLP.RelaxationExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
+    stats_vec = Vector{MadNLP.CCOptExecutionStats{Float64, Vector{Float64}}}(undef, nprobs)
     names = Vector{String}()
     futures = []
 
