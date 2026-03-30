@@ -390,7 +390,8 @@ function homotopy!(solver::RelaxationSolver{T, VT}) where {T, VT}
 
         # Then do endgame strategy.
         kkt_error = max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc)
-        if kkt_error <= solver.opts.endgame_threshold
+        if kkt_error <= solver.opts.endgame_threshold || solver.endgame
+            solver.endgame=true
             MadNLP.@trace(solver.logger, "In endgame, using requested endgame strategy.")
             do_endgame!(solver, solver.rnlp, solver.opts.endgame_strategy)
         end

@@ -243,6 +243,8 @@ mutable struct RelaxationSolver{
     const ind_cc2_lb::Vector{Int}
     const x::VT
     const b::Vector{Bool}
+    endgame::Bool
+    const endgame_sigma::VT
 end
 
 function RelaxationSolver(
@@ -279,6 +281,8 @@ function RelaxationSolver(
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
+    endgame_sigma = VT(undef, get_ncc(mpcc))
+    endgame_sigma .= 1000*ipm.opt.tol
     return solver = RelaxationSolver(
         mpcc,
         rnlp,
@@ -299,6 +303,8 @@ function RelaxationSolver(
         ind_cc2_lb,
         x,
         b,
+        false,
+        endgame_sigma,
     )
 end
 

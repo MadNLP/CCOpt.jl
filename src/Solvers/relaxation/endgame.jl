@@ -14,11 +14,13 @@ function do_endgame(
     endgame::RelaxLBEndgameStrategy,
 ) where {RNLP <: AbstractMPCCRelaxation} end
 
-function get_delta_candidate(nu, x, sigma, delta_max)
-    if nu + x < 0.0
+function get_delta_candidate(nu, x, sigma, mu, delta_max)
+    #println("nu=$(nu), sigma=$(sigma), mu=$(mu), x=$(x), delta=$((sigma*mu)/(sigma*nu+mu*x)), sigma*mu=$(sigma*mu), denom=$(sigma*nu+mu*x)")
+    if sigma*nu+mu*x < 0.0
         return delta_max
     else
-        return min(delta_max, sigma/(nu+x))
+        #println("nu=$(nu), sigma=$(sigma), mu=$(mu), x=$(x), delta=$((sigma*mu)/(sigma*nu+mu*x)), sigma*mu=$(sigma*mu), denom=$(sigma*nu+mu*x)")
+        return min(delta_max, (sigma*mu)/(sigma*nu+mu*x))
     end
 end
 
@@ -91,9 +93,12 @@ function do_endgame!(
         zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
         s = MadNLP.slack(ipm.x)[end-ncc+ii]
 
-        nu1_inactive = endgame.use_filtered ? nu1_filt <= -(nu_bound) : nu1 <= -(nu_bound)
-        if nu1_inactive
-            delta_candidate = get_delta_candidate(nu1, x2, rnlp.σ[ii], endgame.delta_max)
+        nu1_lb_inactive =
+            endgame.use_filtered ? nu1_filt <= -(nu_bound) : nu1 <= -(nu_bound)
+        nu1_ub_inactive = endgame.use_filtered ? nu1_filt >= nu_bound : nu1 >= nu_bound
+        if nu1_lb_inactive
+            delta_candidate =
+                get_delta_candidate(nu1, x2, rnlp.σ[ii], mu, endgame.delta_max)
             # If not enough change in delta candidate, it isn't worth perturbing newton.
             # In practice this means relaxation happens only once most of the time
             if delta_candidate < endgame.min_delta_inc_factor * rnlp.δ1[ii]
@@ -112,11 +117,18 @@ function do_endgame!(
             # Set new values
             ## Set the new duals
             set_relax_magic_step!(solver, ii, z1_hat, z2_hat, zs_hat, x1, x2, delta_zs)
+        elseif nu1_ub_inactive
+            updated = true
+            get_relaxation(rnlp)[ii] =
+                max(get_relaxation(rnlp)[ii], solver.endgame_sigma[ii])
         end
 
-        nu2_inactive = endgame.use_filtered ? nu2_filt <= -(nu_bound) : nu2 <= -(nu_bound)
-        if nu2_inactive
-            delta_candidate = get_delta_candidate(nu2, x1, rnlp.σ[ii], endgame.delta_max)
+        nu2_lb_inactive =
+            endgame.use_filtered ? nu2_filt <= -(nu_bound) : nu2 <= -(nu_bound)
+        nu2_ub_inactive = endgame.use_filtered ? nu2_filt >= nu_bound : nu2 >= nu_bound
+        if nu2_lb_inactive
+            delta_candidate =
+                get_delta_candidate(nu2, x1, rnlp.σ[ii], mu, endgame.delta_max)
             # If not enough change in delta candidate, it isn't worth perturbing newton.
             # In practice this means relaxation happens only once most of the time
             if delta_candidate < endgame.min_delta_inc_factor * rnlp.δ2[ii]
@@ -133,6 +145,10 @@ function do_endgame!(
 
             # Set new values
             set_relax_magic_step!(solver, ii, z1_hat, z2_hat, zs_hat, x1, x2, delta_zs)
+        elseif nu2_ub_inactive
+            updated = true
+            get_relaxation(rnlp)[ii] =
+                max(get_relaxation(rnlp)[ii], solver.endgame_sigma[ii])
         end
     end
 
