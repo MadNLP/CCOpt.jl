@@ -19,8 +19,8 @@ function MadNLP.set_aug_diagonal!(
     n = length(ipm.x_ur)
     ncc = get_ncc(ipm.nlp.mpcc)
 
-    fill!(kkt.reg, zero(T))
-    fill!(kkt.du_diag, zero(T))
+    fill!(kkt.reg, ipm.opt.default_primal_regularization)
+    fill!(kkt.du_diag, -ipm.opt.default_dual_regularization)
     kkt.l_diag .= ipm.xl_r .- ipm.x_lr   # (Xˡ - X)
     kkt.u_diag .= ipm.x_ur .- ipm.xu_r   # (X - Xᵘ)
     copyto!(kkt.l_lower, ipm.zl_r)
@@ -66,8 +66,8 @@ function MadNLP.set_aug_diagonal!(
     n = length(ipm.x_ur)
     ncc = get_ncc(ipm.nlp.mpcc)
 
-    fill!(kkt.reg, zero(T))
-    fill!(kkt.du_diag, zero(T))
+    fill!(kkt.reg, ipm.opt.default_primal_regularization)
+    fill!(kkt.du_diag, -ipm.opt.default_dual_regularization)
     # Ensure l_diag and u_diag have only non negative entries
     kkt.l_diag .= ipm.x_lr .- ipm.xl_r   # (X - Xˡ)
     kkt.u_diag .= ipm.xu_r .- ipm.x_ur   # (Xᵘ - X)
