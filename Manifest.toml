@@ -22,6 +22,20 @@ version = "1.11.0"
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 version = "1.11.0"
 
+[[deps.CCOpt]]
+deps = ["DataStructures", "LinearAlgebra", "MadNLP", "NLPModels", "Printf", "Serialization", "SolverCore", "SparseArrays"]
+path = "."
+uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
+version = "0.1.0"
+
+    [deps.CCOpt.extensions]
+    CCOptGurobi = ["Gurobi"]
+    CCOptHiGHS = ["HiGHS"]
+
+    [deps.CCOpt.weakdeps]
+    Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
+    HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+
 [[deps.Compat]]
 deps = ["TOML", "UUIDs"]
 git-tree-sha1 = "9d8a54ce4b17aa5bdce0ea5c34bc5e7c340d16ad"
@@ -161,25 +175,11 @@ git-tree-sha1 = "afbaaa0fa2f001ad8091e27885d69973f8eae3d7"
 uuid = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
 version = "500.800.200+0"
 
-[[deps.CCOpt]]
-deps = ["DataStructures", "LinearAlgebra", "MadNLP", "NLPModels", "Printf", "Serialization", "SolverCore", "SparseArrays"]
-path = "."
-uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
-version = "0.1.0"
-
-    [deps.CCOpt.extensions]
-    CCOptGurobi = ["Gurobi"]
-    CCOptHiGHS = ["HiGHS"]
-
-    [deps.CCOpt.weakdeps]
-    Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
-    HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
-
 [[deps.MadNLP]]
 deps = ["LDLFactorizations", "LinearAlgebra", "Logging", "MUMPS_seq_jll", "NLPModels", "OpenBLAS32_jll", "Pkg", "PrecompileTools", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "ffd8eb0c921c837ce3a43fe5d0fdb833ce2b54ea"
-repo-rev = "ap/use-getters"
-repo-url = "https://github.com/apozharski/MadNLP.jl.git"
+git-tree-sha1 = "1b7145a3b54db07dacd699e58ab65dc71a492147"
+repo-rev = "684dbe1"
+repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.9.1"
 
@@ -200,11 +200,9 @@ version = "2025.11.4"
 
 [[deps.NLPModels]]
 deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "Printf", "SparseArrays"]
-git-tree-sha1 = "1cbc42db1b1da50daf263a6eccd4d39ecfe9abfb"
-repo-rev = "ap/fix-remaining-accessors"
-repo-url = "https://github.com/apozharski/NLPModels.jl.git"
+git-tree-sha1 = "5919b1be82ca6ebfc9754cb22ddfb54f56f1d9ac"
 uuid = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
-version = "0.21.11"
+version = "0.21.12"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
