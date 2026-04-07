@@ -309,7 +309,7 @@ end
 include("utils.jl")
 include("kernels.jl")
 include("barrier.jl")
-include("relaxation.jl")
+include("relaxation_updates.jl")
 include("inertia_correction.jl")
 include("endgame.jl")
 include("solver.jl")
