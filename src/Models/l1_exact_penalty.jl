@@ -1,8 +1,9 @@
 ######################### Ell1 Relaxation #########################
-struct Ell1Relaxation{T, VT} <: AbstractMPCCPenaltyModel{T, VT}
-    mpcc::AbstractMPCCModel{T, VT}
+struct Ell1Relaxation{T, VT, MT} <: AbstractMPCCPenaltyModel{T, VT}
+    mpcc::MT
     meta::NLPModels.NLPModelMeta{T, VT}
     ρ::Base.RefValue{T}
+    counters::NLPModels.Counters
 end
 
 function Ell1Relaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
@@ -44,16 +45,7 @@ function Ell1Relaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
         hprod_available=true,
     )
     ρ = zero(T)
-    return Ell1Relaxation(mpcc, meta, Ref(ρ))
-end
-
-# Counters should be forwarded
-function Base.getproperty(rnlp::Ell1Relaxation, sym::Symbol)
-    if sym ∈ [:counters]
-        getproperty(rnlp.mpcc.nlp, sym)
-    else
-        getfield(rnlp, sym)
-    end
+    return Ell1Relaxation(mpcc, meta, Ref(ρ), mpcc.counters)
 end
 
 ######################### NLPModels Callbacks #########################
@@ -262,7 +254,7 @@ function NLPModels.hess_coord!(
     x::AbstractVector{T},
     y::AbstractVector{T},
     H::AbstractVector{T};
-    obj_weight::Real=one(T),
+    obj_weight::T=one(T),
 ) where {T, VT}
     @views hess_coord!(
         rnlp.mpcc,
@@ -284,7 +276,7 @@ function NLPModels.hprod!(
     y::AbstractVector{T},
     v::AbstractVector{T},
     Hv::AbstractVector;
-    obj_weight::Real=one(T),
+    obj_weight::T=one(T),
 ) where {T, VT}
     @views hprod!(rnlp.mpcc, x, y[1:get_ncon(rnlp.mpcc)], v, Hv; obj_weight=obj_weight)
     sense = rnlp.meta.minimize ? one(T) : -one(T)

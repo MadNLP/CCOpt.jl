@@ -33,8 +33,8 @@ end
   Rolloff Relaxation update which updates ``σ = c*μ^a/(sqrt(μ^a^2)+b)``
 """
 @kwdef struct RolloffRelaxationUpdate{T} <: AbstractFixedRelaxationUpdate{T}
-    rolloff_slope::T = 1.6 # a
-    rolloff_point::T = 1e-5 # b
+    rolloff_slope::T = 2.0 # a
+    rolloff_point::T = 1e-6 # b
     rolloff_max::T = 1.0 # c
     monotone::Bool = false
     sigma_min::T = 1e-8
@@ -131,6 +131,9 @@ struct RelaxationIterate{T, VT}
     obj::T
     inf_pr::T
     inf_du::T
+    inf_compl::T
+    inf_rnlp::T
+    inf_pr_cc::T
     theta::T
     varphi::T
     mu::T
@@ -161,7 +164,7 @@ end
 
     # complementarity homotopy options
     relaxation_update::RELAX = ProportionalRelaxationUpdate()
-    sigma_min::T = 1e-10 # TODO(@anton) I think this should be probably be related to ipm tolerance
+    sigma_min::T = 1e-8 # TODO(@anton) I think this should be probably be related to ipm tolerance
     delta_init::T = 0.0
 
     # Endgame options
@@ -208,7 +211,7 @@ end
 
 @kwdef mutable struct RelaxationCounters
     counters::MadNLP.MadNLPCounters
-    solver_time::Float64 = 0
+    solver_time::Float64 = 0.0
 end
 
 # MadNLP-C algorithm
@@ -227,7 +230,7 @@ mutable struct RelaxationSolver{
     const logger::MadNLP.MadNLPLogger
     const iterate_logger::IterateLogger
     const opts::RelaxationOptions{T, RELAX, EG}
-    const cnt::RelaxationCounters
+    const cnt::CCOptCounters
     inf_pr_cc::T
     const _cc1::VT
     const multipliers_cc1::VT
@@ -242,25 +245,15 @@ mutable struct RelaxationSolver{
     const b::Vector{Bool}
 end
 
-# TODO(@anton) fix this to be nonquadratic I guess
-# FIXME(@anton) This is broken for fixed complementarities. For now, ignore that.
-function _adjust_cc_inds!(cb, ind_cc1, ind_cc2)
-    fixed = cb.ind_fixed
-    for ii in 1:length(ind_cc1)
-        n_less1 = count(<(ind_cc1[ii]), fixed)
-        n_less2 = count(<(ind_cc2[ii]), fixed)
-        ind_cc1[ii] -= n_less1
-        ind_cc2[ii] -= n_less2
-    end
-end
-
 function RelaxationSolver(
     mpcc::AbstractMPCCModel{T, VT};
     solver_opts=RelaxationOptions(),
     ipm_options...,
 ) where {T, VT}
+    start_time = time()
     rnlp = solver_opts.relaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
+    cnt = CCOptCounters(counters=ipm.cnt)
     initialize_relaxation(rnlp, ipm.opt.barrier.mu_init, solver_opts.delta_init)
 
     logger = MadNLP.MadNLPLogger(
@@ -281,14 +274,14 @@ function RelaxationSolver(
     multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
     multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
-    cnt = RelaxationCounters(counters=ipm.cnt)
+
     # TODO(@anton) Can we do this nonquadratically
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
     ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
     ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
-    return solver = RelaxationSolver(
+    solver = RelaxationSolver(
         mpcc,
         rnlp,
         ipm,
@@ -309,6 +302,8 @@ function RelaxationSolver(
         x,
         b,
     )
+    cnt.init_time = time() - start_time
+    return solver
 end
 
 include("utils.jl")

@@ -1,5 +1,5 @@
 function solve_homotopy!(nlp::AbstractMPCCPenaltyModel, solver::PenaltySolver; kwargs...)
-    return solve_homotopy!(nlp, solver, MadNLP.MadNLPExecutionStats(solver.ipm); kwargs...)
+    return solve_homotopy!(nlp, solver, CCOptExecutionStats(solver); kwargs...)
 end
 
 function solve_homotopy!(solver::PenaltySolver; kwargs...)
@@ -8,8 +8,8 @@ end
 
 function solve_homotopy!(
     nlp::AbstractMPCCPenaltyModel,
-    solver::CCOpt.PenaltySolver,
-    stats::MadNLP.MadNLPExecutionStats;
+    solver::PenaltySolver,
+    stats::CCOptExecutionStats;
     x=nothing,
     y=nothing,
     zl=nothing,
@@ -17,6 +17,7 @@ function solve_homotopy!(
     kwargs...,
 )
     ipm = solver.ipm
+    ipm.cnt.start_time = time()
     if x != nothing
         MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
     end
@@ -84,6 +85,7 @@ function solve_homotopy!(
             ipm.opt.rethrow_error && rethrow(e)
         end
     finally
+        update!(stats, solver)
         ipm.cnt.total_time = time() - ipm.cnt.start_time
         if !(ipm.status < MadNLP.SOLVE_SUCCEEDED)
             MadNLP.print_summary(ipm)
@@ -98,8 +100,6 @@ function solve_homotopy!(
             MadNLP.@warn(ipm.logger, "Julia garbage collector is turned back on")
         )
         MadNLP.finalize(ipm.logger)
-
-        update!(stats, solver)
     end
 
     return stats
@@ -218,7 +218,7 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
                 )
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(nlp.rho[])."
+                    "Updating the penalty parameter to $(get_penalty(solver.pnlp))."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 MadNLP.@trace(
@@ -240,7 +240,7 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
                 )
                 MadNLP.@trace(
                     solver.logger,
-                    "Updating the penalty parameter to $(nlp.rho[])."
+                    "Updating the penalty parameter to $(get_penalty(solver.pnlp))."
                 )
                 ipm.obj_val = MadNLP.eval_f_wrapper(ipm, ipm.x)
                 empty!(ipm.filter)
@@ -308,14 +308,60 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
 end
 
 # evaluate mpcc objective instead of ell1 objective (though they should be the same)
-function update!(stats::MadNLP.MadNLPExecutionStats, solver::PenaltySolver)
-    MadNLP.update!(stats, solver.ipm)
-    stats.objective = CCOpt.obj(solver.mpcc, stats.solution)
+function update!(stats::CCOptExecutionStats, solver::PenaltySolver{T, VT}) where {T, VT}
+    ipm = solver.ipm
+    n, m = NLPModels.get_nvar(ipm.nlp), get_ncon(solver.mpcc)
+    ncc = get_ncc(solver.mpcc)
+
+    stats.status = solver.ipm.status
+    MadNLP.unpack_x!(stats.solution, ipm.cb, MadNLP.variable(ipm.x))
+    MadNLP.unpack_y!(stats.multipliers, ipm.cb, ipm.y)
+    MadNLP.unpack_z!(stats.multipliers_L, ipm.cb, MadNLP.variable(ipm.zl))
+    MadNLP.unpack_z!(stats.multipliers_U, ipm.cb, MadNLP.variable(ipm.zu))
+
+    MadNLP.update_z!(
+        ipm.cb,
+        stats.solution,
+        stats.multipliers,
+        stats.multipliers_L,
+        stats.multipliers_U,
+        ipm.jacl,
+    )
+
+    ind_cc1 = get_ind_cc1(solver.mpcc)
+    ind_cc2 = get_ind_cc2(solver.mpcc)
+    for ii in 1:ncc
+        icc1 = ind_cc1[ii]
+        icc2 = ind_cc2[ii]
+
+        stats.multipliers_x1[ii] =
+            stats.multipliers_L[icc1] -
+            get_penalty(solver.pnlp) * (stats.solution[icc2] - get_lvar(solver.mpcc)[icc2])
+        stats.multipliers_x2[ii] =
+            stats.multipliers_L[icc2] -
+            get_penalty(solver.pnlp) * (stats.solution[icc1] - get_lvar(solver.mpcc)[icc1])
+    end
+    stats.objective = MadNLP.unpack_obj(ipm.cb, ipm.obj_val)
+    MadNLP.unpack_cons!(stats.constraints, ipm.cb, ipm.c)
+    stats.constraints .+= ipm.rhs
+    @views stats.constraints[ipm.ind_ineq] .+= MadNLP.slack(ipm.x)
+    # Cut out scholtes constraints now we don't need them to calculate multipliers
+    stats.dual_feas = ipm.inf_du
+    stats.primal_feas = ipm.inf_pr
+    stats.iter = ipm.cnt.k
+    stats.inf_pr_cc = solver.inf_pr_cc
+    solver.cnt.solve_time = time() - solver.cnt.start_time
+    solver.cnt.total_time = solver.cnt.solve_time + solver.cnt.init_time
+    solver.cnt.solver_time =
+        solver.cnt.total_time - solver.cnt.init_time - ipm.cnt.linear_solver_time -
+        ipm.cnt.eval_function_time
     return stats
 end
 
 function regularize_Q!(solver::PenaltySolver{T}) where {T}
-    if solver.opts.kkt_regularization == :none || solver.ipm.mu < solver.opts.min_reg_mu
+    if solver.opts.q_regularization == :none ||
+       solver.ipm.mu < solver.opts.min_reg_mu ||
+       solver.ipm.mu > solver.opts.max_reg_mu
         return false
     end
 
@@ -326,16 +372,16 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
     n = length(ipm.x_ur)
     ncc = get_ncc(solver.mpcc)
     nnzh = get_nnzh(solver.mpcc)
-    rho = solver.pnlp.rho[]
-    ind_cc1 = get_ind_cc1(solver.mpcc)
-    ind_cc2 = get_ind_cc2(solver.mpcc)
+    rho = get_penalty(solver.pnlp)
+    ind_cc1 = solver.ind_cc1
+    ind_cc2 = solver.ind_cc2
     A = Array{T}(undef, 2, 2)
     regularized = false
     for i in 1:ncc
         cc1 = ind_cc1[i]
         cc2 = ind_cc2[i]
 
-        if solver.opts.kkt_regularization == :eigenvalue_decomposition
+        if solver.opts.q_regularization == :eigenvalue_decomposition
             A[1, 1] = kkt.pr_diag[cc1]
             A[2, 2] = kkt.pr_diag[cc2]
             A[2, 1] = rho*cb.obj_scale[]
@@ -352,10 +398,10 @@ function regularize_Q!(solver::PenaltySolver{T}) where {T}
                 kkt.hess_raw.V[nnzh+i] = A[1, 2]
                 regularized = true
             end
-        elseif solver.opts.kkt_regularization == :critical_rho
+        elseif solver.opts.q_regularization == :critical_rho
             rho_max = sqrt(kkt.pr_diag[cc1]*kkt.pr_diag[cc2])
             if rho*cb.obj_scale[] > rho_max
-                kkt.hess_raw.V[nnzh+i] =
+                kkt.hess_raw.V[end-ncc+i] =
                     solver.opts.critical_rho_factor*rho_max*(
                         pnlp.meta.minimize ? one(T) : -one(T)
                     )
@@ -376,7 +422,7 @@ function unregularize_Q!(solver::PenaltySolver{T}) where {T}
     n = length(ipm.x_ur)
     ncc = get_ncc(solver.mpcc)
     nnzh = get_nnzh(solver.mpcc)
-    rho = cb.obj_scale[]*solver.pnlp.rho[]
+    rho = cb.obj_scale[]*get_penalty(solver.pnlp)
     ind_cc1 = get_ind_cc1(solver.mpcc)
     ind_cc2 = get_ind_cc2(solver.mpcc)
     A = Array{T}(undef, 2, 2)
@@ -482,4 +528,115 @@ function MadNLP.inertia_correction!(
     solver::PenaltySolver{T},
 ) where {T}
     return MadNLP.inertia_correction!(inertia_corrector, solver.ipm)
+end
+
+function MadNLP.print_summary(solver::PenaltySolver)
+    # TODO inquire this from nlpmodel wrapper
+    ipm = solver.ipm
+    obj_scale = ipm.cb.obj_scale[]
+    cnt_ipm = ipm.cnt
+    cnt = solver.cnt
+    MadNLP.@notice(ipm.logger, "")
+    MadNLP.@notice(ipm.logger, "Number of Iterations....: $(cnt_ipm.k)\n")
+    MadNLP.@notice(
+        ipm.logger,
+        "                                   (scaled)                 (unscaled)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Objective...............:  % 1.16e   % 1.16e",
+            ipm.obj_val,
+            ipm.obj_val/obj_scale
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Dual infeasibility......:   %1.16e    %1.16e",
+            ipm.inf_du,
+            ipm.inf_du/obj_scale
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Constraint violation....:   %1.16e    %1.16e",
+            norm(ipm.c, Inf),
+            ipm.inf_pr
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Complementarity.........:   %1.16e    %1.16e",
+            ipm.inf_compl*obj_scale,
+            ipm.inf_compl
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Primal Complementarity..:   %1.16e    %1.16e",
+            solver.inf_pr_cc,
+            solver.inf_pr_cc
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Overall NLP error.......:   %1.16e    %1.16e\n",
+            max(ipm.inf_du*obj_scale, norm(ipm.c, Inf), ipm.inf_compl, solver.inf_pr_cc),
+            max(ipm.inf_du, ipm.inf_pr, ipm.inf_compl, solver.inf_pr_cc)
+        )
+    )
+
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of objective function evaluations              = $(cnt_ipm.obj_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of objective gradient evaluations              = $(cnt_ipm.obj_grad_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of constraint evaluations                      = $(cnt_ipm.con_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of constraint Jacobian evaluations             = $(cnt_ipm.con_jac_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of Lagrangian Hessian evaluations              = $(cnt_ipm.lag_hess_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of KKT factorizations                          = $(cnt_ipm.factorization_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of KKT backsolves                              = $(cnt_ipm.backsolve_cnt)\n"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in initialization                     = $(MadNLP.format_time(cnt.init_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in linear solver                      = $(MadNLP.format_time(cnt_ipm.linear_solver_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in NLP function evaluations           = $(MadNLP.format_time(cnt_ipm.eval_function_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in solver (w/o init./fun./lin. alg.)  = $(MadNLP.format_time(cnt.total_time - cnt.init_time - cnt_ipm.linear_solver_time - cnt_ipm.eval_function_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs                                       = $(MadNLP.format_time(cnt.total_time))\n"
+    )
 end

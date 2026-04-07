@@ -1,4 +1,4 @@
-function MadNLP.print_iter(solver::PenaltySolver; is_resto=false)
+function MadNLP.print_iter(solver::PenaltySolver{T, VT}; is_resto=false) where {T, VT}
     ipm = solver.ipm
     obj_scale = ipm.cb.obj_scale[]
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(
@@ -43,44 +43,50 @@ function MadNLP.print_iter(solver::PenaltySolver; is_resto=false)
     return
 end
 
-function get_inf_pr_cc(solver::PenaltySolver{T}) where {T}
-    return @views(
-        mapreduce(
-            (a, la, b, lb) -> max(min(a-la, b-lb), la-a, lb-b),
-            max,
-            MadNLP.variable(solver.ipm.x)[get_ind_cc1(solver.mpcc)],
-            get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
-            MadNLP.variable(solver.ipm.x)[get_ind_cc2(solver.mpcc)],
-            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)];
-            init=zero(T),
-        )
-    )
+function get_inf_pr_cc(solver::PenaltySolver{T, VT}) where {T, VT}
+    inf_pr_cc = zero(T)
+    @views begin
+        a = MadNLP.variable(solver.ipm.x)[solver.ind_cc1]
+        la = get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)]
+        b = MadNLP.variable(solver.ipm.x)[solver.ind_cc2]
+        lb = get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)]
+        for ii in eachindex(a)
+            inf_pr_cc = max(
+                inf_pr_cc,
+                max(min(a[ii]-la[ii], b[ii]-lb[ii]), la[ii]-a[ii], lb[ii]-b[ii]),
+            )
+        end
+    end
+    return inf_pr_cc
 end
 
-function get_inf_pr_cc_prod(solver::PenaltySolver{T}) where {T}
-    return @views(
-        mapreduce(
-            (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
-            max,
-            MadNLP.variable(solver.ipm.x)[get_ind_cc1(solver.mpcc)],
-            get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
-            MadNLP.variable(solver.ipm.x)[get_ind_cc2(solver.mpcc)],
-            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)];
-            init=zero(T),
-        )
-    )
+function get_inf_pr_cc_prod(solver::PenaltySolver{T, VT}) where {T, VT}
+    inf_pr_cc_prod = zero(T)
+    @views begin
+        a = MadNLP.variable(solver.ipm.x)[solver.ind_cc1]
+        la = get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)]
+        b = MadNLP.variable(solver.ipm.x)[solver.ind_cc2]
+        lb = get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)]
+        for ii in eachindex(a)
+            inf_pr_cc_prod = max(
+                inf_pr_cc_prod,
+                max((a[ii]-la[ii])*(b[ii]-lb[ii]), la[ii]-a[ii], lb[ii]-b[ii]),
+            )
+        end
+    end
+    return inf_pr_cc_prod
 end
 
-function get_inf_pr_cc_sum(solver::PenaltySolver{T}) where {T}
-    return @views(
-        mapreduce(
-            (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
-            +,
-            MadNLP.variable(solver.ipm.x)[get_ind_cc1(solver.mpcc)],
-            get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
-            MadNLP.variable(solver.ipm.x)[get_ind_cc2(solver.mpcc)],
-            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)];
-            init=zero(T),
-        )
-    )
+function get_inf_pr_cc_sum(solver::PenaltySolver{T, VT}) where {T, VT}
+    inf_pr_cc_sum = zero(T)
+    @views begin
+        a = MadNLP.variable(solver.ipm.x)[solver.ind_cc1]
+        la = get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)]
+        b = MadNLP.variable(solver.ipm.x)[solver.ind_cc2]
+        lb = get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)]
+        for ii in eachindex(a)
+            inf_pr_cc_sum += max((a[ii]-la[ii])*(b[ii]-lb[ii]), la[ii]-a[ii], lb[ii]-b[ii])
+        end
+    end
+    return inf_pr_cc_sum
 end

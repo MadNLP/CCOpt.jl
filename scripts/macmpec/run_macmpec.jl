@@ -19,6 +19,8 @@ function run_macmpec(args...; plot=false, range=:)
         load_ampl_benchmark(joinpath(dirname(@__FILE__), "../../data/macMPEC/nls/"))
     solnames = Vector{String}()
     for (solname::AbstractString, solfun, dffun, opts, solargs) in args
+        names, probs =
+            load_ampl_benchmark(joinpath(dirname(@__FILE__), "../../data/macMPEC/nls/"))
         stats[solname] = run_benchmark(probs[range], solfun, opts, solargs...)
         push!(solnames, solname)
         stats[solname] = dffun(
@@ -1921,5 +1923,82 @@ function test_q_regularization(; range=:)
         range=range,
     )
 
+    return solnames, names, stats
+end
+
+function benchmark_macmpec(; range=:)
+    opts_ipopt = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
+    opts_ipopt.print_level = MadNLP.ERROR
+    opts_ipopt.nlp_solver_options[:print_level] = 0
+    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
+    opts_madnlp = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
+    opts_madnlp.print_level = MadNLP.ERROR
+    opts_madnlp.nlp_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :barrier => MadNLP.QualityFunctionUpdate(),
+    )
+
+    madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :disbale_garbage_collector=>true,
+    )
+    opts_madnlp_c =
+        CCOpt.RelaxationOptions(print_level=MadNLP.ERROR, center_complementarities=true)
+
+    opts_exact_penalty =
+        CCOpt.PenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
+    exact_penalty_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-2,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>1000,
+        :linear_solver=>Ma27Solver,
+        :rethrow_error=>false,
+        :disbale_garbage_collector=>true,
+    )
+
+    default_ipopt = (
+        "IPOPT Homotopy",
+        solve_benchmark_problem,
+        save_ipopt_df,
+        opts_ipopt,
+        (NLPModelsIpopt.IpoptSolver,),
+    )
+    default_madnlp = (
+        "MadNLP Homotopy",
+        solve_benchmark_problem,
+        save_madnlp_df,
+        opts_madnlp,
+        (MadNLP.MadNLPSolver,),
+    )
+    default_madnlp_c = (
+        "CCOpt Relaxation",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_madnlp_c,
+        ((madnlpc_solver_options...,)),
+    )
+    default_exact_penalty = (
+        "CCOpt Penalty",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_exact_penalty,
+        ((exact_penalty_solver_options...,)),
+    )
+    solnames, names, stats = run_macmpec(
+        default_ipopt,
+        #default_madnlp,
+        default_madnlp_c,
+        default_exact_penalty,
+        range=range,
+    )
     return solnames, names, stats
 end

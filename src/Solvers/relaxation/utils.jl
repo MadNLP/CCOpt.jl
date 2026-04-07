@@ -1,23 +1,4 @@
-mutable struct RelaxationExecutionStats{T, VT} <: AbstractExecutionStats
-    options::MadNLP.AbstractOptions
-    mpcc_options::MadNLP.AbstractOptions
-    status::MadNLP.Status
-    objective::T
-    solution::VT
-    constraints::VT
-    multipliers::VT
-    multipliers_L::VT
-    multipliers_U::VT
-    multipliers_x1::VT
-    multipliers_x2::VT
-    dual_feas::T
-    primal_feas::T
-    inf_pr_cc::T
-    iter::Int
-    counters::RelaxationCounters
-end
-
-function RelaxationExecutionStats(solver::RelaxationSolver)
+function CCOptExecutionStats(solver::RelaxationSolver)
     n, m = get_nvar(solver.rnlp), get_ncon(solver.rnlp)
     ncc = get_ncc(solver.mpcc)
     VT = typeof(get_x0(solver.rnlp))
@@ -33,7 +14,7 @@ function RelaxationExecutionStats(solver::RelaxationSolver)
     ind_cc1 = solver.ind_cc1
     ind_cc2 = solver.ind_cc2
 
-    return RelaxationExecutionStats(
+    return CCOptExecutionStats(
         solver.ipm.opt,
         solver.opts,
         solver.ipm.status,
@@ -54,7 +35,7 @@ function RelaxationExecutionStats(solver::RelaxationSolver)
 end
 
 # TODO(@anton) this is a hack, fix it
-function SolverCore.getStatus(result::RelaxationExecutionStats)
+function SolverCore.getStatus(result::CCOptExecutionStats)
     return MadNLP.get_status_output(result.status, result.options)
 end
 
@@ -91,6 +72,9 @@ function log_iter(
     obj = ipm.obj_val
     inf_pr = ipm.inf_pr
     inf_du = ipm.inf_du
+    inf_compl = ipm.inf_compl
+    inf_rnlp = MadNLP.get_inf_pr(ipm.c)
+    inf_pr_cc = solver.inf_pr_cc
 
     theta = MadNLP.get_theta(ipm.c)
     varphi = MadNLP.get_varphi(ipm.obj_val, ipm.x_lr, ipm.xl_r, ipm.xu_r, ipm.x_ur, ipm.mu)
@@ -105,7 +89,8 @@ function log_iter(
     delta2 = solver.rnlp.δ2
 
     W = ipm.kkt.aug_com
-    KKT_s = VT()#K = Array(Symmetric(W, :L)); eigvals(K)
+    K = Array(Symmetric(W, :L));
+    KKT_s = eigvals(K);
 
     iter = RelaxationIterate(
         k,
@@ -124,6 +109,9 @@ function log_iter(
         obj,
         inf_pr,
         inf_du,
+        inf_compl,
+        inf_rnlp,
+        inf_pr_cc,
         theta,
         varphi,
         mu,

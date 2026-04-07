@@ -91,7 +91,7 @@ function solve_homotopy!(
     solver::RelaxationSolver;
     kwargs...,
 ) where {ST <: AbstractMPCCRelaxation}
-    return solve_homotopy!(nlp, solver, RelaxationExecutionStats(solver); kwargs...)
+    return solve_homotopy!(nlp, solver, CCOptExecutionStats(solver); kwargs...)
 end
 
 function solve_homotopy!(solver::RelaxationSolver; kwargs...)
@@ -100,8 +100,8 @@ end
 
 function solve_homotopy!(
     nlp::ST,
-    solver::CCOpt.RelaxationSolver,
-    stats::RelaxationExecutionStats;
+    solver::RelaxationSolver,
+    stats::CCOptExecutionStats;
     x=nothing,
     y=nothing,
     zl=nothing,
@@ -110,6 +110,7 @@ function solve_homotopy!(
 ) where {ST <: AbstractMPCCRelaxation}
     ipm = solver.ipm
     ipm.cnt.start_time = time()
+    solver.cnt.start_time = ipm.cnt.start_time
     if x != nothing
         MadNLP.full(ipm.x)[1:get_nvar(nlp)] .= x
     end
@@ -187,9 +188,10 @@ function solve_homotopy!(
         end
     finally
         log_iter(solver.iterate_logger, solver)
+        update!(stats, solver)
         ipm.cnt.total_time = time() - ipm.cnt.start_time
         if !(ipm.status < MadNLP.SOLVE_SUCCEEDED)
-            MadNLP.print_summary(ipm)
+            MadNLP.print_summary(solver)
         end
 
         ipm.opt.disable_garbage_collector && (
@@ -199,8 +201,6 @@ function solve_homotopy!(
         MadNLP.finalize(ipm.logger)
         MadNLP.finalize(solver.logger)
         finalize(solver.iterate_logger)
-
-        update!(stats, solver)
     end
 
     return stats
@@ -492,11 +492,7 @@ function homotopy!(solver::RelaxationSolver{T, VT}) where {T, VT}
     end
 end
 
-function update!(
-    stats::RelaxationExecutionStats,
-    solver::RelaxationSolver{T, VT},
-) where {T, VT}
-    # TODO(@anton) we probably want to return a custom stats object which returns the correct statuses etc.
+function update!(stats::CCOptExecutionStats, solver::RelaxationSolver{T, VT}) where {T, VT}
     ipm = solver.ipm
     n, m = NLPModels.get_nvar(ipm.nlp), get_ncon(solver.mpcc)
     ncc = get_ncc(solver.mpcc)
@@ -542,8 +538,121 @@ function update!(
     stats.primal_feas = ipm.inf_pr
     stats.iter = ipm.cnt.k
     stats.inf_pr_cc = solver.inf_pr_cc
-    stats.counters.solver_time =
-        stats.counters.counters.total_time - stats.counters.counters.linear_solver_time -
-        stats.counters.counters.eval_function_time
+    solver.cnt.solve_time = time() - solver.cnt.start_time
+    solver.cnt.total_time = solver.cnt.solve_time + solver.cnt.init_time
+    solver.cnt.solver_time =
+        solver.cnt.total_time - solver.cnt.init_time - ipm.cnt.linear_solver_time -
+        ipm.cnt.eval_function_time
     return stats
+end
+
+function MadNLP.print_summary(solver::RelaxationSolver)
+    # TODO inquire this from nlpmodel wrapper
+    ipm = solver.ipm
+    obj_scale = ipm.cb.obj_scale[]
+    cnt_ipm = ipm.cnt
+    cnt = solver.cnt
+    MadNLP.@notice(ipm.logger, "")
+    MadNLP.@notice(ipm.logger, "Number of Iterations....: $(cnt_ipm.k)\n")
+    MadNLP.@notice(
+        ipm.logger,
+        "                                   (scaled)                 (unscaled)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Objective...............:  % 1.16e   % 1.16e",
+            ipm.obj_val,
+            ipm.obj_val/obj_scale
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Dual infeasibility......:   %1.16e    %1.16e",
+            ipm.inf_du,
+            ipm.inf_du/obj_scale
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Constraint violation....:   %1.16e    %1.16e",
+            norm(ipm.c, Inf),
+            ipm.inf_pr
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Complementarity.........:   %1.16e    %1.16e",
+            ipm.inf_compl*obj_scale,
+            ipm.inf_compl
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Primal Complementarity..:   %1.16e    %1.16e",
+            solver.inf_pr_cc,
+            solver.inf_pr_cc
+        )
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        @sprintf(
+            "Overall NLP error.......:   %1.16e    %1.16e\n",
+            max(ipm.inf_du*obj_scale, norm(ipm.c, Inf), ipm.inf_compl, solver.inf_pr_cc),
+            max(ipm.inf_du, ipm.inf_pr, ipm.inf_compl, solver.inf_pr_cc)
+        )
+    )
+
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of objective function evaluations              = $(cnt_ipm.obj_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of objective gradient evaluations              = $(cnt_ipm.obj_grad_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of constraint evaluations                      = $(cnt_ipm.con_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of constraint Jacobian evaluations             = $(cnt_ipm.con_jac_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of Lagrangian Hessian evaluations              = $(cnt_ipm.lag_hess_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of KKT factorizations                          = $(cnt_ipm.factorization_cnt)"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Number of KKT backsolves                              = $(cnt_ipm.backsolve_cnt)\n"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in initialization                     = $(MadNLP.format_time(cnt.init_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in linear solver                      = $(MadNLP.format_time(cnt_ipm.linear_solver_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in NLP function evaluations           = $(MadNLP.format_time(cnt_ipm.eval_function_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs in solver (w/o init./fun./lin. alg.)  = $(MadNLP.format_time(cnt.total_time - cnt.init_time - cnt_ipm.linear_solver_time - cnt_ipm.eval_function_time))"
+    )
+    MadNLP.@notice(
+        ipm.logger,
+        "Total wall secs                                       = $(MadNLP.format_time(cnt.total_time))\n"
+    )
 end

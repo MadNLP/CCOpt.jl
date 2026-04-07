@@ -25,17 +25,17 @@ function Base.show(io::IO, mpcc::AbstractMPCCModel)
     return show(io, mpcc.nlp.counters)
 end
 # NOTE: This is no longer threadsafe :)
-mutable struct MPCCModel{T, VT, NLP <: NLPModels.AbstractNLPModel{T, VT}, NMT} <:
-               AbstractMPCCModel{T, VT}
-    const nlp::NLP
-    const meta::MPCCModelMeta{T, VT, NMT}
-    const _c1::VT       # [nlp.ncon]
-    const _j1::VT       # [nlp.nnzj]
-    const _i1::IndexSet # [nlp.nnzj]
-    const _i2::IndexSet # [nlp.nnzj]
-    const _cc1::VT      # [ncc]
-    const _cc2::VT      # [ncc]
-    const counters::NLPModels.Counters
+struct MPCCModel{T, VT, NLP <: NLPModels.AbstractNLPModel{T, VT}, NMT} <:
+       AbstractMPCCModel{T, VT}
+    nlp::NLP
+    meta::MPCCModelMeta{T, VT, NMT}
+    _c1::VT       # [nlp.ncon]
+    _j1::VT       # [nlp.nnzj]
+    _i1::IndexSet # [nlp.nnzj]
+    _i2::IndexSet # [nlp.nnzj]
+    _cc1::VT      # [ncc]
+    _cc2::VT      # [ncc]
+    counters::NLPModels.Counters
 end
 
 ######################### Helper functions for MPCCModel #########################
