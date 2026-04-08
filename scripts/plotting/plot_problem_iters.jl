@@ -7,6 +7,7 @@ function plot_solver_traj_for_paper(
     prob::CCOpt.MPCCModel,
     iters_fname::AbstractString;
     range=:,
+    save_ext=".pdf",
     plot_k_mu=true,
     save_plt=false,
 )
@@ -62,17 +63,13 @@ function plot_solver_traj_for_paper(
         xlabel="Iteration",
         legend=:bottomright,
         label=[L"\alpha_{\mathrm{pr}}" L"\alpha_{\mathrm{du}}"],
-        #tickfontsize=15,
-        #bottommargin=20Plots.px,
-        #leftmargin=50Plots.px,
-        #labelfontsize=15,
         linetype=:steppost,
     )
     plot_k_mu && vline!(a_plt, k_mu; style=:dot, label="")
 
     display(a_plt)
     if save_plt
-        savefig(name*iters_fname*"_alpha"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_alpha"*save_ext)
     end
 
     s_plt = plot(
@@ -92,7 +89,7 @@ function plot_solver_traj_for_paper(
     )
     display(s_plt)
     if save_plt
-        savefig(name*iters_fname*"_lam"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_lam"*save_ext)
     end
 
     k_plt = plot(
@@ -109,7 +106,7 @@ function plot_solver_traj_for_paper(
     )
     display(k_plt)
     if save_plt
-        savefig(name*iters_fname*"_cond"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_cond"*save_ext)
     end
 
     inf_plt = plot(
@@ -121,7 +118,7 @@ function plot_solver_traj_for_paper(
         xlabel="Iterations",
         labels=[L"||c(x,s)||" L"||\mathcal{L}(x,s,y,z)||" L"||Xz-\mu||" L"||X_1 x_2||"],
         color=[:blue :red :orange :purple],
-        legend=:topright,
+        legend=:bottomleft,
         linetype=:steppost,
         reuse=false,
     )
@@ -129,22 +126,22 @@ function plot_solver_traj_for_paper(
     plot_k_mu && vline!(inf_plt, k_mu; style=:dot, color=:green, label="")
     display(inf_plt)
     if save_plt
-        savefig(name*iters_fname*"_inf"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_inf"*save_ext)
     end
 
     obj_plt = plot(
         k_newton[2:end],
         obj[2:end],
         size=(1000, 400),
-        ylabel="obj",
+        ylabel=L"f(x)",
+        xlabel="Iteration",
         legend=false,
         linetype=:steppost,
-        plot_title=name*" objective",
         reuse=false,
     )
     display(obj_plt)
     if save_plt
-        savefig(name*iters_fname*"_obj"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_obj"*save_ext)
     end
 end
 

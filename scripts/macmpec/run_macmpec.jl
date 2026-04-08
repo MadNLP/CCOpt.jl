@@ -1950,8 +1950,11 @@ function benchmark_macmpec(; range=:)
         :linear_solver=>Ma27Solver,
         :disbale_garbage_collector=>true,
     )
-    opts_madnlp_c =
-        CCOpt.RelaxationOptions(print_level=MadNLP.ERROR, center_complementarities=true)
+    opts_madnlp_c = CCOpt.RelaxationOptions(
+        print_level=MadNLP.ERROR,
+        center_complementarities=true,
+        relaxation_update=CCOpt.RolloffRelaxationUpdate(rolloff_max=1e-1),
+    )
 
     opts_exact_penalty =
         CCOpt.PenaltyOptions(; print_level=MadNLP.ERROR, dynamic_rho_update=true)
@@ -1997,8 +2000,56 @@ function benchmark_macmpec(; range=:)
         default_ipopt,
         #default_madnlp,
         default_madnlp_c,
-        default_exact_penalty,
+        #default_exact_penalty,
         range=range,
     )
+    return solnames, names, stats
+end
+
+function find_qf_vs_prop(; range=:)
+    prop_madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :disbale_garbage_collector=>true,
+    )
+    opts_prop_madnlp_c = CCOpt.RelaxationOptions(
+        print_level=MadNLP.ERROR,
+        center_complementarities=true,
+        relaxation_update=CCOpt.ProportionalRelaxationUpdate(),
+    )
+    qf_madnlpc_solver_options = Dict(
+        :bound_relax_factor=>0.0,
+        :bound_push=>1e-1,
+        :print_level=>MadNLP.ERROR,
+        :max_iter=>3000,
+        :linear_solver=>Ma27Solver,
+        :disbale_garbage_collector=>true,
+        :barrier=>MadNLP.QualityFunctionUpdate(mu_min=1e-9, max_gs_iter=16),
+    )
+    opts_qf_madnlp_c = CCOpt.RelaxationOptions(
+        print_level=MadNLP.ERROR,
+        center_complementarities=true,
+        relaxation_update=CCOpt.ProportionalRelaxationUpdate(sigma_min=1e-9),
+        use_specialized_barrier_update=true,
+    )
+
+    prop_madnlp_c = (
+        "CCOpt Relaxation Proportional",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_prop_madnlp_c,
+        ((prop_madnlpc_solver_options...,)),
+    )
+    qf_madnlp_c = (
+        "CCOpt Relaxation Quality Function",
+        solve_benchmark_problem,
+        save_madnlp_c_df,
+        opts_qf_madnlp_c,
+        ((qf_madnlpc_solver_options...,)),
+    )
+    solnames, names, stats = run_macmpec(prop_madnlp_c, qf_madnlp_c, range=range)
     return solnames, names, stats
 end
