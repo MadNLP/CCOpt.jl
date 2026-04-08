@@ -145,6 +145,8 @@ struct RelaxationIterate{T, VT}
     delta1::VT
     delta2::VT
 
+    n_fact::Int
+
     KKT_s::VT
 
     magic::Bool

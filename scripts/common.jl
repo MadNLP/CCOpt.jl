@@ -172,6 +172,7 @@ function save_madnlp_c_df(
         inf_du=[s.dual_feas for s in stats_madnlp_c],
         wall_time=[s.counters.counters.total_time for s in stats_madnlp_c],
         iter=[s.counters.counters.k for s in stats_madnlp_c],
+        fact=[s.counters.counters.factorization_cnt for s in stats_madnlp_c],
         eval_function_time=[s.counters.counters.eval_function_time for s in stats_madnlp_c],
         linear_solver_time=[s.counters.counters.linear_solver_time for s in stats_madnlp_c],
         solver_time=[s.counters.solver_time for s in stats_madnlp_c],
