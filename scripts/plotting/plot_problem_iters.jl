@@ -115,7 +115,7 @@ function plot_solver_traj_for_paper(
     inf_plt = plot(
         k_newton[2:end],
         [inf_pr[2:end], inf_du[2:end], inf_compl[2:end], inf_pr_cc[2:end]],
-        size=(1000, 400),
+        size=(600, 400),
         yaxis=:log10,
         ylabel="Primal-Dual Infeasibility",
         xlabel="Iterations",
@@ -135,7 +135,7 @@ function plot_solver_traj_for_paper(
     obj_plt = plot(
         k_newton[2:end],
         obj[2:end],
-        size=(1000, 400),
+        size=(600, 400),
         ylabel=L"f(x)",
         xlabel="Iteration",
         legend=false,
@@ -147,34 +147,34 @@ function plot_solver_traj_for_paper(
         PythonPlot.savefig(name*"_"*iters_fname*"_obj"*save_ext)
     end
 
-    # fact_plt = plot(
-    #     k_newton[2:end],
-    #     n_fact[2:end],
-    #     size=(1000, 400),
-    #     ylabel="# of KKT factorizations",
-    #     xlabel="Iteration",
-    #     legend=false,
-    #     linetype=:steppost,
-    #     reuse=false,
-    # )
-    # display(fact_plt)
-
     fact_plt = plot(
-        1:length(n_fact_diff),
-        n_fact_diff,
+        k_newton[2:end],
+        n_fact[2:end],
         size=(1000, 400),
         ylabel="# of KKT factorizations",
         xlabel="Iteration",
-        yticks=[1, 2, 3, 4],
-        ylim=(0, 5),
-        xlim=(0, length(n_fact_diff)+1),
-        xticks=vcat([1], collect(5:5:length(n_fact_diff))),
         legend=false,
-        seriestype=:bar,
+        linetype=:steppost,
         reuse=false,
-        linewidth=1,
     )
     display(fact_plt)
+
+    # fact_plt = plot(
+    #     1:length(n_fact_diff),
+    #     n_fact_diff,
+    #     size=(1000, 400),
+    #     ylabel="# of KKT factorizations",
+    #     xlabel="Iteration",
+    #     yticks=[1, 2, 3, 4],
+    #     ylim=(0, 5),
+    #     xlim=(0, length(n_fact_diff)+1),
+    #     xticks=vcat([1], collect(5:5:length(n_fact_diff))),
+    #     legend=false,
+    #     seriestype=:bar,
+    #     reuse=false,
+    #     linewidth=1,
+    # )
+    # display(fact_plt)
     if save_plt
         PythonPlot.savefig(name*"_"*iters_fname*"_n_fact"*save_ext)
     end
