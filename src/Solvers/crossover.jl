@@ -37,15 +37,15 @@ function crossover(
     tr0=1e-4,
     tr_min=1e-6,
     stationarity_tol=1e-8,
+    tiny_step_tol=1e-9,
     max_iter=10,
 ) where {T, VT}
     # Do projection
     proj_lpcc = LPCCModel(mpcc, x0; tr=proj_tr)
 
     success, proj_sol, y0 = solve_lpcc(proj_lpcc, lpcc_solver_opts; lpcc_solver_kwargs...)
-
     if !success
-        return false, x0
+        return :proj_failed, x0, y0
     end
 
     bnlp = BranchNLP(mpcc, y0)
@@ -54,7 +54,7 @@ function crossover(
     bnlp_sol = MadNLP.madnlp(bnlp; bnlp_solver_kwargs...)
 
     if bnlp_sol.status != MadNLP.SOLVE_SUCCEEDED
-        return false, x0
+        return :proj_failed, x0, y0
     end
 
     x_curr = bnlp_sol.solution
@@ -71,6 +71,9 @@ function crossover(
             d_f =
                 get_minimize(mpcc) ? f_curr - lpcc_sol.objective :
                 lpcc_sol.objective - f_curr
+            println(
+                "tr = $(tr), ||d|| = $(norm(lpcc_sol.solution)), linear improvement = $(d_f)",
+            )
             if norm(lpcc_sol.solution) <= stationarity_tol || d_f <= stationarity_tol
                 return :b_stat, x_curr, y_curr
             end
@@ -90,10 +93,16 @@ function crossover(
         get_x0(bnlp) .= x_curr
 
         bnlp_sol = MadNLP.madnlp(bnlp; bound_push=1e-6, bnlp_solver_kwargs...)
-        # if sol fails do something else
-
+        # if sol fails do something else)
+        norm_delta_x = norm(x_curr .- bnlp_sol.solution)
+        improvement =
+            get_minimize(mpcc) ? f_curr - bnlp_sol.objective : bnlp_sol.objective - f_curr
         x_curr = bnlp_sol.solution
         f_curr = bnlp_sol.objective
+        println("||Δx|| = $(norm_delta_x) Δf = $(improvement)")
+        if norm_delta_x <= tiny_step_tol || abs(improvement) <= tiny_step_tol
+            return :tiny_step, x_curr, y_curr
+        end
 
         ii += 1
     end
