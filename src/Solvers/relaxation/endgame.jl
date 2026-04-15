@@ -81,9 +81,6 @@ function do_endgame!(
         nu1 = solver.multipliers_cc1[ii]
         nu2 = solver.multipliers_cc2[ii]
 
-        nu1_filt = solver.multipliers_cc1_filt[ii]
-        nu2_filt = solver.multipliers_cc2_filt[ii]
-
         x1 = MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
         z1 = MadNLP.variable(ipm.zl)[cc1]
         x2 = MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
@@ -91,7 +88,7 @@ function do_endgame!(
         zs = MadNLP.slack(ipm.zu)[end-ncc+ii]
         s = MadNLP.slack(ipm.x)[end-ncc+ii]
 
-        nu1_inactive = endgame.use_filtered ? nu1_filt <= -(nu_bound) : nu1 <= -(nu_bound)
+        nu1_inactive = nu1 <= -(nu_bound)
         if nu1_inactive
             delta_candidate = get_delta_candidate(nu1, x2, rnlp.σ[ii], endgame.delta_max)
             # If not enough change in delta candidate, it isn't worth perturbing newton.
@@ -114,7 +111,7 @@ function do_endgame!(
             set_relax_magic_step!(solver, ii, z1_hat, z2_hat, zs_hat, x1, x2, delta_zs)
         end
 
-        nu2_inactive = endgame.use_filtered ? nu2_filt <= -(nu_bound) : nu2 <= -(nu_bound)
+        nu2_inactive = nu2 <= -(nu_bound)
         if nu2_inactive
             delta_candidate = get_delta_candidate(nu2, x1, rnlp.σ[ii], endgame.delta_max)
             # If not enough change in delta candidate, it isn't worth perturbing newton.

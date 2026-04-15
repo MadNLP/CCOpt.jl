@@ -58,7 +58,6 @@ function estimate_mpec_multipliers(solver::RelaxationSolver{T}) where {T}
     ind_cc2 = solver.ind_cc2
     ind_cc1_orig = mpcc.meta.ind_cc1
     ind_cc2_orig = mpcc.meta.ind_cc2
-    N = solver.opts.mpec_multiplier_filter_history
 
     for ii in 1:ncc
         cc1 = ind_cc1[ii]
@@ -78,16 +77,5 @@ function estimate_mpec_multipliers(solver::RelaxationSolver{T}) where {T}
 
         solver.multipliers_cc1[ii] = z1 - zs*x2
         solver.multipliers_cc2[ii] = z2 - zs*x1
-    end
-
-    if solver.ipm.cnt.k==0
-        solver.multipliers_cc1_filt .= solver.multipliers_cc1
-        solver.multipliers_cc2_filt .= solver.multipliers_cc2
-    else
-        # Do EWMA
-        solver.multipliers_cc1_filt .-= solver.multipliers_cc1_filt ./ N
-        solver.multipliers_cc2_filt .-= solver.multipliers_cc2_filt ./ N
-        solver.multipliers_cc1_filt .+= solver.multipliers_cc1 ./ N
-        solver.multipliers_cc2_filt .+= solver.multipliers_cc2 ./ N
     end
 end

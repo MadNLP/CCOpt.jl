@@ -10,6 +10,7 @@ function plot_solver_traj_for_paper(
     save_ext=".pdf",
     plot_k_mu=true,
     save_plt=false,
+    xlim=nothing,
 )
     default()
     default(
@@ -116,12 +117,13 @@ function plot_solver_traj_for_paper(
         k_newton[2:end],
         [inf_pr[2:end], inf_du[2:end], inf_compl[2:end], inf_pr_cc[2:end]],
         size=(600, 400),
+        xlim=xlim,
         yaxis=:log10,
         ylabel="Primal-Dual Infeasibility",
         xlabel="Iterations",
         labels=[L"||c(x,s)||" L"||\mathcal{L}(x,s,y,z)||" L"||Xz-\mu||" L"||X_1 x_2||"],
         color=[:blue :red :orange :purple],
-        legend=:bottomleft,
+        legend=:topright,
         linetype=:steppost,
         reuse=false,
     )
@@ -135,6 +137,7 @@ function plot_solver_traj_for_paper(
     obj_plt = plot(
         k_newton[2:end],
         obj[2:end],
+        xlim=xlim,
         size=(600, 400),
         ylabel=L"f(x)",
         xlabel="Iteration",

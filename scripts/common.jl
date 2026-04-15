@@ -1,5 +1,6 @@
 using CSV
 using DataFrames
+using Printf
 using Plots, BenchmarkProfiles
 using AmplNLReader, CCOpt
 using NLPModelsIpopt
@@ -170,9 +171,11 @@ function save_madnlp_c_df(
         inf_cc=inf_cc,
         inf_pr=[s.primal_feas for s in stats_madnlp_c],
         inf_du=[s.dual_feas for s in stats_madnlp_c],
-        wall_time=[s.counters.counters.total_time for s in stats_madnlp_c],
+        wall_time=[s.counters.total_time for s in stats_madnlp_c],
+        solve_time=[s.counters.solve_time for s in stats_madnlp_c],
         iter=[s.counters.counters.k for s in stats_madnlp_c],
         fact=[s.counters.counters.factorization_cnt for s in stats_madnlp_c],
+        init_time=[s.counters.init_time for s in stats_madnlp_c],
         eval_function_time=[s.counters.counters.eval_function_time for s in stats_madnlp_c],
         linear_solver_time=[s.counters.counters.linear_solver_time for s in stats_madnlp_c],
         solver_time=[s.counters.solver_time for s in stats_madnlp_c],
@@ -354,11 +357,17 @@ function abs_profile_data(
     (np, ns) = size(vals)
     max_val = NaNMath.maximum(vals)
 
-    vals = [vals; 2.0 * max_val * ones(1, ns)]
+    if max_val >= 0
+        vals = [vals; 2.0 * max_val * ones(1, ns)]
+    else
+        vals = [vals; 0.5 * max_val * ones(1, ns)]
+    end
     xs = [1:(np+1);] / np
 
     x_plot = Vector{Vector{Float64}}(undef, ns)
     y_plot = Vector{Vector{Float64}}(undef, ns)
+    println.(vals[:, 1], " ", vals[:, 2])
+    println(max_val)
 
     for s in 1:ns
         rs = view(vals, :, s)
@@ -367,9 +376,10 @@ function abs_profile_data(
         rv = minimum(rs)
         maxval = maximum(rs)
         #println("1 ", xidx)
-        while rv < max_val
+        while rv < max_val && k < length(rs)
             k += 1
             xidx[k] = findlast(rs .<= rv)
+            println(xidx[k])
             rv = max(rs[xidx[k]] + sampletol, rs[xidx[k]+1])
             #println(k)
         end
@@ -378,13 +388,9 @@ function abs_profile_data(
         xidx = unique(xidx) # Needed?
         yidx = copy(xidx)
         yidx[end] = yidx[end-1]
-        #println(xs)
 
         x_plot[s] = rs[xidx]
         y_plot[s] = xs[yidx]
-
-        #println(x_plot[s])
-        println(y_plot[s])
     end
     return (x_plot, y_plot, max_val)
 end
@@ -430,7 +436,7 @@ function abs_profile_plot(
         xlabel=xlabel,
         ylabel=ylabel,
         title=title,
-        xlims=(1.1*minimum(minimum.(x_plot)), 2.0 * max_val),
+        xlims=(1.1*minimum(minimum.(x_plot)), max_val >= 0 ? 2.0 * max_val : 0.5 * max_val),
         ylims=(0, 1.1),
     )  # initial plot
     for s in 1:length(labels)
@@ -952,4 +958,27 @@ function plot_benchmark_abs(
         ),
     )
     return PythonPlot.savefig(savepath)
+end
+
+function generate_table(dt)
+    table = """
+    \\begin{longtable}{l|| c c c c}
+    Problem & success & \\# iter & wall time (s) & objective\\\\\\hline
+        """
+    for ii in 1:nrow(dt)
+        name = dt[ii, :name]
+
+        table *= @sprintf(
+            "%s & %s & %4d & %3.3e & %3.3e\\\\\n",
+            name,
+            dt[ii, :success] ? "y" : "n",
+            dt[ii, :iter],
+            dt[ii, :wall_time],
+            dt[ii, :objective]
+        )
+    end
+    table *= """
+          \\end{longtable}
+            """
+    return println(table)
 end

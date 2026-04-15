@@ -1930,7 +1930,7 @@ function benchmark_macmpec(; range=:)
     opts_ipopt = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_ipopt.print_level = MadNLP.ERROR
     opts_ipopt.nlp_solver_options[:print_level] = 0
-    opts_ipopt.nlp_solver_options[:max_iter] = 3000
+    opts_ipopt.nlp_solver_options[:max_iter] = 4000
     opts_ipopt.nlp_solver_options[:linear_solver] = "ma27"
     opts_madnlp = CCOpt.HomotopySolverOptions(max_inner_iter=3000)
     opts_madnlp.print_level = MadNLP.ERROR
@@ -1946,14 +1946,14 @@ function benchmark_macmpec(; range=:)
         :bound_relax_factor=>0.0,
         :bound_push=>1e-1,
         :print_level=>MadNLP.ERROR,
-        :max_iter=>3000,
+        :max_iter=>4000,
         :linear_solver=>Ma27Solver,
         :disbale_garbage_collector=>true,
     )
     opts_madnlp_c = CCOpt.RelaxationOptions(
         print_level=MadNLP.ERROR,
         center_complementarities=true,
-        relaxation_update=CCOpt.RolloffRelaxationUpdate(rolloff_max=1e-1),
+        #relaxation_update=CCOpt.RolloffRelaxationUpdate(rolloff_max=1e0),
     )
 
     opts_exact_penalty =
@@ -2000,7 +2000,7 @@ function benchmark_macmpec(; range=:)
         default_ipopt,
         #default_madnlp,
         default_madnlp_c,
-        #default_exact_penalty,
+        default_exact_penalty,
         range=range,
     )
     return solnames, names, stats

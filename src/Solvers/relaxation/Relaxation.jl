@@ -101,7 +101,6 @@ struct NoEndgameStrategy{T} <: AbstractEndgameStrategy{T} end
 """
 @kwdef mutable struct RelaxLBEndgameStrategy{T} <: AbstractEndgameStrategy{T}
     delta_max::T = 1e-4
-    use_filtered::Bool = false
     min_delta_inc_factor::T = 1.1
     tau::T = 0.4
 end
@@ -199,9 +198,6 @@ end
     # Reset slacks
     reset_slacks_on_update::Bool = false
 
-    # MPEC multiplier estimation
-    mpec_multiplier_filter_history::T = 1.01
-
     # Output options
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
@@ -237,8 +233,6 @@ mutable struct RelaxationSolver{
     const _cc1::VT
     const multipliers_cc1::VT
     const multipliers_cc2::VT
-    const multipliers_cc1_filt::VT
-    const multipliers_cc2_filt::VT
     const ind_cc1::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc2::Vector{Int} # fixed indices in case of MakeParameter
     const ind_cc1_lb::Vector{Int}
@@ -273,8 +267,6 @@ function RelaxationSolver(
     _cc1 = VT(undef, get_ncc(mpcc))
     multipliers_cc1 = VT(undef, get_ncc(mpcc))
     multipliers_cc2 = VT(undef, get_ncc(mpcc))
-    multipliers_cc1_filt = VT(undef, get_ncc(mpcc))
-    multipliers_cc2_filt = VT(undef, get_ncc(mpcc))
     b = Vector{Bool}(undef, get_ncc(mpcc))
 
     # TODO(@anton) Can we do this nonquadratically
@@ -295,8 +287,6 @@ function RelaxationSolver(
         _cc1,
         multipliers_cc1,
         multipliers_cc2,
-        multipliers_cc1_filt,
-        multipliers_cc2_filt,
         ind_cc1,
         ind_cc2,
         ind_cc1_lb,
