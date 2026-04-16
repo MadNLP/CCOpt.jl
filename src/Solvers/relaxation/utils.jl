@@ -176,26 +176,24 @@ function MadNLP.print_iter(solver::RelaxationSolver; is_resto=false)
     end
     MadNLP.@info(
         ipm.logger,
-        println(
-            @sprintf(
-                "%4i%s% 10.7e %6.2e %6.2e %6.2e %7.2e %5.1f %6.2e %s %6.2e %6.2e%s  %i %5.1f  %6.2e",
-                ipm.cnt.k,
-                is_resto ? "r" : " ",
-                ipm.obj_val/obj_scale,
-                inf_pr,
-                MadNLP.get_inf_pr(ipm.c),
-                inf_du,
-                inf_compl,
-                mu,
-                ipm.cnt.k == 0 ? 0.0 : norm(MadNLP.primal(ipm.d), Inf),
-                ipm.del_w == 0 ? "   - " : @sprintf("%5.1f", log(10, ipm.del_w)),
-                ipm.alpha_z,
-                ipm.alpha,
-                ipm.ftype,
-                ipm.cnt.l,
-                get_log_relaxation(solver.rnlp),
-                solver.inf_pr_cc
-            )
+        @sprintf(
+            "%4i%s% 10.7e %6.2e %6.2e %6.2e %7.2e %5.1f %6.2e %s %6.2e %6.2e%s  %i %5.1f  %6.2e",
+            ipm.cnt.k,
+            is_resto ? "r" : " ",
+            ipm.obj_val/obj_scale,
+            inf_pr,
+            MadNLP.get_inf_pr(ipm.c),
+            inf_du,
+            inf_compl,
+            mu,
+            ipm.cnt.k == 0 ? 0.0 : norm(MadNLP.primal(ipm.d), Inf),
+            ipm.del_w == 0 ? "   - " : @sprintf("%5.1f", log(10, ipm.del_w)),
+            ipm.alpha_z,
+            ipm.alpha,
+            ipm.ftype,
+            ipm.cnt.l,
+            get_log_relaxation(solver.rnlp),
+            solver.inf_pr_cc
         )
     )
     return
