@@ -7,8 +7,10 @@ function plot_solver_traj_for_paper(
     prob::CCOpt.MPCCModel,
     iters_fname::AbstractString;
     range=:,
+    save_ext=".pdf",
     plot_k_mu=true,
     save_plt=false,
+    xlim=nothing,
 )
     default()
     default(
@@ -50,6 +52,9 @@ function plot_solver_traj_for_paper(
     push!(sn_min, sn_min[end])
     sn_max = [maximum(i.KKT_s[i.KKT_s .< 0]) for i in iters[range] if !i.magic];
     push!(sn_max, sn_max[end])
+    n_fact = [i.n_fact for i in iters[range] if !i.magic];
+    n_fact_diff = diff(n_fact)
+    push!(n_fact, n_fact[end])
 
     a_plt = plot(
         k_newton[2:end],
@@ -62,17 +67,13 @@ function plot_solver_traj_for_paper(
         xlabel="Iteration",
         legend=:bottomright,
         label=[L"\alpha_{\mathrm{pr}}" L"\alpha_{\mathrm{du}}"],
-        #tickfontsize=15,
-        #bottommargin=20Plots.px,
-        #leftmargin=50Plots.px,
-        #labelfontsize=15,
         linetype=:steppost,
     )
     plot_k_mu && vline!(a_plt, k_mu; style=:dot, label="")
 
     display(a_plt)
     if save_plt
-        savefig(name*iters_fname*"_alpha"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_alpha"*save_ext)
     end
 
     s_plt = plot(
@@ -92,7 +93,7 @@ function plot_solver_traj_for_paper(
     )
     display(s_plt)
     if save_plt
-        savefig(name*iters_fname*"_lam"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_lam"*save_ext)
     end
 
     k_plt = plot(
@@ -109,13 +110,14 @@ function plot_solver_traj_for_paper(
     )
     display(k_plt)
     if save_plt
-        savefig(name*iters_fname*"_cond"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_cond"*save_ext)
     end
 
     inf_plt = plot(
         k_newton[2:end],
         [inf_pr[2:end], inf_du[2:end], inf_compl[2:end], inf_pr_cc[2:end]],
-        size=(1000, 400),
+        size=(600, 400),
+        xlim=xlim,
         yaxis=:log10,
         ylabel="Primal-Dual Infeasibility",
         xlabel="Iterations",
@@ -129,22 +131,39 @@ function plot_solver_traj_for_paper(
     plot_k_mu && vline!(inf_plt, k_mu; style=:dot, color=:green, label="")
     display(inf_plt)
     if save_plt
-        savefig(name*iters_fname*"_inf"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_inf"*save_ext)
     end
 
     obj_plt = plot(
         k_newton[2:end],
         obj[2:end],
-        size=(1000, 400),
-        ylabel="obj",
+        xlim=xlim,
+        size=(600, 400),
+        ylabel=L"f(x)",
+        xlabel="Iteration",
         legend=false,
         linetype=:steppost,
-        plot_title=name*" objective",
         reuse=false,
     )
     display(obj_plt)
     if save_plt
-        savefig(name*iters_fname*"_obj"*save_ext)
+        PythonPlot.savefig(name*"_"*iters_fname*"_obj"*save_ext)
+    end
+
+    fact_plt = plot(
+        k_newton[2:end],
+        n_fact[2:end],
+        size=(1000, 400),
+        ylabel="# of KKT factorizations",
+        xlabel="Iteration",
+        legend=false,
+        linetype=:steppost,
+        reuse=false,
+    )
+    display(fact_plt)
+
+    if save_plt
+        PythonPlot.savefig(name*"_"*iters_fname*"_n_fact"*save_ext)
     end
 end
 

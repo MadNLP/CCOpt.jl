@@ -122,6 +122,7 @@ function log_iter(
         nu2_filt,
         delta1,
         delta2,
+        solver.cnt.counters.factorization_cnt,
         KKT_s,
         magic,
     )
