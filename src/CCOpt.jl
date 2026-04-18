@@ -31,4 +31,36 @@ include("Solvers/relaxation/Relaxation.jl")
 include("Solvers/penalty/Penalty.jl")
 include("Solvers/crossover.jl")
 
+# Modelling
+export MPCCModel, MPCCModelVarVar, MPCCModelConCon, MPCCModelVarCon,# struct
+    is_vertical, vertical_form #Verticality
+
+# Function eval for MPCCs
+export comp_left, comp_left!, comp_right, comp_right!,
+    comp_res_left, comp_res_left!, comp_res_right, comp_res_right!,
+    jac_comp_left_structure,  jac_comp_left_structure!,
+    jac_comp_right_structure,  jac_comp_right_structure!,
+    jac_comp_left_coord,  jac_comp_left_coord!,
+    jac_comp_right_coord,  jac_comp_right_coord!,
+    comp_residual, comp_residual_product,
+
+# Solve driver
+export solve_homotopy!
+
+# Shared structs
+export CCOptExecutionStats
+
+# Relaxation Solver
+export RelaxationSolver, RelaxationOptions, # Core structs
+    ProportionalRelaxationUpdate, RolloffRelaxationUpdate, LOQORelaxationUpdate, # relaxation options structs
+    NoEndgameStrategy, RelaxLBEndgameStrategy # endgame
+
+# Penalty Solver
+export PenaltySolver, PenaltyOptions # Core structs
+
+# Crossover
+export CrossoverOptions, CrossoverExecutionStats, # Structs
+    GurobiLPCCSolverOptions, HiGHSLPCCSolverOptions, # MILP options,
+    crossover # driver
+
 end # module CCOpt
