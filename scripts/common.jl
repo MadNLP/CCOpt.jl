@@ -964,6 +964,7 @@ function generate_table(dt)
     table = """
     \\begin{longtable}{l|| c c c c}
     Problem & success & \\# iter & wall time (s) & objective\\\\\\hline
+    \\endhead
         """
     for ii in 1:nrow(dt)
         name = dt[ii, :name]
@@ -971,8 +972,31 @@ function generate_table(dt)
         table *= @sprintf(
             "%s & %s & %4d & %3.3e & %3.3e\\\\\n",
             name,
-            dt[ii, :success] ? "y" : "n",
+            dt[ii, :success] == 1 ? "y" : "n",
             dt[ii, :iter],
+            dt[ii, :wall_time],
+            dt[ii, :objective]
+        )
+    end
+    table *= """
+          \\end{longtable}
+            """
+    return println(table)
+end
+
+function generate_table_without_iters(dt)
+    table = """
+    \\begin{longtable}{l|| c c c}
+    Problem & success & wall time (s) & objective\\\\\\hline
+    \\endhead
+        """
+    for ii in 1:nrow(dt)
+        name = dt[ii, :name]
+
+        table *= @sprintf(
+            "%s & %s & %3.3e & %3.3e\\\\\n",
+            name,
+            dt[ii, :success] == 1 ? "y" : "n",
             dt[ii, :wall_time],
             dt[ii, :objective]
         )

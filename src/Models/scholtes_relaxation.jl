@@ -251,6 +251,15 @@ function NLPModels.jprod_nln!(
     return Jv
 end
 
+function NLPModels.jtprod!(
+    rnlp::ScholtesRelaxation,
+    x::AbstractVector,
+    v::AbstractVector,
+    Jtv::AbstractVector,
+)
+    return @views mul!(Jtv, transpose(jac(rnlp, x)), v)
+end
+
 function NLPModels.jtprod_lin!(
     rnlp::ScholtesRelaxation,
     x::AbstractVector,
