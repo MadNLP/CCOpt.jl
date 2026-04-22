@@ -1,6 +1,7 @@
 # CCOpt
 
 A Julia package for solving Mathematical Programs with Complementarity Constraints (MPCCs).
+For details check out the [implementation paper](https://arxiv.org/abs/2604.18726).
 
 ## Installation
 
@@ -36,3 +37,15 @@ Alternatively, you can solve `mpcc` using the penalty method as
 solver = CCOpt.PenaltySolver(mpcc)
 stats = CCOpt.solve_homotopy!(solver)
 ```
+
+## Citation
+
+If you use `CCOpt.jl` in your work, please cite:
+
+```bibtex
+@article{Pozharskiy2026,
+  title={CCOpt: an Open-Source Solver for Large-Scale Mathematical Programs with Complementarity Constraints},
+  author={Pozharskiy, Anton and Pacaud, Fran{\c{c}}ois and Diehl, Moritz and Nurkanovi{\'c}, Armin},
+  journal={arXiv preprint arXiv:2604.18726},
+  year={2026}
+}
