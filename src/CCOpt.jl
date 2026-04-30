@@ -28,4 +28,7 @@ include("Solvers/relaxation/Relaxation.jl")
 include("Solvers/penalty/Penalty.jl")
 include("Solvers/crossover.jl")
 
+# This type is needed by the MOI wrapper.
+global Optimizer
+
 end # module CCOpt
