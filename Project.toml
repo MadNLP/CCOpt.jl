@@ -16,10 +16,13 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [weakdeps]
 Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+MathOptComplements = "3144fb79-1414-4d28-b1d1-63dadd798e24"
+NLPModelsJuMP = "792afdf1-32c1-5681-94e0-d7bf7a5df49e"
 
 [extensions]
 CCOptGurobi = ["Gurobi"]
 CCOptHiGHS = ["HiGHS"]
+CCOptMathOptInterface = ["MathOptComplements", "NLPModelsJuMP"]
 
 [compat]
 DataStructures = "0.18.22"
@@ -27,7 +30,9 @@ Gurobi = "1.7"
 HiGHS = "1.18"
 LinearAlgebra = "1.11"
 MadNLP = "0.9"
+MathOptComplements = "0.1"
 NLPModels = "0.21.4"
+NLPModelsJuMP = "0.13"
 Printf = "1.11.0"
 Serialization = "1.11.0"
 SolverCore = "0.3.8"
