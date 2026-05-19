@@ -146,13 +146,11 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
         Symbol(key) => dest.options[key] for key in keys(dest.options)
     )
 
-    contypes = MOI.get(src, MOI.ListOfConstraintTypesPresent())
     cc_cons = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables, _CC_SETS}())
-    if length(cc_cons) == 0
+    if isempty(cc_cons)
         error("The model does not have any complementarity constraints. Please switch to an appropriate solver.")
     end
     ind_cc1, ind_cc2 = MOI.VariableIndex[], MOI.VariableIndex[]
-
     for cidx in cc_cons
         fun = MOI.get(src, MOI.ConstraintFunction(), cidx)
         set = MOI.get(src, MOI.ConstraintSet(), cidx)
@@ -161,13 +159,12 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
             push!(ind_cc1, fun.variables[cc])
             push!(ind_cc2, fun.variables[cc + n_comp])
         end
-
-        MOI.delete(src, cidx)
     end
 
-    nlp, index_map = NLPModelsJuMP.nlp_model(src)
-
-    # TODO: add complementarity back
+    filtered_src = MOI.Utilities.ModelFilter(src) do item
+        return item != (MOI.VectorOfVariables, _CC_SETS)
+    end
+    nlp, index_map = NLPModelsJuMP.nlp_model(filtered_src)
 
     ind_x1 = getfield.(ind_cc1, :value)
     ind_x2 = getfield.(ind_cc2, :value)
