@@ -1,9 +1,8 @@
 using LinearAlgebra, SparseArrays, Test
-using NLPModels, ADNLPModels, CCOpt
+using NLPModels, MPCCModels, ADNLPModels, CCOpt
 using MadNLP
 
 include("models/simple-model.jl")
-include("models/lifted-nlp-model.jl")
 include("models/simple-mpcc-model.jl")
 include("models/scholtes-relaxation.jl")
 include("solvers/homotopy-solver.jl")
