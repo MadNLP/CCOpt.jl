@@ -12,10 +12,11 @@ pkg> add https://github.com/MadNLP/CCOpt.jl
 
 ## Usage
 
-CCOpt takes as input a nonlinear program formulated with [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/). Taking a `nlp` as input, a MPCC is defined as
+CCOpt takes as input a nonlinear program formulated with [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/). Taking a `nlp` as input, a MPCC is defined using the package [MPCCModels](https://github.com/MadNLP/MPCCModels.jl/)
 ```julia
 using CCOpt
-mpcc = CCOpt.MPCCModelVarVar(nlp, ind_x1, ind_x2)
+using MPCCModels
+mpcc = MPCCModel(nlp, ind_x1, ind_x2)
 ```
 with `ind_x1` (resp. `ind_x2`) the indices of the variables appearing in the left-hand complementarity
 (resp. right-hand complementarity).
