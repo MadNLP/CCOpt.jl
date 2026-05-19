@@ -128,15 +128,15 @@ function crossover(
     ii = 1
     while ii <= opts.max_iter
         # Check for S-Stationarity
-        if minimum(
-            max.(CCOpt.comp_res_left(mpcc, x_curr), CCOpt.comp_res_right(mpcc, x_curr)),
-        ) >= opts.s_stat_tol
+        if minimum(max.(comp_res_left(mpcc, x_curr), comp_res_right(mpcc, x_curr))) >=
+           opts.s_stat_tol
             # bnlp solution is S-stationary up to tolerance and therefore B-Stationary
             cnt.total_time = time() - cnt.start_time
             return CrossoverExecutionStats(opts, :b_stat, f_curr, x_curr, y_curr, cnt)
         end
         I_00 = sum(
-            max.(CCOpt.comp_res_left(mpcc, x_curr), CCOpt.comp_res_right(mpcc, x_curr)) .<= opts.s_stat_tol,
+            max.(comp_res_left(mpcc, x_curr), comp_res_right(mpcc, x_curr)) .<=
+            opts.s_stat_tol,
         )
         println("|I_00| = $(I_00)")
         while true

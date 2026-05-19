@@ -45,7 +45,7 @@ end
 
 ######################### MPCC Types #########################
 # Constructor
-function MPCCModelVarVar(
+function MPCCModel(
     nlp::AbstractNLPModel{T, VT},
     ind_vcc1::IndexSet,
     ind_vcc2::IndexSet,
@@ -410,7 +410,7 @@ function MPCCModel(
     ind_vcc2 = ind_cc2
     ind_vcc2[ind_lift2] = lift2
 
-    return MPCCModelVarVar(vnlp, ind_vcc1, ind_vcc2)
+    return MPCCModel(vnlp, ind_vcc1, ind_vcc2)
 end
 
 ######################### Implementing NLPModels API #########################
@@ -1002,7 +1002,7 @@ function vertical_form(mpcc::AbstractMPCCModel)
     ind_vcc2 = get_ind_cc2(mpcc)
     ind_vcc2[ind_lift2] = lift2
 
-    return MPCCModelVarVar(vnlp, ind_vcc1, ind_vcc2)
+    return MPCCModel(vnlp, ind_vcc1, ind_vcc2)
 end
 # TODO(@anton) Add Core.show overload
 

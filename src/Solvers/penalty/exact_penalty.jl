@@ -145,7 +145,7 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
             ipm.mu,
             sc,
         )
-        inf_pr_comp = CCOpt.comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
+        inf_pr_comp = comp_residual(mpcc, MadNLP.variable(ipm.x)) # Primal complementarity residual
         inf_pr_comp_sum = get_inf_pr_cc_sum(solver) # Primal complementarity residual
         solver.inf_pr_cc = get_inf_pr_cc(solver)
         push!(solver.pr_comp_hist, inf_pr_comp_sum)

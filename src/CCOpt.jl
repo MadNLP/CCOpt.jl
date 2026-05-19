@@ -1,5 +1,5 @@
 module CCOpt
-using NLPModels, SolverCore, LinearAlgebra, SparseArrays
+using NLPModels, MPCCModels, SolverCore, LinearAlgebra, SparseArrays
 using Serialization
 using Printf
 using DataStructures: CircularBuffer
@@ -7,8 +7,6 @@ import MadNLP
 
 include("types.jl")
 include("LinearModel.jl")
-include("MPCCModelMeta.jl")
-include("MPCCModel.jl")
 include("LPCCModel.jl")
 include("MPCCRelaxationModel.jl")
 include("MPCCPenaltyModel.jl")
