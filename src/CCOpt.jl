@@ -18,7 +18,6 @@ include("Models/natural_residual_relaxation.jl")
 include("Models/branch_nlp.jl")
 include("Models/l1_exact_penalty.jl")
 include("Models/lasry_lions_penalty.jl")
-include("Models/lifted_model.jl")
 include("Models/big_m_model.jl")
 
 include("utils.jl")
