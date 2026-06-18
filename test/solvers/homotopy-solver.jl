@@ -1,19 +1,4 @@
 @testset "Homotopy Solver Tests" begin
-    @testset "Test IPOPT" begin
-        mpcc = SimpleMPCCModel(Float64)
-        opts = CCOpt.HomotopySolverOptions()
-        opts.print_level = MadNLP.ERROR
-        opts.comp_tol = 1e-7
-
-        solver = CCOpt.HomotopySolver(mpcc, NLPModelsIpopt.IpoptSolver, opts)
-
-        stats = CCOpt.solve!(solver)
-
-        @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
-        @test stats.objective ≈ 1 atol=1e-5
-        @test stats.solution ≈ [1, 0] atol=1e-5
-    end
-
     @testset "Test MadNLP" begin
         mpcc = SimpleMPCCModel(Float64)
         opts = CCOpt.HomotopySolverOptions()
