@@ -173,7 +173,7 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
     ind_x2 = getfield.(ind_cc2, :value)
 
     dest.mpcc = CCOpt.MPCCModelVarVar(nlp, ind_x1, ind_x2)
-    dest.solver = CCOpt.RelaxationSolver(dest.mpcc)
+    dest.solver = CCOpt.RelaxationSolver(dest.mpcc; options...)
 
     return index_map
 end
