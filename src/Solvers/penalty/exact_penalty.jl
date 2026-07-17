@@ -153,7 +153,10 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
         MadNLP.print_iter(solver)
 
         # evaluate termination criteria
-        MadNLP.@trace(ipm.logger, "Evaluating etrmination criteria.")
+        MadNLP.@trace(ipm.logger, "Evaluating termination criteria.")
+        if !(MadNLP.get_intermediate_callback(ipm)(ipm, MadNLP.UserCallbackRegular())::Bool)
+            return USER_REQUESTED_STOP
+        end
         max(ipm.inf_pr, ipm.inf_du, ipm.inf_compl, solver.inf_pr_cc) <= ipm.opt.tol &&
             return MadNLP.SOLVE_SUCCEEDED
         max(
