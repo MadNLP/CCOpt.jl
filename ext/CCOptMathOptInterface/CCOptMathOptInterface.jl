@@ -12,6 +12,7 @@ module CCOptMathOptInterface
 using MathOptComplements
 using CCOpt
 using MadNLP
+using NLPModels
 using NLPModelsJuMP
 
 const MOI = MathOptComplements.MOI
@@ -19,6 +20,10 @@ const MOI = MathOptComplements.MOI
 function __init__()
     setglobal!(CCOpt, :Optimizer, Optimizer)
     return
+end
+
+function MOI.is_valid(model::MOI.Utilities.ModelFilter, index::MOI.Index)
+    return MOI.is_valid(model.inner, index)::Bool
 end
 
 const _SETS = Union{
@@ -145,6 +150,14 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
     options = Dict{Symbol, Any}(
         Symbol(key) => dest.options[key] for key in keys(dest.options)
     )
+    # Parse options for homotopy
+    relax_options = Dict{Symbol, Any}()
+    for key in keys(options)
+        if hasfield(CCOpt.RelaxationOptions, key)
+            relax_options[key] = options[key]
+            delete!(options, key)
+        end
+    end
 
     cc_cons = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables, _CC_SETS}())
     if isempty(cc_cons)
@@ -164,13 +177,18 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
     filtered_src = MOI.Utilities.ModelFilter(src) do item
         return item != (MOI.VectorOfVariables, _CC_SETS)
     end
+
     nlp, index_map = NLPModelsJuMP.nlp_model(filtered_src)
 
     ind_x1 = getfield.(ind_cc1, :value)
     ind_x2 = getfield.(ind_cc2, :value)
 
     dest.mpcc = CCOpt.MPCCModelVarVar(nlp, ind_x1, ind_x2)
-    dest.solver = CCOpt.RelaxationSolver(dest.mpcc; options...)
+    dest.solver = CCOpt.RelaxationSolver(
+        dest.mpcc;
+        solver_opts = CCOpt.RelaxationOptions(; relax_options...),
+        options...
+    )
 
     return index_map
 end
