@@ -22,6 +22,7 @@ function __init__()
     return
 end
 
+# N.B.: required to have ModelFilter working with MOI.Utilities.get_bounds
 function MOI.is_valid(model::MOI.Utilities.ModelFilter, index::MOI.Index)
     return MOI.is_valid(model.inner, index)::Bool
 end
@@ -43,8 +44,9 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         Nothing,
         CCOpt.CCOptExecutionStats{Float64, Vector{Float64}},
     }
+    silent::Bool
     function Optimizer()
-        return new(Dict{String, Any}(), nothing, nothing, nothing)
+        return new(Dict{String, Any}(), nothing, nothing, nothing, false)
     end
 end
 
@@ -77,7 +79,6 @@ end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
 
-# TODO
 function MOI.set(optimizer::Optimizer, ::MOI.Silent, value::Bool)
     optimizer.silent = value
     return
@@ -158,6 +159,11 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
             delete!(options, key)
         end
     end
+    # Check if silent is activated
+    if dest.silent
+        options[:print_level] = MadNLP.ERROR
+        relax_options[:print_level] = MadNLP.ERROR
+    end
 
     cc_cons = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables, _CC_SETS}())
     if isempty(cc_cons)
@@ -178,6 +184,7 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
         return item != (MOI.VectorOfVariables, _CC_SETS)
     end
 
+    # Use filtered_src to build NLPModels
     nlp, index_map = NLPModelsJuMP.nlp_model(filtered_src)
 
     ind_x1 = getfield.(ind_cc1, :value)
@@ -256,15 +263,29 @@ function MOI.get(optimizer::Optimizer, attr::MOI.PrimalStatus)
         return MOI.NO_SOLUTION
     elseif MOI.get(optimizer, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
         return MOI.FEASIBLE_POINT
+    elseif MOI.get(optimizer, MOI.TerminationStatus()) == MOI.ALMOST_LOCALLY_SOLVED
+        return MOI.NEARLY_FEASIBLE_POINT
+    elseif MOI.get(optimizer, MOI.TerminationStatus()) == MOI.LOCALLY_INFEASIBLE
+        return MOI.INFEASIBLE_POINT
     else
-        # TODO
         return MOI.UNKNOWN_RESULT_STATUS
     end
 end
 
-function MOI.get(::Optimizer, ::MOI.DualStatus)
-    # TODO
-    return MOI.NO_SOLUTION
+function MOI.get(optimizer::Optimizer, attr::MOI.DualStatus)
+    if !(1 <= attr.result_index <= MOI.get(optimizer, MOI.ResultCount()))
+        return MOI.NO_SOLUTION
+    end
+    status = MOI.get(optimizer, MOI.TerminationStatus())
+    if status == MOI.LOCALLY_SOLVED
+        return MOI.FEASIBLE_POINT
+    elseif status == MOI.ALMOST_LOCALLY_SOLVED
+        return MOI.NEARLY_FEASIBLE_POINT
+    elseif status == MadNLP.INFEASIBLE_PROBLEM_DETECTED
+        return MOI.INFEASIBLE_POINT
+    else
+        return MOI.UNKNOWN_RESULT_STATUS
+    end
 end
 
 function MOI.get(optimizer::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableIndex)
@@ -273,5 +294,73 @@ function MOI.get(optimizer::Optimizer, attr::MOI.VariablePrimal, vi::MOI.Variabl
 end
 
 MOI.get(optimizer::Optimizer, ::MOI.ResultCount) = 1
+
+### MOI.ConstraintPrimal
+#
+function row(
+    optimizer::Optimizer,
+    ci::MOI.ConstraintIndex{F},
+) where {
+    F<:Union{
+        MOI.ScalarAffineFunction{Float64},
+        MOI.ScalarQuadraticFunction{Float64},
+    },
+}
+    return ci.value
+end
+
+function row(
+    optimizer::Optimizer,
+    ci::MOI.ConstraintIndex{MOI.ScalarNonlinearFunction},
+)
+    nlp = optimizer.mpcc.nlp
+    n_linquad = nlp.quadcon.nquad
+    n_oracles = nlp.oracles.ncon
+    offset = n_linquad + n_oracles
+    return offset + ci.value
+end
+
+### MOI.ConstraintDual
+
+_dual_multiplier(optimizer::Optimizer) = 1.0 #optimizer.sense == MOI.MIN_SENSE ? 1.0 : -1.0
+
+function MOI.get(
+    optimizer::Optimizer,
+    attr::MOI.ConstraintDual,
+    ci::MOI.ConstraintIndex{F, <:_SETS},
+) where F <: Union{
+    MOI.ScalarAffineFunction{Float64},
+    MOI.ScalarQuadraticFunction{Float64},
+    MOI.ScalarNonlinearFunction,
+}
+    MOI.check_result_index_bounds(optimizer, attr)
+    s = -_dual_multiplier(optimizer)
+    # TODO check index
+    return s * optimizer.stats.multipliers[row(optimizer, ci)+1]
+end
+
+function MOI.get(
+    model::Optimizer,
+    attr::MOI.ConstraintDual,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex, S},
+) where S <: Union{
+    MOI.LessThan{Float64},
+    MOI.GreaterThan{Float64},
+    MOI.EqualTo{Float64},
+    MOI.Interval{Float64},
+}
+    MOI.check_result_index_bounds(model, attr)
+    return model.stats.multipliers_L[ci.value] - model.stats.multipliers_U[ci.value]
+end
+
+
+### MOI.NLPBlockDual
+
+# function MOI.get(model::Optimizer, attr::MOI.NLPBlockDual)
+#     MOI.check_result_index_bounds(model, attr)
+#     s = -_dual_multiplier(model)
+#     offset = row(model,
+#     return s .* model.result.multipliers[(offset+1):end]
+# end
 
 end
