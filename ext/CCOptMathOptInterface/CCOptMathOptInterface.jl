@@ -299,14 +299,18 @@ MOI.get(optimizer::Optimizer, ::MOI.ResultCount) = 1
 #
 function row(
     optimizer::Optimizer,
-    ci::MOI.ConstraintIndex{F},
-) where {
-    F<:Union{
-        MOI.ScalarAffineFunction{Float64},
-        MOI.ScalarQuadraticFunction{Float64},
-    },
-}
-    return ci.value
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}},
+)
+    return ci.value + 1
+end
+
+function row(
+    optimizer::Optimizer,
+    ci::MOI.ConstraintIndex{MOI.ScalarQuadraticFunction{Float64}},
+)
+    nlp = optimizer.mpcc.nlp
+    offset = nlp.meta.nlin
+    return ci.value + offset + 1
 end
 
 function row(
@@ -315,14 +319,16 @@ function row(
 )
     nlp = optimizer.mpcc.nlp
     n_linquad = nlp.quadcon.nquad
-    n_oracles = nlp.oracles.ncon
-    offset = n_linquad + n_oracles
-    return offset + ci.value
+    offset = nlp.meta.nlin + nlp.quadcon.nquad
+    return ci.value + offset + 1
 end
 
 ### MOI.ConstraintDual
 
-_dual_multiplier(optimizer::Optimizer) = 1.0 #optimizer.sense == MOI.MIN_SENSE ? 1.0 : -1.0
+function _dual_multiplier(optimizer::Optimizer)
+    nlp = optimizer.mpcc.nlp
+    return NLPModels.get_minimize(nlp) ? 1.0 : -1.0
+end
 
 function MOI.get(
     optimizer::Optimizer,
@@ -335,8 +341,7 @@ function MOI.get(
 }
     MOI.check_result_index_bounds(optimizer, attr)
     s = -_dual_multiplier(optimizer)
-    # TODO check index
-    return s * optimizer.stats.multipliers[row(optimizer, ci)+1]
+    return s * optimizer.stats.multipliers[row(optimizer, ci)]
 end
 
 function MOI.get(
@@ -352,15 +357,5 @@ function MOI.get(
     MOI.check_result_index_bounds(model, attr)
     return model.stats.multipliers_L[ci.value] - model.stats.multipliers_U[ci.value]
 end
-
-
-### MOI.NLPBlockDual
-
-# function MOI.get(model::Optimizer, attr::MOI.NLPBlockDual)
-#     MOI.check_result_index_bounds(model, attr)
-#     s = -_dual_multiplier(model)
-#     offset = row(model,
-#     return s .* model.result.multipliers[(offset+1):end]
-# end
 
 end
