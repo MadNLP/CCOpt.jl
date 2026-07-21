@@ -14,12 +14,8 @@ include("MPCCRelaxationModel.jl")
 include("MPCCPenaltyModel.jl")
 
 include("Models/scholtes_relaxation.jl")
-include("Models/fischer_burmeister_relaxation.jl")
-include("Models/chen_chen_kanzow_relaxation.jl")
-include("Models/natural_residual_relaxation.jl")
 include("Models/branch_nlp.jl")
 include("Models/l1_exact_penalty.jl")
-include("Models/lasry_lions_penalty.jl")
 include("Models/lifted_model.jl")
 include("Models/big_m_model.jl")
 
