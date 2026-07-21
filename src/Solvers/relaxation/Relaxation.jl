@@ -265,8 +265,13 @@ function RelaxationSolver(
     ind_cc1 = copy(get_ind_cc1(mpcc))
     ind_cc2 = copy(get_ind_cc2(mpcc))
     _adjust_cc_inds!(ipm.cb, ind_cc1, ind_cc2)
-    ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
-    ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
+    if solver_opts.kkt_regularization ∈ (:vicente_wright, :vicente_wright_sum)
+        ind_cc1_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc1)
+        ind_cc2_lb = map((i)->findfirst((j)->i==j, ipm.kkt.ind_lb), ind_cc2)
+    else
+        ind_cc1_lb = Vector{Int}()
+        ind_cc2_lb = Vector{Int}()
+    end
     solver = RelaxationSolver(
         mpcc,
         rnlp,
