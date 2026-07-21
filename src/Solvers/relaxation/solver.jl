@@ -1,4 +1,3 @@
-include("project.jl")
 
 function get_eta_heuristic(solver::RelaxationSolver)
     if solver.ipm.mu ≤ solver.opts.mu_thresh
@@ -400,40 +399,6 @@ function homotopy!(solver::RelaxationSolver{T, VT}) where {T, VT}
         end
         log_iter(solver.iterate_logger, solver)
 
-        if mu_updated && solver.opts.use_magic_step
-            ncc = get_ncc(mpcc)
-            𝜅 = solver.opts.magic_step_kappa
-            @views project_scholtes_explicit!(
-                MadNLP.variable(ipm.x)[solver.ind_cc1],
-                MadNLP.variable(ipm.x)[solver.ind_cc2],
-                MadNLP.variable(ipm.x)[solver.ind_cc1],
-                MadNLP.variable(ipm.x)[solver.ind_cc2],
-                MadNLP.variable(ipm.xl)[solver.ind_cc1],
-                MadNLP.variable(ipm.xl)[solver.ind_cc2],
-                𝜅,
-                get_relaxation(solver.rnlp),
-            )
-            # also update multipliers by z1 = 𝜇/x1 and z2 = 𝜇/x2
-            # TODO(@anton) throwing away the multiplier information is probably incorrect
-            #              but doing it correctly seems nontrivial
-            if solver.opts.magic_step_duals
-                MadNLP.variable(ipm.zl)[solver.ind_cc1] = @views ipm.mu ./ (
-                    MadNLP.variable(ipm.x)[solver.ind_cc1] .-
-                    MadNLP.variable(ipm.xl)[solver.ind_cc1]
-                )
-                MadNLP.variable(ipm.zl)[solver.ind_cc2] = @views ipm.mu ./ (
-                    MadNLP.variable(ipm.x)[solver.ind_cc2] .-
-                    MadNLP.variable(ipm.xl)[solver.ind_cc2]
-                )
-            end
-            if solver.opts.magic_step_slack
-                MadNLP.slack(ipm.x)[(end-ncc+1):end] .= -(1-𝜅)*ipm.mu
-            end
-            if solver.opts.magic_step_slack_dual
-                MadNLP.slack(ipm.zu)[(end-ncc+1):end] .= ipm.mu/((1-𝜅)*ipm.mu)
-            end
-            log_iter(solver.iterate_logger, solver; magic=true)
-        end
         if mu_updated && solver.opts.reset_slacks_on_update
             ind_cc1 = solver.ind_cc1
             ind_cc2 = solver.ind_cc2
