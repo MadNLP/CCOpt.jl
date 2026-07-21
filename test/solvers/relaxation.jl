@@ -99,4 +99,49 @@
         @test stats.objective ≈ 1 atol=1e-5
         @test stats.solution ≈ [1, 0] atol=1e-5
     end
+
+    @testset "Q regularization" begin
+        @testset "critical_rho" begin
+            mpcc = SimpleMPCCModel(Float64)
+            ccopt_opts = CCOpt.RelaxationOptions(
+                ;
+                print_level=MadNLP.ERROR,
+                q_regularization=:critical_rho
+            )
+            solver =
+                CCOpt.RelaxationSolver(mpcc;
+                                       solver_opts=ccopt_opts,
+                                       print_level=MadNLP.ERROR,
+                                       )
+
+            copyto!(get_x0(mpcc), [2; 1])
+
+            stats = CCOpt.solve_homotopy!(solver)
+
+            @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
+            @test stats.objective ≈ 1 atol=1e-5
+            @test stats.solution ≈ [1, 0] atol=1e-5
+        end
+        @testset "eigenvalue_decomposition" begin
+        mpcc = SimpleMPCCModel(Float64)
+        ccopt_opts = CCOpt.RelaxationOptions(
+            ;
+            print_level=MadNLP.ERROR,
+            q_regularization=:eigenvalue_decomposition
+        )
+        solver =
+            CCOpt.RelaxationSolver(mpcc;
+                                   solver_opts=ccopt_opts,
+                                   print_level=MadNLP.ERROR,
+                                   )
+
+        copyto!(get_x0(mpcc), [2; 1])
+
+        stats = CCOpt.solve_homotopy!(solver)
+
+        @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
+        @test stats.objective ≈ 1 atol=1e-5
+        @test stats.solution ≈ [1, 0] atol=1e-5
+    end
+    end
 end
