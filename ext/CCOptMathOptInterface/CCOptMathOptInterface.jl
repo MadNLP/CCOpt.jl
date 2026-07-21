@@ -39,14 +39,16 @@ const _CC_SETS = MathOptComplements.ComplementsWithSetType{MOI.Nonnegatives}
 mutable struct Optimizer <: MOI.AbstractOptimizer
     options::Dict{String, Any}
     solver
+    nlp::Union{Nothing, NLPModels.AbstractNLPModel}
     mpcc::Union{Nothing, CCOpt.MPCCModel}
     stats::Union{
         Nothing,
         CCOpt.CCOptExecutionStats{Float64, Vector{Float64}},
+        MadNLP.MadNLPExecutionStats{Float64, Vector{Float64}},
     }
     silent::Bool
     function Optimizer()
-        return new(Dict{String, Any}(), nothing, nothing, nothing, false)
+        return new(Dict{String, Any}(), nothing, nothing, nothing, nothing, false)
     end
 end
 
@@ -57,6 +59,7 @@ MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver) && isnothing(op
 function MOI.empty!(optimizer::Optimizer)
     optimizer.solver = nothing
     optimizer.mpcc = nothing
+    optimizer.nlp = nothing
     optimizer.stats = nothing
     return
 end
@@ -165,10 +168,22 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
         relax_options[:print_level] = MadNLP.ERROR
     end
 
-    cc_cons = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables, _CC_SETS}())
-    if isempty(cc_cons)
-        error("The model does not have any complementarity constraints. Please switch to an appropriate solver.")
+    filtered_src = MOI.Utilities.ModelFilter(src) do item
+        return item != (MOI.VectorOfVariables, _CC_SETS)
     end
+    # Use filtered_src to build NLPModels
+    nlp, index_map = NLPModelsJuMP.nlp_model(filtered_src)
+    dest.nlp = nlp
+
+    cc_cons = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables, _CC_SETS}())
+    # If no complementarity constraint is detected, we fallback to MadNLP
+    if isempty(cc_cons)
+        @warn("The model does not have any complementarity constraints. Switching to MadNLP.")
+        dest.mpcc = CCOpt.MPCCModelVarVar(nlp, Int[], Int[])
+        dest.solver = MadNLP.MadNLPSolver(nlp; options...)
+        return index_map
+    end
+
     ind_cc1, ind_cc2 = MOI.VariableIndex[], MOI.VariableIndex[]
     for cidx in cc_cons
         fun = MOI.get(src, MOI.ConstraintFunction(), cidx)
@@ -179,13 +194,6 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
             push!(ind_cc2, fun.variables[cc + n_comp])
         end
     end
-
-    filtered_src = MOI.Utilities.ModelFilter(src) do item
-        return item != (MOI.VectorOfVariables, _CC_SETS)
-    end
-
-    # Use filtered_src to build NLPModels
-    nlp, index_map = NLPModelsJuMP.nlp_model(filtered_src)
 
     ind_x1 = getfield.(ind_cc1, :value)
     ind_x2 = getfield.(ind_cc2, :value)
@@ -201,7 +209,11 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
 end
 
 function MOI.optimize!(model::Optimizer)
-    model.stats = CCOpt.solve_homotopy!(model.solver)
+    model.stats = if isa(model.solver, MadNLP.MadNLPSolver)
+        MadNLP.solve!(model.solver)
+    else
+        CCOpt.solve_homotopy!(model.solver)
+    end
     return
 end
 
@@ -211,7 +223,11 @@ function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
 end
 
 function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
-    return optimizer.stats.status
+    if optimizer.solver === nothing
+        return "Optimize not called"
+    end
+    opt = optimizer.solver.opt
+    return MadNLP.get_status_output(optimizer.stats.status, opt)
 end
 
 struct RawStatus <: MOI.AbstractModelAttribute
@@ -308,16 +324,16 @@ function row(
     optimizer::Optimizer,
     ci::MOI.ConstraintIndex{MOI.ScalarQuadraticFunction{Float64}},
 )
-    nlp = optimizer.mpcc.nlp
+    nlp = optimizer.nlp
     offset = nlp.meta.nlin
-    return ci.value + offset + 1
+    return ci.value + 1
 end
 
 function row(
     optimizer::Optimizer,
     ci::MOI.ConstraintIndex{MOI.ScalarNonlinearFunction},
 )
-    nlp = optimizer.mpcc.nlp
+    nlp = optimizer.nlp
     n_linquad = nlp.quadcon.nquad
     offset = nlp.meta.nlin + nlp.quadcon.nquad
     return ci.value + offset + 1
@@ -326,7 +342,7 @@ end
 ### MOI.ConstraintDual
 
 function _dual_multiplier(optimizer::Optimizer)
-    nlp = optimizer.mpcc.nlp
+    nlp = optimizer.nlp
     return NLPModels.get_minimize(nlp) ? 1.0 : -1.0
 end
 
@@ -355,7 +371,13 @@ function MOI.get(
     MOI.Interval{Float64},
 }
     MOI.check_result_index_bounds(model, attr)
-    return model.stats.multipliers_L[ci.value] - model.stats.multipliers_U[ci.value]
+    if S <: MOI.GreaterThan{Float64}
+        return model.stats.multipliers_L[ci.value]
+    elseif S <: MOI.LessThan{Float64}
+        return -model.stats.multipliers_U[ci.value]
+    else
+        return model.stats.multipliers_L[ci.value] - model.stats.multipliers_U[ci.value]
+    end
 end
 
 end
