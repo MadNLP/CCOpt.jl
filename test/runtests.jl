@@ -8,3 +8,7 @@ include("models/scholtes-relaxation.jl")
 include("solvers/homotopy-solver.jl")
 include("solvers/relaxation.jl")
 include("solvers/penalty.jl")
+
+@testset "MOI interface" begin
+    include("MOI_wrapper.jl")
+end
