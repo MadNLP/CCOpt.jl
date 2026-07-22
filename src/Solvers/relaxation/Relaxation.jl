@@ -187,6 +187,9 @@ end
     critical_rho_factor::T = 0.99
     min_reg_mu::T = 5e-6
 
+    # primal complementarity infeasibility metric
+    inf_cc_metric::Symbol = :product
+
     # Reset slacks
     reset_slacks_on_update::Bool = false
 

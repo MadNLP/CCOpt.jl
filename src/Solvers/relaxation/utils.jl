@@ -141,14 +141,27 @@ end
 
 function get_inf_pr_cc(solver::RelaxationSolver{T}) where {T}
     @views begin
-        map!(
-            (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
-            solver._cc1,
-            MadNLP.variable(solver.ipm.x)[solver.ind_cc1],
-            get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
-            MadNLP.variable(solver.ipm.x)[solver.ind_cc2],
-            get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)],
-        )
+        if solver.opts.inf_cc_metric == :product
+            map!(
+                (a, la, b, lb) -> max((a-la)*(b-lb), la-a, lb-b),
+                solver._cc1,
+                MadNLP.variable(solver.ipm.x)[solver.ind_cc1],
+                get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
+                MadNLP.variable(solver.ipm.x)[solver.ind_cc2],
+                get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)],
+            )
+        elseif solver.opts.inf_cc_metric == :min
+            map!(
+                (a, la, b, lb) -> max(min((a-la),(b-lb)), la-a, lb-b),
+                solver._cc1,
+                MadNLP.variable(solver.ipm.x)[solver.ind_cc1],
+                get_lvar(solver.mpcc)[get_ind_cc1(solver.mpcc)],
+                MadNLP.variable(solver.ipm.x)[solver.ind_cc2],
+                get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)],
+            )
+        else
+            error("unknown inf_cc_metric")
+        end
     end
     return reduce(max, solver._cc1; init=zero(T))
 end
