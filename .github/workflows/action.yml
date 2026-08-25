@@ -33,7 +33,7 @@ jobs:
           steps.changes.outputs.moi == 'true' ||
           github.event_name == 'push'
         run: |
-          echo "TEST_ARGS='$TEST_ARGS MOI'" >> "$GITHUB_ENV"
+          echo "TEST_ARGS='MOI'" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@latest
         with:
@@ -41,4 +41,4 @@ jobs:
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
         with:
-          test_args: ${{ env.test_args }}
+          test_args: ${{ env.TEST_ARGS }}
