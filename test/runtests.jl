@@ -9,6 +9,9 @@ include("solvers/homotopy-solver.jl")
 include("solvers/relaxation.jl")
 include("solvers/penalty.jl")
 
-@testset "MOI interface" begin
-    include("MOI_wrapper.jl")
+if "MOI" in ARGS:
+    # only run MOI if requested!
+    @testset "MOI interface" begin
+        include("MOI_wrapper.jl")
+    end
 end
