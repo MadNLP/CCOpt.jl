@@ -17,3 +17,11 @@ makedocs(
         "Installation" => "installation.md",
     ]
 )
+
+deploydocs(
+    repo = "github.com/MadNLP/CCOpt.jl.git",
+    target = "build",
+    devbranch = "master",
+    devurl = "dev",
+    push_preview = true,
+)
