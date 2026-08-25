@@ -20,8 +20,6 @@ jobs:
           os: [ubuntu-22.04]
           julia-version: ['1']
           julia-arch: [x64]
-    env:
-
     steps:
       - uses: dorny/paths-filter@v4
         id: changes
