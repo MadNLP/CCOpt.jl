@@ -405,7 +405,7 @@ function generate_mpcc_ad(
         Inf*ones(n_cc+n_ineq+n_dupe),
     )
 
-    mpcc = CCOpt.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
+    mpcc = MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
     name = "$(nl_obj)_$(n0)_$(n1)_$(n_ineq)"
 
     return name, CCOpt.vertical_form(mpcc)
@@ -644,7 +644,7 @@ function generate_mpcc_jump(
     #     Inf*ones(n_cc+n_ineq+n_dupe),
     # )
     nlp_vc = MathOptNLPModel(model)
-    mpcc = CCOpt.MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
+    mpcc = MPCCModelVarCon(nlp_vc, collect((n0+1):(n0+n1)), collect(1:n_cc))
 
     name = "$(nl_obj)_$(n0)_$(n1)_$(n_ineq)"
 
@@ -652,7 +652,7 @@ function generate_mpcc_jump(
 end
 
 function generate_benchmark_ad(n_probs)
-    mpccs = Vector{CCOpt.MPCCModel}()
+    mpccs = Vector{MPCCModel}()
     names = Vector{String}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter
@@ -674,7 +674,7 @@ function generate_benchmark_ad(n_probs)
 end
 
 function generate_benchmark_jump(n_probs)
-    mpccs = Vector{CCOpt.MPCCModel}()
+    mpccs = Vector{MPCCModel}()
     names = Vector{String}()
     #rng = Xoshiro(1)
     # Use twister? I guess it doesn't matter

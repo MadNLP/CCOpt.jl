@@ -42,9 +42,10 @@ In addition, CCOpt implements the crossover described in [this article](https://
 
 ### Input format
 
-CCOpt takes as input a MPCC formulated using the package [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/). The user has to pass explicitly the indices for the left-hand complementarity variable $$x_1$$ and the right-hand complementarity variable $$x_2$$. The problem is specified as
+CCOpt takes as input a MPCC formulated using the package [MPCCModels](https://github.com/MadNLP/MPCCModels.jl/) which is built on top of [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/). The user has to pass explicitly the indices for the left-hand complementarity variable $$x_1$$ and the right-hand complementarity variable $$x_2$$. The problem is specified as
 ```julia
-mpcc = CCOpt.MPCCModelVarVar(nlp, ind_x1, ind_x2)
+using MPCCModels
+mpcc = MPCCModel(nlp, ind_x1, ind_x2)
 
 ```
 

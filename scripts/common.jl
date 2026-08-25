@@ -17,7 +17,7 @@ function mpcc_from_ampl(ampl::AmplNLReader.AmplModel)
     ind_ccc2 = findall(!iszero, ampl.meta.cvar)
     # Then we store the corresponding variables
     ind_vcc1 = ampl.meta.cvar[ind_ccc2]
-    return CCOpt.MPCCModelVarCon(ampl, ind_vcc1, ind_ccc2)
+    return MPCCModelVarCon(ampl, ind_vcc1, ind_ccc2)
 end
 
 function save_madnlp_df(
@@ -75,15 +75,13 @@ end
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
     stats_madnlp_c::Vector{MadNLP.MadNLPExecutionStats{T, VT}},
-    probs::Vector{CCOpt.AbstractMPCCModel},
+    probs::Vector{AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            min(
-                CCOpt.comp_residual(mpcc, s.solution),
-                CCOpt.comp_residual_product(mpcc, s.solution),
-            ) for (mpcc, s) in zip(probs, stats_madnlp_c)
+            min(comp_residual(mpcc, s.solution), comp_residual_product(mpcc, s.solution))
+            for (mpcc, s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
         name=names,
@@ -119,10 +117,8 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            min(
-                CCOpt.comp_residual(mpcc, s.solution),
-                CCOpt.comp_residual_product(mpcc, s.solution),
-            ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
+            min(comp_residual(mpcc, s.solution), comp_residual_product(mpcc, s.solution))
+            for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
         name=names,
@@ -151,7 +147,7 @@ end
 function save_madnlp_c_df(
     names::Vector{<:AbstractString},
     stats_madnlp_c::Vector{CCOpt.CCOptExecutionStats{T, VT}},
-    probs::Vector{CCOpt.AbstractMPCCModel},
+    probs::Vector{AbstractMPCCModel},
     name::AbstractString,
 ) where {T, VT}
     inf_cc = inf_cc=[s.inf_pr_cc for (mpcc, s) in zip(probs, stats_madnlp_c)]
@@ -193,10 +189,8 @@ function save_madnlp_c_df(
 ) where {T, VT}
     inf_cc =
         inf_cc=[
-            min(
-                CCOpt.comp_residual(mpcc, s.solution),
-                CCOpt.comp_residual_product(mpcc, s.solution),
-            ) for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
+            min(comp_residual(mpcc, s.solution), comp_residual_product(mpcc, s.solution))
+            for ((name, mpcc), s) in zip(probs, stats_madnlp_c)
         ]
     df_madnlp_c = DataFrame(
         name=names,
@@ -251,16 +245,14 @@ end
 function save_ncl_df(
     names::Vector{<:AbstractString},
     stats_ncl::Vector{Union{MadNCL.NCLStats{T}, Nothing}},
-    probs::Vector{<:CCOpt.AbstractMPCCModel},
+    probs::Vector{<:AbstractMPCCModel},
     name::AbstractString,
 ) where {T}
     inf_cc =
         inf_cc=[
             !isnothing(s) ?
-            min(
-                CCOpt.comp_residual(mpcc, s.solution),
-                CCOpt.comp_residual_product(mpcc, s.solution),
-            ) : Inf for (mpcc, s) in zip(probs, stats_ncl)
+            min(comp_residual(mpcc, s.solution), comp_residual_product(mpcc, s.solution)) :
+            Inf for (mpcc, s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,
@@ -294,10 +286,8 @@ function save_ncl_df(
     inf_cc =
         inf_cc=[
             !isnothing(s) ?
-            min(
-                CCOpt.comp_residual(mpcc, s.solution),
-                CCOpt.comp_residual_product(mpcc, s.solution),
-            ) : Inf for ((name, mpcc), s) in zip(probs, stats_ncl)
+            min(comp_residual(mpcc, s.solution), comp_residual_product(mpcc, s.solution)) :
+            Inf for ((name, mpcc), s) in zip(probs, stats_ncl)
         ]
     df_ncl = DataFrame(
         name=names,
@@ -520,7 +510,7 @@ function load_from_matlab_csv(filepath)
 end
 
 function solve_benchmark_problem(
-    mpcc::CCOpt.AbstractMPCCModel,
+    mpcc::AbstractMPCCModel,
     opts::CCOpt.HomotopySolverOptions,
     solver::Type,
 )
@@ -530,7 +520,7 @@ function solve_benchmark_problem(
 end
 
 function solve_benchmark_problem(
-    mpcc::CCOpt.AbstractMPCCModel,
+    mpcc::AbstractMPCCModel,
     opts::CCOpt.RelaxationOptions,
     sol_args...,
 )
@@ -540,7 +530,7 @@ function solve_benchmark_problem(
 end
 
 function solve_benchmark_problem(
-    mpcc::CCOpt.AbstractMPCCModel,
+    mpcc::AbstractMPCCModel,
     opts::CCOpt.PenaltyOptions,
     sol_args...,
 )
@@ -550,7 +540,7 @@ function solve_benchmark_problem(
 end
 
 function solve_benchmark_problem(
-    mpcc::CCOpt.AbstractMPCCModel,
+    mpcc::AbstractMPCCModel,
     opts::MadNCL.NCLOptions,
     sol_args...,
 )
@@ -566,7 +556,7 @@ function solve_benchmark_problem(
 end
 
 function run_benchmark(
-    probs::Vector{<:CCOpt.AbstractMPCCModel},
+    probs::Vector{<:AbstractMPCCModel},
     solfun,
     opts::CCOpt.RelaxationOptions,
     solargs...,
@@ -583,7 +573,7 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{<:CCOpt.AbstractMPCCModel},
+    probs::Vector{<:AbstractMPCCModel},
     solfun,
     opts::CCOpt.PenaltyOptions,
     solargs...,
@@ -600,7 +590,7 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{<:CCOpt.AbstractMPCCModel},
+    probs::Vector{<:AbstractMPCCModel},
     solfun,
     opts::T,
     solargs...,
@@ -615,7 +605,7 @@ function run_benchmark(
 end
 
 function run_benchmark(
-    probs::Vector{<:CCOpt.AbstractMPCCModel},
+    probs::Vector{<:AbstractMPCCModel},
     solfun,
     opts::T,
     solargs...,

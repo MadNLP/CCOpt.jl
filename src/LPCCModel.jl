@@ -16,5 +16,5 @@ function LPCCModel(mpcc::MPCCModel{T, VT}, x0::VT; tr::T=T(Inf)) where {T, VT}
     tr_vec[get_ind_cc2(mpcc)] .= Inf
     lp = LinearModel(mpcc.nlp, x0; tr=tr_vec)
 
-    return MPCCModelVarVar(lp, get_ind_cc1(mpcc), get_ind_cc2(mpcc))
+    return MPCCModel(lp, get_ind_cc1(mpcc), get_ind_cc2(mpcc))
 end

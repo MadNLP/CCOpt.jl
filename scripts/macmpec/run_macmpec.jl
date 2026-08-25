@@ -2,7 +2,7 @@ include("../common.jl")
 
 function load_ampl_benchmark(nlpath::AbstractString)
     probs = readdir(abspath(nlpath), join=true)
-    mpccs::Vector{CCOpt.AbstractMPCCModel} = []
+    mpccs::Vector{AbstractMPCCModel} = []
     names = Vector{String}()
     for i in 1:length(probs)
         model = AmplNLReader.AmplModel(probs[i])

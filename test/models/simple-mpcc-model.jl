@@ -20,7 +20,7 @@ function SimpleMPCCModel(T::Type)
     nlp_vv = ADNLPModels.ADNLPModel(f, x0, lvar_vv, uvar_vv)
 
     # Test MPCCVarVar
-    return CCOpt.MPCCModelVarVar(nlp_vv, ind_vcc1, ind_vcc2)
+    return MPCCModel(nlp_vv, ind_vcc1, ind_vcc2)
 end
 
 """
@@ -45,5 +45,5 @@ function SimpleMPCCModel2(T::Type)
     nlp_vv = ADNLPModels.ADNLPModel(f, x0, lvar_vv, uvar_vv)
 
     # Test MPCCVarVar
-    return CCOpt.MPCCModelVarVar(nlp_vv, ind_vcc1, ind_vcc2)
+    return MPCCModel(nlp_vv, ind_vcc1, ind_vcc2)
 end
