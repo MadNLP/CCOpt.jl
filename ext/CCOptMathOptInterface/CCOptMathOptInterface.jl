@@ -13,6 +13,7 @@ using MathOptComplements
 using CCOpt
 using MadNLP
 using NLPModels
+using MPCCModels
 using NLPModelsJuMP
 
 const MOI = MathOptComplements.MOI
@@ -40,7 +41,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     options::Dict{String, Any}
     solver
     nlp::Union{Nothing, NLPModels.AbstractNLPModel}
-    mpcc::Union{Nothing, CCOpt.MPCCModel}
+    mpcc::Union{Nothing, MPCCModel}
     stats::Union{
         Nothing,
         CCOpt.CCOptExecutionStats{Float64, Vector{Float64}},
@@ -54,7 +55,9 @@ end
 
 MOI.get(::Optimizer, ::MOI.SolverName) = "CCOpt"
 
-MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver) && isnothing(optimizer.mpcc)
+function MOI.is_empty(optimizer::Optimizer)
+    return isnothing(optimizer.solver) && isnothing(optimizer.mpcc)
+end
 
 function MOI.empty!(optimizer::Optimizer)
     optimizer.solver = nothing
@@ -103,7 +106,7 @@ function MOI.supports(
                 MOI.ScalarAffineFunction{Float64},
                 MOI.ScalarQuadraticFunction{Float64},
                 MOI.ScalarNonlinearFunction,
-            }
+            },
         },
         MOI.NLPBlock,
         MOI.UserDefinedFunction,
@@ -151,9 +154,8 @@ end
 
 function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
     MOI.empty!(dest)
-    options = Dict{Symbol, Any}(
-        Symbol(key) => dest.options[key] for key in keys(dest.options)
-    )
+    options =
+        Dict{Symbol, Any}(Symbol(key) => dest.options[key] for key in keys(dest.options))
     # Parse options for homotopy
     relax_options = Dict{Symbol, Any}()
     for key in keys(options)
@@ -178,8 +180,10 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
     cc_cons = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables, _CC_SETS}())
     # If no complementarity constraint is detected, we fallback to MadNLP
     if isempty(cc_cons)
-        @warn("The model does not have any complementarity constraints. Switching to MadNLP.")
-        dest.mpcc = CCOpt.MPCCModelVarVar(nlp, Int[], Int[])
+        @warn(
+            "The model does not have any complementarity constraints. Switching to MadNLP."
+        )
+        dest.mpcc = MPCCModel(nlp, Int[], Int[])
         dest.solver = MadNLP.MadNLPSolver(nlp; options...)
         return index_map
     end
@@ -191,18 +195,18 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
         n_comp = div(set.dimension, 2)
         for cc in 1:n_comp
             push!(ind_cc1, fun.variables[cc])
-            push!(ind_cc2, fun.variables[cc + n_comp])
+            push!(ind_cc2, fun.variables[cc+n_comp])
         end
     end
 
     ind_x1 = getfield.(ind_cc1, :value)
     ind_x2 = getfield.(ind_cc2, :value)
 
-    dest.mpcc = CCOpt.MPCCModelVarVar(nlp, ind_x1, ind_x2)
+    dest.mpcc = MPCCModel(nlp, ind_x1, ind_x2)
     dest.solver = CCOpt.RelaxationSolver(
         dest.mpcc;
-        solver_opts = CCOpt.RelaxationOptions(; relax_options...),
-        options...
+        solver_opts=CCOpt.RelaxationOptions(; relax_options...),
+        options...,
     )
 
     return index_map
@@ -240,7 +244,7 @@ function MOI.get(optimizer::Optimizer, attr::RawStatus)
     return getfield(optimizer.stats, attr.name)
 end
 
-const TERMINATION_STATUS = Dict{MadNLP.Status,MOI.TerminationStatusCode}(
+const TERMINATION_STATUS = Dict{MadNLP.Status, MOI.TerminationStatusCode}(
     MadNLP.SOLVE_SUCCEEDED => MOI.LOCALLY_SOLVED,
     MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL => MOI.ALMOST_LOCALLY_SOLVED,
     MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL => MOI.SLOW_PROGRESS,
@@ -329,10 +333,7 @@ function row(
     return ci.value + 1
 end
 
-function row(
-    optimizer::Optimizer,
-    ci::MOI.ConstraintIndex{MOI.ScalarNonlinearFunction},
-)
+function row(optimizer::Optimizer, ci::MOI.ConstraintIndex{MOI.ScalarNonlinearFunction})
     nlp = optimizer.nlp
     n_linquad = nlp.quadcon.nquad
     offset = nlp.meta.nlin + nlp.quadcon.nquad
@@ -350,10 +351,12 @@ function MOI.get(
     optimizer::Optimizer,
     attr::MOI.ConstraintDual,
     ci::MOI.ConstraintIndex{F, <:_SETS},
-) where F <: Union{
-    MOI.ScalarAffineFunction{Float64},
-    MOI.ScalarQuadraticFunction{Float64},
-    MOI.ScalarNonlinearFunction,
+) where {
+    F <: Union{
+        MOI.ScalarAffineFunction{Float64},
+        MOI.ScalarQuadraticFunction{Float64},
+        MOI.ScalarNonlinearFunction,
+    },
 }
     MOI.check_result_index_bounds(optimizer, attr)
     s = -_dual_multiplier(optimizer)
@@ -364,11 +367,13 @@ function MOI.get(
     model::Optimizer,
     attr::MOI.ConstraintDual,
     ci::MOI.ConstraintIndex{MOI.VariableIndex, S},
-) where S <: Union{
-    MOI.LessThan{Float64},
-    MOI.GreaterThan{Float64},
-    MOI.EqualTo{Float64},
-    MOI.Interval{Float64},
+) where {
+    S <: Union{
+        MOI.LessThan{Float64},
+        MOI.GreaterThan{Float64},
+        MOI.EqualTo{Float64},
+        MOI.Interval{Float64},
+    },
 }
     MOI.check_result_index_bounds(model, attr)
     if S <: MOI.GreaterThan{Float64}
