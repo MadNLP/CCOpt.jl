@@ -187,14 +187,6 @@ end
     critical_rho_factor::T = 0.99
     min_reg_mu::T = 5e-6
 
-    # Magic step options
-    use_magic_step::Bool = false
-    magic_step_kappa::T = 0.5
-    magic_step_projection_heuristic::Symbol = :min_f
-    magic_step_duals::Bool = true
-    magic_step_slack::Bool = true
-    magic_step_slack_dual::Bool = true
-
     # Reset slacks
     reset_slacks_on_update::Bool = false
 
