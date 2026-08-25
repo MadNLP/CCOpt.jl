@@ -41,4 +41,4 @@ jobs:
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
         with:
-          test-args: ${{ env.test_args }}
+          test_args: ${{ env.test_args }}
