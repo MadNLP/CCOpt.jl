@@ -2,7 +2,7 @@ module CCOpt
 using NLPModels, MPCCModels, SolverCore, LinearAlgebra, SparseArrays
 using Serialization
 using Printf
-using DataStructures: CircularBuffer
+using DataStructures: CircularBuffer, isfull
 import MadNLP
 
 include("types.jl")
