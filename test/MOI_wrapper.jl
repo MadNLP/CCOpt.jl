@@ -47,6 +47,7 @@ function test_runtests()
         model,
         config,
         exclude = [
+            "test_basic_VectorAffineFunction_Complements", # CC RHS is mispecified
             "test_basic_VectorQuadraticFunction_Complements", # CC RHS is mispecified
             r"test_linear_DUAL_INFEASIBLE*", # diverging iterate
             "test_linear_integration_delete_variables",
