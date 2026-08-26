@@ -2,7 +2,7 @@ module CCOpt
 using NLPModels, MPCCModels, SolverCore, LinearAlgebra, SparseArrays
 using Serialization
 using Printf
-using DataStructures: CircularBuffer
+using DataStructures: CircularBuffer, isfull
 import MadNLP
 
 include("types.jl")
@@ -12,12 +12,8 @@ include("MPCCRelaxationModel.jl")
 include("MPCCPenaltyModel.jl")
 
 include("Models/scholtes_relaxation.jl")
-include("Models/fischer_burmeister_relaxation.jl")
-include("Models/chen_chen_kanzow_relaxation.jl")
-include("Models/natural_residual_relaxation.jl")
 include("Models/branch_nlp.jl")
 include("Models/l1_exact_penalty.jl")
-include("Models/lasry_lions_penalty.jl")
 include("Models/big_m_model.jl")
 
 include("utils.jl")

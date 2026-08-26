@@ -31,10 +31,6 @@ function ScholtesRelaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
     nnzj = get_nnzj(mpcc) + 2*get_ncc(mpcc)
     nln_nnzj = get_nln_nnzj(mpcc) + 2*get_ncc(mpcc) # All the nln values are
 
-    # TODO(@anton) this is a bug actually. we need to check the structure of the mpcc (and the underlying nlp) to
-    #              figure out if the nnzh is correct as if the off diagonals are not already in the nonzeros.
-    #
-    # TODO(@anton) This may or may not break the assumptions made by show(::NLPModelMeta)
     nnzh = get_nnzh(mpcc) + get_ncc(mpcc)
     # TODO(@anton) We may need to change how nlv(b,o,c) are handled because we actually cannot
     #              backcalculate how these need to change necessarily.
