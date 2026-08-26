@@ -21,6 +21,30 @@ mpcc = MPCCModel(nlp, ind_x1, ind_x2)
 with `ind_x1` (resp. `ind_x2`) the indices of the variables appearing in the left-hand complementarity
 (resp. right-hand complementarity).
 
+### Formulating a MPCC with JuMP
+
+CCOpt supports the modeler JuMP with the extension [MathOptComplements](https://github.com/blegat/MathOptComplements.jl). The following example shows how to formulate a MPCC with JuMP and solve it with CCOpt:
+
+```julia
+using JuMP
+using MathOptComplements
+using NLPModelsJuMP
+using CCOpt
+
+model = Model()
+@variable(model, z[1:2] >= 0)
+@objective(model, Min, z[1] + z[2])
+@constraint(model, c1, z[2]^2 >= 1)
+@constraint(model, comp, [z[1], z[2]] ∈ MOI.Complements(2))
+
+MathOptComplements.Bridges.add_all_bridges(model)
+set_optimizer(model, CCOpt.Optimizer)
+JuMP.optimize!(model)
+
+```
+
+## Solution methods
+
 ### Relaxation method
 
 Once specified, you can solve the MPCC problem implemented in `mpcc` using the relaxation method as

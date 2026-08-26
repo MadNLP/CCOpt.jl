@@ -10,8 +10,10 @@ on:
 
 jobs:
   test-github:
-    name: CCOpt - ${{ matrix.julia-version }}
+    name: CCOpt - ${{ matrix.julia-version }} - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      pull-requests: read
     strategy:
       fail-fast: false
       matrix:
@@ -19,9 +21,25 @@ jobs:
           julia-version: ['1', 'lts', 'pre']
           julia-arch: [x64]
     steps:
+      - uses: dorny/paths-filter@v4
+        id: changes
+        with:
+          filters: |
+            moi:
+              - 'ext/CCOptMathOptInterface/**'
+              - 'test/MOI_wrapper.jl'
+      - name: add mot tests # run moi tests on master and if the wrapper is changed.
+        if: |
+          steps.changes.outputs.moi == 'true' ||
+          github.event_name == 'push'
+        shell: bash
+        run: |
+          echo "TEST_ARGS='MOI'" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@latest
         with:
           version: ${{ matrix.julia-version }}
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
+        with:
+          test_args: ${{ env.TEST_ARGS }}
