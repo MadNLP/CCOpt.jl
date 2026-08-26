@@ -7,7 +7,7 @@ function update_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = sigma_from_mu(solver, relax, solver.ipm.mu)
     if relax.monotone
@@ -16,7 +16,7 @@ function update_sigma!(
         set_relaxation(rnlp, sigma_candidate)
     end
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
 end
@@ -30,7 +30,7 @@ function update_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = sigma_from_mu(solver, relax, solver.ipm.mu)
     if relax.monotone
@@ -39,7 +39,7 @@ function update_sigma!(
         set_relaxation(rnlp, sigma_candidate)
     end
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     # Here we assume the barrier update handles whether we throw out the filter.
     return nothing
 end
@@ -88,10 +88,10 @@ function update_sigma!(
     )
     inf_pr = ipm.inf_pr
     sigma = get_relaxation(rnlp)[1]
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     accuracy = get_accuracy(relax, sigma)
     while (sigma > max(relax.sigma_min, ipm.opt.tol/10)) &&
-        (max(inf_pr, ipm.inf_du, inf_compl_mu) <= accuracy)
+          (max(inf_pr, ipm.inf_du, inf_compl_mu) <= accuracy)
         sigma_new = get_sigma(
             sigma,
             relax.sigma_min,
@@ -121,7 +121,7 @@ function update_sigma!(
         push!(ipm.filter, (ipm.theta_max, -Inf))
     end
     set_relaxation(rnlp, sigma)
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     return
 end
 
@@ -134,7 +134,7 @@ function update_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # Calculate mean primal complementarity
     cc_pr = @views dot(
         MadNLP.variable(ipm.x)[solver.ind_cc1] - MadNLP.variable(ipm.xl)[solver.ind_cc1],
@@ -157,7 +157,7 @@ function update_sigma!(
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
     set_relaxation(rnlp, max(gamma_sigma*mean_cc, relax.sigma_min, relax.mu_factor*ipm.mu))
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     # Throw out the filter as the barrier problem has changed
     empty!(ipm.filter)
     push!(ipm.filter, (ipm.theta_max, -Inf))
@@ -220,7 +220,7 @@ function update_sigma!(
     MadNLP.variable(ipm.xl)[ind_cc1] .= @view(get_lvar(mpcc)[get_ind_cc1(mpcc)]) .- rnlp.δ1
     MadNLP.variable(ipm.xl)[ind_cc2] .= @view(get_lvar(mpcc)[get_ind_cc2(mpcc)]) .- rnlp.δ2
     updated = false
-    @views ipm.c[(end-ncc+1):end] .+= rnlp.σ
+    (@view ipm.c[(end-ncc+1):end]) .+= rnlp.σ
     for ii in 1:ncc
         cc1 = ind_cc1[ii]
         cc2 = ind_cc2[ii]
@@ -269,18 +269,18 @@ function update_sigma!(
 
             if x1 <= 0 # we are lower bound infeasible:
                 max_decrease =
-                    (
-                        relax.k_ftb
-                    )*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
+                    (relax.k_ftb)*(
+                        MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
+                    )
                 rnlp.δ1[ii] = max(relax.kappa*rnlp.δ1[ii], rnlp.δ1[ii]-max_decrease)
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
                 updated = true
             end
             if x2 <= 0 # we are lower bound infeasible:
                 max_decrease =
-                    (
-                        relax.k_ftb
-                    )*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
+                    (relax.k_ftb)*(
+                        MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
+                    )
                 rnlp.δ2[ii] = max(relax.kappa*rnlp.δ2[ii], rnlp.δ2[ii]-max_decrease)
                 MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
                 updated = true
@@ -291,7 +291,7 @@ function update_sigma!(
             end
         end
     end
-    @views ipm.c[(end-ncc+1):end] .-= rnlp.σ
+    (@view ipm.c[(end-ncc+1):end]) .-= rnlp.σ
     if updated
         empty!(ipm.filter)
         push!(ipm.filter, (ipm.theta_max, -Inf))
@@ -307,11 +307,11 @@ function init_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # calculate new sigma
     set_relaxation(rnlp, sigma_from_mu(solver, relax, solver.ipm.mu))
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     return nothing
 end
 
@@ -324,11 +324,11 @@ function init_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # calculate new sigma
     set_relaxation(rnlp, sigma_from_mu(solver, relax, solver.ipm.mu))
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     return nothing
 end
 
@@ -341,7 +341,7 @@ function init_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # Calculate mean primal complementarity
     cc_pr = @views dot(
         MadNLP.variable(ipm.x)[solver.ind_cc1] - MadNLP.variable(ipm.xl)[solver.ind_cc1],
@@ -364,7 +364,7 @@ function init_sigma!(
     # TODO(@anton) in principle we would like to not reduce this too much depending on how close we are to the KKT conds
     set_relaxation(rnlp, max(gamma_sigma*mean_cc, relax.sigma_min, relax.mu_factor*ipm.mu))
     # update c
-    @views c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     # Throw out the filter as the barrier problem has changed
     empty!(ipm.filter)
     push!(ipm.filter, (ipm.theta_max, -Inf))
@@ -380,12 +380,12 @@ function init_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # calculate new sigma
     sigma_candidate = relax.sigma_mu_ratio*(solver.ipm.mu^relax.sigma_mu_exp)
     set_relaxation(rnlp, max(sigma_candidate, relax.sigma_min))
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     return nothing
 end
 
@@ -398,11 +398,11 @@ function init_sigma!(
     mpcc = solver.mpcc
     ncc = get_ncc(mpcc)
     # update c
-    @views ipm.c[(end-ncc+1):end] .+= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     # calculate new sigma
     set_relaxation(rnlp, relax.sigma_init)
     # update c
-    @views ipm.c[(end-ncc+1):end] .-= get_relaxation(rnlp)
+    (@view ipm.c[(end-ncc+1):end]) .-= get_relaxation(rnlp)
     return nothing
 end
 
@@ -430,8 +430,8 @@ function sigma_from_mu(
     mu::T,
 ) where {T}
     sigma_candidate =
-        relax.rolloff_max*(
-            mu^relax.rolloff_slope
-        )/(sqrt((mu^relax.rolloff_slope)^2) + relax.rolloff_point)
+        relax.rolloff_max*(mu^relax.rolloff_slope)/(
+            sqrt((mu^relax.rolloff_slope)^2) + relax.rolloff_point
+        )
     return max(sigma_candidate, relax.sigma_min)
 end
