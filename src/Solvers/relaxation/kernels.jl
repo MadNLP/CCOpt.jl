@@ -22,7 +22,7 @@ function MadNLP.get_min_complementarity(solver::RelaxationSolver{T}) where {T}
         ipm.x_lr,
         ipm.xl_r,
         ipm.zl_r,
-        init=T(Inf),
+        init = T(Inf),
     )
     cc_ub = mapreduce(
         (x_u, xu, zu) -> (xu-x_u)*zu,
@@ -30,7 +30,7 @@ function MadNLP.get_min_complementarity(solver::RelaxationSolver{T}) where {T}
         ipm.x_ur,
         ipm.xu_r,
         ipm.zu_r,
-        init=T(Inf),
+        init = T(Inf),
     )
     # We know mpcc is in vertical form, therefore:
     cc_pr = @views mapreduce(
@@ -40,7 +40,7 @@ function MadNLP.get_min_complementarity(solver::RelaxationSolver{T}) where {T}
         MadNLP.variable(ipm.xl)[solver.ind_cc1],
         MadNLP.variable(ipm.x)[solver.ind_cc2],
         MadNLP.variable(ipm.xl)[solver.ind_cc2],
-        init=T(Inf),
+        init = T(Inf),
     )
     return min(cc_lb, cc_ub, cc_pr)
 end

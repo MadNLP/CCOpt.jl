@@ -29,9 +29,9 @@ end
 mutable struct PenaltySolver{
     T,
     VT,
-    MPCC <: AbstractMPCCModel{T, VT},
-    PNLP <: AbstractMPCCPenaltyModel{T, VT},
-    SOLVER <: MadNLP.MadNLPSolver{T, VT},
+    MPCC<:AbstractMPCCModel{T,VT},
+    PNLP<:AbstractMPCCPenaltyModel{T,VT},
+    SOLVER<:MadNLP.MadNLPSolver{T,VT},
 }
     const mpcc::MPCC
     const pnlp::PNLP
@@ -89,18 +89,19 @@ end
   epubs.siam.org/doi/10.1137/040621065
 """
 function PenaltySolver(
-    mpcc::AbstractMPCCModel{T, VT};
-    solver_opts=PenaltyOptions(),
+    mpcc::AbstractMPCCModel{T,VT};
+    solver_opts = PenaltyOptions(),
     ipm_options...,
-) where {T, VT}
+) where {T,VT}
     start_time = time()
     pnlp = solver_opts.penalty(mpcc)
     ipm = MadNLP.MadNLPSolver(pnlp; ipm_options...)
-    cnt = CCOptCounters(counters=ipm.cnt)
+    cnt = CCOptCounters(counters = ipm.cnt)
     logger = MadNLP.MadNLPLogger(
-        print_level=solver_opts.print_level,
-        file_print_level=solver_opts.file_print_level,
-        file=solver_opts.output_file == "" ? nothing : open(solver_opts.output_file, "w+"),
+        print_level = solver_opts.print_level,
+        file_print_level = solver_opts.file_print_level,
+        file = solver_opts.output_file == "" ? nothing :
+               open(solver_opts.output_file, "w+"),
     )
 
     pr_comp_hist = CircularBuffer{T}(solver_opts.comp_history_length)

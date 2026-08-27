@@ -1,5 +1,5 @@
 @kwdef mutable struct IterateLogger
-    file::Union{IOStream, Nothing} = nothing
+    file::Union{IOStream,Nothing} = nothing
 end
 # Relaxation updates
 
@@ -106,7 +106,7 @@ struct NoEndgameStrategy{T} <: AbstractEndgameStrategy{T} end
 end
 
 # Iterate saving structure
-struct RelaxationIterate{T, VT}
+struct RelaxationIterate{T,VT}
     k::Int
 
     x0::VT
@@ -120,7 +120,7 @@ struct RelaxationIterate{T, VT}
 
     y::VT
 
-    p::MadNLP.UnreducedKKTVector{T, VT}
+    p::MadNLP.UnreducedKKTVector{T,VT}
 
     alpha_pr::T
     alpha_du::T
@@ -154,8 +154,8 @@ end
 # Options struct
 @kwdef struct RelaxationOptions{
     T,
-    RELAX <: AbstractRelaxationUpdate{T},
-    EG <: AbstractEndgameStrategy{T},
+    RELAX<:AbstractRelaxationUpdate{T},
+    EG<:AbstractEndgameStrategy{T},
 } <: MadNLP.AbstractOptions
     # Relaxation type
     relaxation::Type = ScholtesRelaxation
@@ -208,18 +208,18 @@ end
 mutable struct RelaxationSolver{
     T,
     VT,
-    MPCC <: AbstractMPCCModel{T, VT},
-    RNLP <: AbstractMPCCRelaxation{T, VT},
-    RELAX <: AbstractRelaxationUpdate{T},
-    EG <: AbstractEndgameStrategy{T},
-    SOLVER <: MadNLP.MadNLPSolver{T, VT},
+    MPCC<:AbstractMPCCModel{T,VT},
+    RNLP<:AbstractMPCCRelaxation{T,VT},
+    RELAX<:AbstractRelaxationUpdate{T},
+    EG<:AbstractEndgameStrategy{T},
+    SOLVER<:MadNLP.MadNLPSolver{T,VT},
 }
     const mpcc::MPCC
     const rnlp::RNLP
     const ipm::SOLVER
     const logger::MadNLP.MadNLPLogger
     const iterate_logger::IterateLogger
-    const opts::RelaxationOptions{T, RELAX, EG}
+    const opts::RelaxationOptions{T,RELAX,EG}
     const cnt::CCOptCounters
     inf_pr_cc::T
     const _cc1::VT
@@ -234,25 +234,26 @@ mutable struct RelaxationSolver{
 end
 
 function RelaxationSolver(
-    mpcc::AbstractMPCCModel{T, VT};
-    solver_opts=RelaxationOptions(),
+    mpcc::AbstractMPCCModel{T,VT};
+    solver_opts = RelaxationOptions(),
     ipm_options...,
-) where {T, VT}
+) where {T,VT}
     start_time = time()
     rnlp = solver_opts.relaxation(mpcc)
     ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
-    cnt = CCOptCounters(counters=ipm.cnt)
+    cnt = CCOptCounters(counters = ipm.cnt)
     initialize_relaxation(rnlp, ipm.opt.barrier.mu_init, solver_opts.delta_init)
 
     logger = MadNLP.MadNLPLogger(
-        print_level=solver_opts.print_level,
-        file_print_level=solver_opts.file_print_level,
-        file=solver_opts.output_file == "" ? nothing : open(solver_opts.output_file, "w+"),
+        print_level = solver_opts.print_level,
+        file_print_level = solver_opts.file_print_level,
+        file = solver_opts.output_file == "" ? nothing :
+               open(solver_opts.output_file, "w+"),
     )
 
     iterates_logger = IterateLogger(
-        file=solver_opts.iterates_fname == "" ? nothing :
-             open(solver_opts.iterates_fname, "w+"),
+        file = solver_opts.iterates_fname == "" ? nothing :
+               open(solver_opts.iterates_fname, "w+"),
     )
 
     x = VT(undef, get_nvar(mpcc))

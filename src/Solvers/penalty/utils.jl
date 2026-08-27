@@ -1,4 +1,4 @@
-function MadNLP.print_iter(solver::PenaltySolver{T, VT}; is_resto=false) where {T, VT}
+function MadNLP.print_iter(solver::PenaltySolver{T,VT}; is_resto = false) where {T,VT}
     ipm = solver.ipm
     obj_scale = ipm.cb.obj_scale[]
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(
@@ -43,7 +43,7 @@ function MadNLP.print_iter(solver::PenaltySolver{T, VT}; is_resto=false) where {
     return
 end
 
-function get_inf_pr_cc(solver::PenaltySolver{T, VT}) where {T, VT}
+function get_inf_pr_cc(solver::PenaltySolver{T,VT}) where {T,VT}
     inf_pr_cc = zero(T)
     @views begin
         a = MadNLP.variable(solver.ipm.x)[solver.ind_cc1]
@@ -60,7 +60,7 @@ function get_inf_pr_cc(solver::PenaltySolver{T, VT}) where {T, VT}
     return inf_pr_cc
 end
 
-function get_inf_pr_cc_prod(solver::PenaltySolver{T, VT}) where {T, VT}
+function get_inf_pr_cc_prod(solver::PenaltySolver{T,VT}) where {T,VT}
     inf_pr_cc_prod = zero(T)
     @views begin
         a = MadNLP.variable(solver.ipm.x)[solver.ind_cc1]
@@ -77,7 +77,7 @@ function get_inf_pr_cc_prod(solver::PenaltySolver{T, VT}) where {T, VT}
     return inf_pr_cc_prod
 end
 
-function get_inf_pr_cc_sum(solver::PenaltySolver{T, VT}) where {T, VT}
+function get_inf_pr_cc_sum(solver::PenaltySolver{T,VT}) where {T,VT}
     inf_pr_cc_sum = zero(T)
     @views begin
         a = MadNLP.variable(solver.ipm.x)[solver.ind_cc1]

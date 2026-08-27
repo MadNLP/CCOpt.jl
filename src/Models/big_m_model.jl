@@ -1,8 +1,8 @@
 ######################### BigM Relaxation of LPCCs #########################
 # TODO(@anton) implement a x-less eval of grad etc.
-struct BigMModel{T, VT, MT <: LPCCModel} <: AbstractNLPModel{T, VT}
+struct BigMModel{T,VT,MT<:LPCCModel} <: AbstractNLPModel{T,VT}
     lpcc::MT
-    meta::NLPModels.NLPModelMeta{T, VT}
+    meta::NLPModels.NLPModelMeta{T,VT}
     Mrows::IndexSet
     Mcols::IndexSet
     Mvals::VT
@@ -33,16 +33,16 @@ function BigMModel(lpcc::LPCCModel{T,VT}, M::T) where {T,VT}
 
     meta = NLPModels.NLPModelMeta(
         lpcc.nlp.meta;
-        nvar=nvar+ncc,
-        ncon=ncon+2*ncc,
-        lcon=lcon,
-        ucon=ucon,
-        lvar=lvar,
-        uvar=uvar,
-        y0=y0,
-        x0=x0,
-        nnzj=nnzj,
-        lin_nnzj=lin_nnzj,
+        nvar = nvar+ncc,
+        ncon = ncon+2*ncc,
+        lcon = lcon,
+        ucon = ucon,
+        lvar = lvar,
+        uvar = uvar,
+        y0 = y0,
+        x0 = x0,
+        nnzj = nnzj,
+        lin_nnzj = lin_nnzj,
     )
     # build bigm addition
     Mrows = IndexSet(undef, 4*ncc)

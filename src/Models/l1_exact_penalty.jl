@@ -1,12 +1,12 @@
 ######################### Ell1 Relaxation #########################
-struct Ell1Relaxation{T, VT, MT} <: AbstractMPCCPenaltyModel{T, VT}
+struct Ell1Relaxation{T,VT,MT} <: AbstractMPCCPenaltyModel{T,VT}
     mpcc::MT
-    meta::NLPModels.NLPModelMeta{T, VT}
+    meta::NLPModels.NLPModelMeta{T,VT}
     ρ::Base.RefValue{T}
     counters::NLPModels.Counters
 end
 
-function Ell1Relaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
+function Ell1Relaxation(mpcc::AbstractMPCCModel{T,VT}) where {T,VT}
     if !is_vertical(mpcc)
         # TODO(@anton) Perhaps we should do this automatically in the future or we can support non-vertical form scholtes
         #              though this makes the callbacks a bit more complicated
@@ -30,26 +30,26 @@ function Ell1Relaxation(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
 
     meta = NLPModels.NLPModelMeta(
         mpcc.nlp.meta,
-        ncon=ncon,
-        lcon=lcon,
-        ucon=ucon,
-        y0=y0,
-        nnzj=nnzj,
-        nln_nnzj=nln_nnzj,
-        nnzh=nnzh,
-        grad_available=true,
-        jac_available=true,
-        hess_available=true,
-        jprod_available=true,
-        jtprod_available=true,
-        hprod_available=true,
+        ncon = ncon,
+        lcon = lcon,
+        ucon = ucon,
+        y0 = y0,
+        nnzj = nnzj,
+        nln_nnzj = nln_nnzj,
+        nnzh = nnzh,
+        grad_available = true,
+        jac_available = true,
+        hess_available = true,
+        jprod_available = true,
+        jtprod_available = true,
+        hprod_available = true,
     )
     ρ = zero(T)
     return Ell1Relaxation(mpcc, meta, Ref(ρ), mpcc.counters)
 end
 
 ######################### NLPModels Callbacks #########################
-function NLPModels.obj(rnlp::Ell1Relaxation{T, VT}, x::AbstractVector) where {T, VT}
+function NLPModels.obj(rnlp::Ell1Relaxation{T,VT}, x::AbstractVector) where {T,VT}
     obj = NLPModels.obj(rnlp.mpcc, x)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:get_ncc(rnlp.mpcc)
@@ -65,10 +65,10 @@ function NLPModels.obj(rnlp::Ell1Relaxation{T, VT}, x::AbstractVector) where {T,
 end
 
 function NLPModels.grad!(
-    rnlp::Ell1Relaxation{T, VT},
+    rnlp::Ell1Relaxation{T,VT},
     x::AbstractVector,
     gx::AbstractVector,
-) where {T, VT}
+) where {T,VT}
     NLPModels.grad!(rnlp.mpcc, x, gx)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:get_ncc(rnlp.mpcc)
@@ -81,10 +81,10 @@ function NLPModels.grad!(
 end
 
 function NLPModels.objgrad!(
-    rnlp::Ell1Relaxation{T, VT},
+    rnlp::Ell1Relaxation{T,VT},
     x::AbstractVector,
     gx::AbstractVector,
-) where {T, VT}
+) where {T,VT}
     obj, gx = NLPModels.objgrad!(rnlp.mpcc, x, gx)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:get_ncc(rnlp.mpcc)
@@ -250,18 +250,18 @@ function NLPModels.hess_structure!(
     return rows, cols
 end
 function NLPModels.hess_coord!(
-    rnlp::Ell1Relaxation{T, VT},
+    rnlp::Ell1Relaxation{T,VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     H::AbstractVector{T};
-    obj_weight::T=one(T),
-) where {T, VT}
+    obj_weight::T = one(T),
+) where {T,VT}
     @views hess_coord!(
         rnlp.mpcc,
         x,
         y[1:get_ncon(rnlp.mpcc)],
         H[1:get_nnzh(rnlp.mpcc)];
-        obj_weight=obj_weight,
+        obj_weight = obj_weight,
     )
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:get_ncc(rnlp.mpcc)
@@ -271,14 +271,14 @@ function NLPModels.hess_coord!(
 end
 
 function NLPModels.hprod!(
-    rnlp::Ell1Relaxation{T, VT},
+    rnlp::Ell1Relaxation{T,VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     v::AbstractVector{T},
     Hv::AbstractVector;
-    obj_weight::T=one(T),
-) where {T, VT}
-    @views hprod!(rnlp.mpcc, x, y[1:get_ncon(rnlp.mpcc)], v, Hv; obj_weight=obj_weight)
+    obj_weight::T = one(T),
+) where {T,VT}
+    @views hprod!(rnlp.mpcc, x, y[1:get_ncon(rnlp.mpcc)], v, Hv; obj_weight = obj_weight)
     sense = rnlp.meta.minimize ? one(T) : -one(T)
     for i in 1:get_ncc(rnlp.mpcc)
         Hv[get_ind_cc1(rnlp.mpcc)[i]] +=

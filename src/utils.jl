@@ -7,7 +7,7 @@
     total_time::Float64 = 0.0
 end
 
-mutable struct CCOptExecutionStats{T, VT} <: AbstractExecutionStats
+mutable struct CCOptExecutionStats{T,VT} <: AbstractExecutionStats
     options::MadNLP.AbstractOptions
     mpcc_options::MadNLP.AbstractOptions
     status::MadNLP.Status

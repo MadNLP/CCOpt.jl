@@ -1,9 +1,12 @@
 @testset "RelaxationSolver Test" begin
     @testset "Default Options" begin
         mpcc = SimpleMPCCModel(Float64)
-        ccopt_opts = CCOpt.RelaxationOptions(; print_level=MadNLP.ERROR)
-        solver =
-            CCOpt.RelaxationSolver(mpcc; solver_opts=ccopt_opts, print_level=MadNLP.ERROR)
+        ccopt_opts = CCOpt.RelaxationOptions(; print_level = MadNLP.ERROR)
+        solver = CCOpt.RelaxationSolver(
+            mpcc;
+            solver_opts = ccopt_opts,
+            print_level = MadNLP.ERROR,
+        )
 
         copyto!(get_x0(mpcc), [2; 1])
 
@@ -16,13 +19,13 @@
 
     @testset "Quality Function" begin
         mpcc = SimpleMPCCModel(Float64)
-        ccopt_opts = CCOpt.RelaxationOptions(; print_level=MadNLP.ERROR)
-        solver =
-            CCOpt.RelaxationSolver(mpcc;
-                                   solver_opts=ccopt_opts,
-                                   print_level=MadNLP.ERROR,
-                                   barrier=MadNLP.QualityFunctionUpdate()
-                                   )
+        ccopt_opts = CCOpt.RelaxationOptions(; print_level = MadNLP.ERROR)
+        solver = CCOpt.RelaxationSolver(
+            mpcc;
+            solver_opts = ccopt_opts,
+            print_level = MadNLP.ERROR,
+            barrier = MadNLP.QualityFunctionUpdate(),
+        )
 
         copyto!(get_x0(mpcc), [2; 1])
 
@@ -35,17 +38,16 @@
 
     @testset "Quality Function specialization" begin
         mpcc = SimpleMPCCModel(Float64)
-        ccopt_opts = CCOpt.RelaxationOptions(
-            ;
-            print_level=MadNLP.ERROR,
-            use_specialized_barrier_update=true,
+        ccopt_opts = CCOpt.RelaxationOptions(;
+            print_level = MadNLP.ERROR,
+            use_specialized_barrier_update = true,
         )
-        solver =
-            CCOpt.RelaxationSolver(mpcc;
-                                   solver_opts=ccopt_opts,
-                                   print_level=MadNLP.ERROR,
-                                   barrier=MadNLP.QualityFunctionUpdate()
-                                   )
+        solver = CCOpt.RelaxationSolver(
+            mpcc;
+            solver_opts = ccopt_opts,
+            print_level = MadNLP.ERROR,
+            barrier = MadNLP.QualityFunctionUpdate(),
+        )
 
         copyto!(get_x0(mpcc), [2; 1])
 
@@ -58,16 +60,15 @@
 
     @testset "Rolloff relaxation" begin
         mpcc = SimpleMPCCModel(Float64)
-        ccopt_opts = CCOpt.RelaxationOptions(
-            ;
-            print_level=MadNLP.ERROR,
+        ccopt_opts = CCOpt.RelaxationOptions(;
+            print_level = MadNLP.ERROR,
             relaxation_update = CCOpt.RolloffRelaxationUpdate(),
         )
-        solver =
-            CCOpt.RelaxationSolver(mpcc;
-                                   solver_opts=ccopt_opts,
-                                   print_level=MadNLP.ERROR,
-                                   )
+        solver = CCOpt.RelaxationSolver(
+            mpcc;
+            solver_opts = ccopt_opts,
+            print_level = MadNLP.ERROR,
+        )
 
         copyto!(get_x0(mpcc), [2; 1])
 
@@ -80,16 +81,15 @@
 
     @testset "Endgame relaxation algorithm" begin
         mpcc = SimpleMPCCModel(Float64)
-        ccopt_opts = CCOpt.RelaxationOptions(
-            ;
-            print_level=MadNLP.ERROR,
-            endgame_strategy=CCOpt.RelaxLBEndgameStrategy(),
+        ccopt_opts = CCOpt.RelaxationOptions(;
+            print_level = MadNLP.ERROR,
+            endgame_strategy = CCOpt.RelaxLBEndgameStrategy(),
         )
-        solver =
-            CCOpt.RelaxationSolver(mpcc;
-                                   solver_opts=ccopt_opts,
-                                   print_level=MadNLP.ERROR,
-                                   )
+        solver = CCOpt.RelaxationSolver(
+            mpcc;
+            solver_opts = ccopt_opts,
+            print_level = MadNLP.ERROR,
+        )
 
         copyto!(get_x0(mpcc), [2; 1])
 
@@ -103,16 +103,15 @@
     @testset "Q regularization" begin
         @testset "critical_rho" begin
             mpcc = SimpleMPCCModel(Float64)
-            ccopt_opts = CCOpt.RelaxationOptions(
-                ;
-                print_level=MadNLP.ERROR,
-                q_regularization=:critical_rho
+            ccopt_opts = CCOpt.RelaxationOptions(;
+                print_level = MadNLP.ERROR,
+                q_regularization = :critical_rho,
             )
-            solver =
-                CCOpt.RelaxationSolver(mpcc;
-                                       solver_opts=ccopt_opts,
-                                       print_level=MadNLP.ERROR,
-                                       )
+            solver = CCOpt.RelaxationSolver(
+                mpcc;
+                solver_opts = ccopt_opts,
+                print_level = MadNLP.ERROR,
+            )
 
             copyto!(get_x0(mpcc), [2; 1])
 
@@ -123,25 +122,24 @@
             @test stats.solution ≈ [1, 0] atol=1e-5
         end
         @testset "eigenvalue_decomposition" begin
-        mpcc = SimpleMPCCModel(Float64)
-        ccopt_opts = CCOpt.RelaxationOptions(
-            ;
-            print_level=MadNLP.ERROR,
-            q_regularization=:eigenvalue_decomposition
-        )
-        solver =
-            CCOpt.RelaxationSolver(mpcc;
-                                   solver_opts=ccopt_opts,
-                                   print_level=MadNLP.ERROR,
-                                   )
+            mpcc = SimpleMPCCModel(Float64)
+            ccopt_opts = CCOpt.RelaxationOptions(;
+                print_level = MadNLP.ERROR,
+                q_regularization = :eigenvalue_decomposition,
+            )
+            solver = CCOpt.RelaxationSolver(
+                mpcc;
+                solver_opts = ccopt_opts,
+                print_level = MadNLP.ERROR,
+            )
 
-        copyto!(get_x0(mpcc), [2; 1])
+            copyto!(get_x0(mpcc), [2; 1])
 
-        stats = CCOpt.solve_homotopy!(solver)
+            stats = CCOpt.solve_homotopy!(solver)
 
-        @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
-        @test stats.objective ≈ 1 atol=1e-5
-        @test stats.solution ≈ [1, 0] atol=1e-5
-    end
+            @test stats.status ∈ [MadNLP.SOLVE_SUCCEEDED, MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL]
+            @test stats.objective ≈ 1 atol=1e-5
+            @test stats.solution ≈ [1, 0] atol=1e-5
+        end
     end
 end

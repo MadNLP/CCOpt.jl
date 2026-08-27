@@ -91,7 +91,7 @@ function update_sigma!(
     (@view ipm.c[(end-ncc+1):end]) .+= get_relaxation(rnlp)
     accuracy = get_accuracy(relax, sigma)
     while (sigma > max(relax.sigma_min, ipm.opt.tol/10)) &&
-          (max(inf_pr, ipm.inf_du, inf_compl_mu) <= accuracy)
+        (max(inf_pr, ipm.inf_du, inf_compl_mu) <= accuracy)
         sigma_new = get_sigma(
             sigma,
             relax.sigma_min,
@@ -104,7 +104,7 @@ function update_sigma!(
         ipm.mu = accuracy # This is a hack but seems to work?
         @views begin
             inf_relaxed_cc =
-                mapreduce((c)->abs(c-sigma_new), max, ipm.c[(end-ncc+1):end]; init=0)
+                mapreduce((c)->abs(c-sigma_new), max, ipm.c[(end-ncc+1):end]; init = 0)
         end
         inf_pr = max(inf_pr, inf_relaxed_cc)
         inf_compl_mu = MadNLP.get_inf_compl(
@@ -149,7 +149,7 @@ function update_sigma!(
         MadNLP.variable(ipm.xl)[solver.ind_cc1],
         MadNLP.variable(ipm.x)[solver.ind_cc2],
         MadNLP.variable(ipm.xl)[solver.ind_cc2],
-        init=T(Inf),
+        init = T(Inf),
     )
     # Calculate the factor to multiply the mean complementarity by.
     xi = min_cc_pr/mean_cc
@@ -269,18 +269,18 @@ function update_sigma!(
 
             if x1 <= 0 # we are lower bound infeasible:
                 max_decrease =
-                    (relax.k_ftb)*(
-                        MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1]
-                    )
+                    (
+                        relax.k_ftb
+                    )*(MadNLP.variable(ipm.x)[cc1] - MadNLP.variable(ipm.xl)[cc1])
                 rnlp.δ1[ii] = max(relax.kappa*rnlp.δ1[ii], rnlp.δ1[ii]-max_decrease)
                 MadNLP.variable(ipm.xl)[cc1] = get_lvar(mpcc)[cc1_orig] - rnlp.δ1[ii]
                 updated = true
             end
             if x2 <= 0 # we are lower bound infeasible:
                 max_decrease =
-                    (relax.k_ftb)*(
-                        MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2]
-                    )
+                    (
+                        relax.k_ftb
+                    )*(MadNLP.variable(ipm.x)[cc2] - MadNLP.variable(ipm.xl)[cc2])
                 rnlp.δ2[ii] = max(relax.kappa*rnlp.δ2[ii], rnlp.δ2[ii]-max_decrease)
                 MadNLP.variable(ipm.xl)[cc2] = get_lvar(mpcc)[cc2_orig] - rnlp.δ2[ii]
                 updated = true
@@ -356,7 +356,7 @@ function init_sigma!(
         MadNLP.variable(ipm.xl)[solver.ind_cc1],
         MadNLP.variable(ipm.x)[solver.ind_cc2],
         MadNLP.variable(ipm.xl)[solver.ind_cc2],
-        init=T(Inf),
+        init = T(Inf),
     )
     # Calculate the factor to multiply the mean complementarity by.
     xi = min_cc_pr/mean_cc
@@ -430,8 +430,8 @@ function sigma_from_mu(
     mu::T,
 ) where {T}
     sigma_candidate =
-        relax.rolloff_max*(mu^relax.rolloff_slope)/(
-            sqrt((mu^relax.rolloff_slope)^2) + relax.rolloff_point
-        )
+        relax.rolloff_max*(
+            mu^relax.rolloff_slope
+        )/(sqrt((mu^relax.rolloff_slope)^2) + relax.rolloff_point)
     return max(sigma_candidate, relax.sigma_min)
 end

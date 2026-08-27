@@ -3,7 +3,7 @@ function do_endgame!(
     solver::RelaxationSolver,
     rnlp::RNLP,
     endgame::NoEndgameStrategy,
-) where {RNLP <: AbstractMPCCRelaxation} end
+) where {RNLP<:AbstractMPCCRelaxation} end
 
 ## Lower bound relaxation endgame
 # Do nothing for generic RNLPs
@@ -12,7 +12,7 @@ function do_endgame(
     solver::RelaxationSolver,
     rnlp::RNLP,
     endgame::RelaxLBEndgameStrategy,
-) where {RNLP <: AbstractMPCCRelaxation} end
+) where {RNLP<:AbstractMPCCRelaxation} end
 
 function get_delta_candidate(nu, x, sigma, delta_max)
     if nu + x < 0.0
