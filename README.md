@@ -3,11 +3,25 @@
 A Julia package for solving Mathematical Programs with Complementarity Constraints (MPCCs).
 For details check out the [implementation paper](https://arxiv.org/abs/2604.18726).
 
+| **License** | **Documentation** | **Build Status** |
+|:-----------:|:-----------------:|:----------------:|
+| [![License: MIT][license-img]][license-url] | [![docs-stable][docs-stable-img]][docs-stable-url] [![docs-dev][docs-dev-img]][docs-dev-url] | [![build-gh][build-gh-img]][build-gh-url] |
+
+[license-img]: https://img.shields.io/badge/License-MIT-yellow.svg
+[license-url]: https://github.com/madsuite-org/CCOpt.jl/blob/master/LICENSE
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://madsuite.org/CCOpt.jl/stable
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-purple.svg
+[docs-dev-url]: https://madsuite.org/CCOpt.jl/dev
+[build-gh-img]: https://github.com/madsuite-org/CCOpt.jl/actions/workflows/test.yml/badge.svg
+[build-gh-url]: https://github.com/CCOpt/CCOpt.jl/actions/workflows/test.yml
+
+
 ## Installation
 
 To install CCOpt, simply proceed to
 ```julia
-pkg> add https://github.com/MadNLP/CCOpt.jl
+pkg> add https://github.com/madsuite-org/CCOpt.jl
 ```
 
 ## Usage
