@@ -13,8 +13,8 @@ For details check out the [implementation paper](https://arxiv.org/abs/2604.1872
 [docs-stable-url]: https://madsuite.org/CCOpt.jl/stable
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-purple.svg
 [docs-dev-url]: https://madsuite.org/CCOpt.jl/dev
-[build-gh-img]: https://github.com/madsuite-org/CCOpt.jl/actions/workflows/test.yml/badge.svg
-[build-gh-url]: https://github.com/CCOpt/CCOpt.jl/actions/workflows/test.yml
+[build-gh-img]: https://github.com/madsuite-org/CCOpt.jl/actions/workflows/action.yml/badge.svg
+[build-gh-url]: https://github.com/madsuite-org/CCOpt.jl/actions/workflows/action.yml
 
 
 ## Installation
