@@ -1,7 +1,11 @@
 name = "CCOpt"
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
 version = "0.1.0"
-authors = ["Anton Edvinovich Pozharskiy <apozharski@gmail.com>"]
+authors = [
+        "Anton Edvinovich Pozharskiy <apozharski@gmail.com>",
+        "François Pacaud  <francoispacaud8@gmail.com>",
+        "Armin Nurkanović <armin.nurkanovic@imtek.uni-freiburg.de>"
+        ]
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
