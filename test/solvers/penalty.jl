@@ -1,9 +1,12 @@
 @testset "Penalty Test" begin
     @testset "Default Options" begin
         mpcc = SimpleMPCCModel2(Float64)
-        madnlpell1_opts = CCOpt.PenaltyOptions{Float64}(; print_level=MadNLP.ERROR)
-        solver =
-            CCOpt.PenaltySolver(mpcc; solver_opts=madnlpell1_opts, print_level=MadNLP.ERROR)
+        madnlpell1_opts = CCOpt.PenaltyOptions{Float64}(; print_level = MadNLP.ERROR)
+        solver = CCOpt.PenaltySolver(
+            mpcc;
+            solver_opts = madnlpell1_opts,
+            print_level = MadNLP.ERROR,
+        )
 
         stats = CCOpt.solve_homotopy!(solver)
 
@@ -15,11 +18,14 @@
     @testset "With dynamic update" begin
         mpcc = SimpleMPCCModel2(Float64)
         madnlpell1_opts = CCOpt.PenaltyOptions{Float64}(;
-            print_level=MadNLP.ERROR,
-            dynamic_rho_update=true,
+            print_level = MadNLP.ERROR,
+            dynamic_rho_update = true,
         )
-        solver =
-            CCOpt.PenaltySolver(mpcc; solver_opts=madnlpell1_opts, print_level=MadNLP.ERROR)
+        solver = CCOpt.PenaltySolver(
+            mpcc;
+            solver_opts = madnlpell1_opts,
+            print_level = MadNLP.ERROR,
+        )
 
         stats = CCOpt.solve_homotopy!(solver)
 

@@ -198,7 +198,7 @@ function MadNLP._evaluate_quality_function(
         ipm.dx_lr,
         ipm.zl_r,
         MadNLP.dual_lb(d);
-        init=0.0,
+        init = 0.0,
     )
     # (xu - x - αp Δx)ᵀ (zu + αd Δzu)
     inf_compl_ub = mapreduce(
@@ -209,7 +209,7 @@ function MadNLP._evaluate_quality_function(
         ipm.dx_ur,
         ipm.zu_r,
         MadNLP.dual_ub(d);
-        init=0.0,
+        init = 0.0,
     )
     @views begin
         inf_compl_pr =
@@ -223,7 +223,7 @@ function MadNLP._evaluate_quality_function(
                 xl_pr[ind_cc2],
                 dx_pr[ind_cc1],
                 dx_pr[ind_cc2];
-                init=0.0,
+                init = 0.0,
             ) / ncc
     end
 

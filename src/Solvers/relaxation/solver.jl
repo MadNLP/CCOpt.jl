@@ -11,9 +11,9 @@ end
 
 function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.AbstractKKTSystem{T},
-    solver::RelaxationSolver{T, VT},
+    solver::RelaxationSolver{T,VT},
     eta::T,
-) where {T, VT}
+) where {T,VT}
     ipm = solver.ipm
     n = length(ipm.x_ur)
     ncc = get_ncc(ipm.nlp.mpcc)
@@ -58,9 +58,9 @@ end
 
 function MadNLP.set_aug_diagonal!(
     kkt::MadNLP.ScaledSparseKKTSystem{T},
-    solver::RelaxationSolver{T, VT},
+    solver::RelaxationSolver{T,VT},
     eta::T,
-) where {T, VT}
+) where {T,VT}
     ipm = solver.ipm
     n = length(ipm.x_ur)
     ncc = get_ncc(ipm.nlp.mpcc)
@@ -89,7 +89,7 @@ function solve_homotopy!(
     nlp::ST,
     solver::RelaxationSolver;
     kwargs...,
-) where {ST <: AbstractMPCCRelaxation}
+) where {ST<:AbstractMPCCRelaxation}
     return solve_homotopy!(nlp, solver, CCOptExecutionStats(solver); kwargs...)
 end
 
@@ -101,12 +101,12 @@ function solve_homotopy!(
     nlp::ST,
     solver::RelaxationSolver,
     stats::CCOptExecutionStats;
-    x=nothing,
-    y=nothing,
-    zl=nothing,
-    zu=nothing,
+    x = nothing,
+    y = nothing,
+    zl = nothing,
+    zu = nothing,
     kwargs...,
-) where {ST <: AbstractMPCCRelaxation}
+) where {ST<:AbstractMPCCRelaxation}
     ipm = solver.ipm
     ipm.cnt.start_time = time()
     solver.cnt.start_time = ipm.cnt.start_time
@@ -250,9 +250,9 @@ function MadNLP.initialize!(solver::RelaxationSolver{T}) where {T}
         ipm.y,
         ipm.rhs,
         ipm.ind_ineq;
-        tol=opt.bound_relax_factor,
-        bound_push=opt.bound_push,
-        bound_fac=opt.bound_fac,
+        tol = opt.bound_relax_factor,
+        bound_push = opt.bound_push,
+        bound_fac = opt.bound_fac,
     )
 
     # Do custom initialization of the complementarity variables
@@ -305,7 +305,7 @@ function MadNLP.initialize!(solver::RelaxationSolver{T}) where {T}
     return MadNLP.REGULAR
 end
 
-function homotopy!(solver::RelaxationSolver{T, VT}) where {T, VT}
+function homotopy!(solver::RelaxationSolver{T,VT}) where {T,VT}
     opts = solver.opts
     ipm = solver.ipm
     mpcc = solver.mpcc
@@ -461,7 +461,7 @@ function homotopy!(solver::RelaxationSolver{T, VT}) where {T, VT}
     end
 end
 
-function update!(stats::CCOptExecutionStats, solver::RelaxationSolver{T, VT}) where {T, VT}
+function update!(stats::CCOptExecutionStats, solver::RelaxationSolver{T,VT}) where {T,VT}
     ipm = solver.ipm
     n, m = NLPModels.get_nvar(ipm.nlp), get_ncon(solver.mpcc)
     ncc = get_ncc(solver.mpcc)

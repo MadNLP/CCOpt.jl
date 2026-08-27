@@ -6,7 +6,7 @@ const CROSSOVER_STATUSES = Dict(
     :max_iter => "maximum iteration",
 )
 
-@kwdef struct CrossoverOptions{T, LPCC_OPTS <: MadNLP.AbstractOptions} <:
+@kwdef struct CrossoverOptions{T,LPCC_OPTS<:MadNLP.AbstractOptions} <:
               MadNLP.AbstractOptions
     lpcc_solver_opts::LPCC_OPTS = CCOpt.RelaxationOptions()
     lpcc_solver_kwargs::NamedTuple = NamedTuple()
@@ -34,8 +34,8 @@ end
     total_time::Float64 = 0.0
 end
 
-mutable struct CrossoverExecutionStats{T, VT, LPCC_OPTS} <: AbstractExecutionStats
-    lpcc_solver_opts::CrossoverOptions{T, LPCC_OPTS}
+mutable struct CrossoverExecutionStats{T,VT,LPCC_OPTS} <: AbstractExecutionStats
+    lpcc_solver_opts::CrossoverOptions{T,LPCC_OPTS}
     status::Symbol
     objective::T
     solution::VT
@@ -60,13 +60,13 @@ end
 function solve_lpcc(
     lpcc::LPCC,
     solver_opts::RelaxationOptions;
-    bound_relax_factor=0.0,
+    bound_relax_factor = 0.0,
     kwargs...,
-) where {LPCC <: LPCCModel}
+) where {LPCC<:LPCCModel}
     solver = CCOpt.RelaxationSolver(
         lpcc;
-        solver_opts=solver_opts,
-        bound_relax_factor=0.0,
+        solver_opts = solver_opts,
+        bound_relax_factor = 0.0,
         kwargs...,
     )
     stats = CCOpt.solve_homotopy!(solver)
@@ -86,15 +86,15 @@ macro add_to_timer(cnt_expr, action_expr)
 end
 
 function crossover(
-    mpcc::AbstractMPCCModel{T, VT},
+    mpcc::AbstractMPCCModel{T,VT},
     x0::VT,
     opts::CrossoverOptions{T},
-) where {T, VT}
+) where {T,VT}
     cnt = CrossoverCounters()
     cnt.start_time = time()
     # Do projection
     proj_tr = opts.proj_tr
-    proj_lpcc = @add_to_timer cnt.construction_time LPCCModel(mpcc, x0; tr=proj_tr)
+    proj_lpcc = @add_to_timer cnt.construction_time LPCCModel(mpcc, x0; tr = proj_tr)
     success, proj_sol, y0 = @add_to_timer cnt.lpcc_time solve_lpcc(
         proj_lpcc,
         opts.lpcc_solver_opts;
@@ -140,7 +140,7 @@ function crossover(
         )
         println("|I_00| = $(I_00)")
         while true
-            lpcc = @add_to_timer cnt.construction_time LPCCModel(mpcc, x_curr; tr=tr)
+            lpcc = @add_to_timer cnt.construction_time LPCCModel(mpcc, x_curr; tr = tr)
             success, lpcc_sol, y_next = @add_to_timer cnt.lpcc_time solve_lpcc(
                 lpcc,
                 opts.lpcc_solver_opts;
@@ -185,7 +185,7 @@ function crossover(
 
         bnlp_sol = @add_to_timer cnt.bnlp_time MadNLP.madnlp(
             bnlp;
-            bound_push=1e-6,
+            bound_push = 1e-6,
             opts.bnlp_solver_kwargs...,
         )
         cnt.bnlp_iter += 1

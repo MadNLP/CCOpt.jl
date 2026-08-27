@@ -16,13 +16,12 @@ Modified problem 14 in the Hock-Schittkowski suite
 
 x₀ = [2.0, 2.0].
 """
-mutable struct SimpleNLPModel{T, S, M <: AbstractNLPModelMeta{T, S}} <:
-               AbstractNLPModel{T, S}
+mutable struct SimpleNLPModel{T,S,M<:AbstractNLPModelMeta{T,S}} <: AbstractNLPModel{T,S}
     meta::M
     counters::Counters
 end
 
-mutable struct SimpleNLPMeta{T, S} <: AbstractNLPModelMeta{T, S}
+mutable struct SimpleNLPMeta{T,S} <: AbstractNLPModelMeta{T,S}
     nvar::Int
     x0::S
     lvar::S
@@ -76,38 +75,38 @@ mutable struct SimpleNLPMeta{T, S} <: AbstractNLPModelMeta{T, S}
     jprod_available::Bool
     jtprod_available::Bool
     hprod_available::Bool
-    function SimpleNLPMeta{T, S}(
+    function SimpleNLPMeta{T,S}(
         nvar::Int;
-        x0::S=fill!(S(undef, nvar), zero(T)),
-        lvar::S=fill!(S(undef, nvar), T(-Inf)),
-        uvar::S=fill!(S(undef, nvar), T(Inf)),
-        nlvb=nvar,
-        nlvo=nvar,
-        nlvc=nvar,
-        ncon=2,
-        y0::S=fill!(S(undef, ncon), zero(T)),
-        lcon::S=fill!(S(undef, ncon), T(-Inf)),
-        ucon::S=fill!(S(undef, ncon), T(Inf)),
-        nnzo=nvar,
-        nnzj=nvar * ncon,
-        lin_nnzj=0,
-        nln_nnzj=nvar * ncon,
-        nnzh=nvar * (nvar + 1) / 2,
-        lin=Int[],
-        minimize=true,
-        islp=false,
-        name="Generic",
-        constraint_bound_analysis=false,
-        variable_bound_analysis=false,
-        sparse_jacobian=true,
-        sparse_hessian=true,
-        grad_available::Bool=true,
-        jac_available::Bool=(ncon > 0),
-        hess_available::Bool=true,
-        jprod_available::Bool=(ncon > 0),
-        jtprod_available::Bool=(ncon > 0),
-        hprod_available::Bool=true,
-    ) where {T, S}
+        x0::S = fill!(S(undef, nvar), zero(T)),
+        lvar::S = fill!(S(undef, nvar), T(-Inf)),
+        uvar::S = fill!(S(undef, nvar), T(Inf)),
+        nlvb = nvar,
+        nlvo = nvar,
+        nlvc = nvar,
+        ncon = 2,
+        y0::S = fill!(S(undef, ncon), zero(T)),
+        lcon::S = fill!(S(undef, ncon), T(-Inf)),
+        ucon::S = fill!(S(undef, ncon), T(Inf)),
+        nnzo = nvar,
+        nnzj = nvar * ncon,
+        lin_nnzj = 0,
+        nln_nnzj = nvar * ncon,
+        nnzh = nvar * (nvar + 1) / 2,
+        lin = Int[],
+        minimize = true,
+        islp = false,
+        name = "Generic",
+        constraint_bound_analysis = false,
+        variable_bound_analysis = false,
+        sparse_jacobian = true,
+        sparse_hessian = true,
+        grad_available::Bool = true,
+        jac_available::Bool = (ncon > 0),
+        hess_available::Bool = true,
+        jprod_available::Bool = (ncon > 0),
+        jtprod_available::Bool = (ncon > 0),
+        hprod_available::Bool = true,
+    ) where {T,S}
         if (nvar < 1) || (ncon < 0)
             error("Nonsensical dimensions")
         end
@@ -137,7 +136,7 @@ mutable struct SimpleNLPMeta{T, S} <: AbstractNLPModelMeta{T, S}
         nlin = length(lin)
         nnln = length(nln)
 
-        return new{T, S}(
+        return new{T,S}(
             nvar,
             x0,
             lvar,
@@ -190,36 +189,36 @@ NLPModels.equality_constrained(meta::SimpleNLPMeta) = length(meta.jfix) == meta.
 NLPModels.unconstrained(meta::SimpleNLPMeta) = meta.ncon == 0 && !has_bounds(meta)
 
 function SimpleNLPModel(::Type{T}, ::Type{NLPModelMeta}) where {T}
-    meta = NLPModelMeta{T, Vector{T}}(
+    meta = NLPModelMeta{T,Vector{T}}(
         2,
-        nnzh=2,
-        ncon=2,
-        lvar=zeros(T, 2),
-        uvar=ones(T, 2),
-        x0=T[2; 2],
-        lcon=T[0; 0],
-        ucon=T[0; Inf],
-        name="Simple NLP Model",
-        lin_nnzj=2,
-        nln_nnzj=2,
-        lin=[1],
+        nnzh = 2,
+        ncon = 2,
+        lvar = zeros(T, 2),
+        uvar = ones(T, 2),
+        x0 = T[2; 2],
+        lcon = T[0; 0],
+        ucon = T[0; Inf],
+        name = "Simple NLP Model",
+        lin_nnzj = 2,
+        nln_nnzj = 2,
+        lin = [1],
     )
     return SimpleNLPModel(meta, Counters())
 end
 function SimpleNLPModel(::Type{T}, ::Type{SimpleNLPMeta}) where {T}
-    meta = SimpleNLPMeta{T, Vector{T}}(
+    meta = SimpleNLPMeta{T,Vector{T}}(
         2,
-        nnzh=2,
-        ncon=2,
-        lvar=zeros(T, 2),
-        uvar=ones(T, 2),
-        x0=T[2; 2],
-        lcon=T[0; 0],
-        ucon=T[0; Inf],
-        name="Simple NLP Model",
-        lin_nnzj=2,
-        nln_nnzj=2,
-        lin=[1],
+        nnzh = 2,
+        ncon = 2,
+        lvar = zeros(T, 2),
+        uvar = ones(T, 2),
+        x0 = T[2; 2],
+        lcon = T[0; 0],
+        ucon = T[0; Inf],
+        name = "Simple NLP Model",
+        lin_nnzj = 2,
+        nln_nnzj = 2,
+        lin = [1],
     )
     return SimpleNLPModel(meta, Counters())
 end
@@ -256,7 +255,7 @@ function NLPModels.hess_coord!(
     x::AbstractVector{T},
     y::AbstractVector{T},
     vals::AbstractVector{T};
-    obj_weight=one(T),
+    obj_weight = one(T),
 ) where {T}
     @lencheck 2 x y vals
     increment!(nlp, :neval_hess)
@@ -272,7 +271,7 @@ function NLPModels.hprod!(
     y::AbstractVector{T},
     v::AbstractVector{T},
     Hv::AbstractVector{T};
-    obj_weight=one(T),
+    obj_weight = one(T),
 ) where {T}
     @lencheck 2 x y v Hv
     increment!(nlp, :neval_hprod)

@@ -1,5 +1,5 @@
 ######################### Types #########################
-mutable struct HomotopySolverStats{T, VT}
+mutable struct HomotopySolverStats{T,VT}
     # TODO(@anton) what needs to live here
     # TODO(@anton) Should subclass AbstractExecutionStats probably
     status::MadNLP.Status           # Return status from the HomotopySolver
@@ -16,7 +16,7 @@ mutable struct HomotopySolverStats{T, VT}
     nlp_stats::Vector{Any}      # Vector of nlp solver stats.
 end
 
-function HomotopySolverStats(mpcc::AbstractMPCCModel{T, VT}) where {T, VT}
+function HomotopySolverStats(mpcc::AbstractMPCCModel{T,VT}) where {T,VT}
     return HomotopySolverStats(
         MadNLP.INITIAL,
         VT(undef, get_nvar(mpcc)),
@@ -48,9 +48,9 @@ end
     output_file::String = ""
 
     # Decreased bound push for followup iterations
-    warm_start_bound_push::Union{Float64, Nothing} = nothing
+    warm_start_bound_push::Union{Float64,Nothing} = nothing
 
-    nlp_solver_options::Dict{Symbol, Any} = Dict(
+    nlp_solver_options::Dict{Symbol,Any} = Dict(
         :print_level=>0,
         :sb=>"yes",
         :mu_strategy=>"adaptive",
@@ -79,9 +79,9 @@ into the NLP
 
 And solve a sequence of these NLPs with σ→0.
 """
-mutable struct HomotopySolver{M, S, T, VT} <: AbstractMPCCSolver{M, S, T, VT}
+mutable struct HomotopySolver{M,S,T,VT} <: AbstractMPCCSolver{M,S,T,VT}
     mpcc::M
-    nlp::ScholtesRelaxation{T, VT}
+    nlp::ScholtesRelaxation{T,VT}
     solver::S
 
     opts::HomotopySolverOptions
@@ -110,9 +110,9 @@ function HomotopySolver(mpcc::AbstractMPCCModel, S::Type, opts::HomotopySolverOp
     stats = HomotopySolverStats(mpcc)
 
     logger = MadNLP.MadNLPLogger(
-        print_level=opts.print_level,
-        file_print_level=opts.file_print_level,
-        file=opts.output_file == "" ? nothing : open(opts.output_file, "w+"),
+        print_level = opts.print_level,
+        file_print_level = opts.file_print_level,
+        file = opts.output_file == "" ? nothing : open(opts.output_file, "w+"),
     )
 
     x_k = nlp.meta.x0
@@ -139,9 +139,9 @@ end
 
 ######################### Helpers #########################
 function solve_rnlp(
-    solver::HomotopySolver{M, S, T, VT},
+    solver::HomotopySolver{M,S,T,VT},
     n::Int,
-) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
+) where {M,S<:SolverCore.AbstractOptimizationSolver,T,VT}
     # TODO(@anton) copying here seems expensiveish, perhaps store a "working settings" copy.
     nlp_opts_i = copy(solver.opts.nlp_solver_options)
 
@@ -164,9 +164,9 @@ function solve_rnlp(
 end
 
 function solve_rnlp(
-    solver::HomotopySolver{M, S, T, VT},
+    solver::HomotopySolver{M,S,T,VT},
     n::Int,
-) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
+) where {M,S<:MadNLP.AbstractMadNLPSolver,T,VT}
     # TODO(@anton) copying here seems expensiveish, perhaps store a "working settings" copy.
     nlp_opts_i = copy(solver.opts.nlp_solver_options)
 
@@ -187,14 +187,14 @@ function solve_rnlp(
 end
 
 function set_silent!(
-    solver::HomotopySolver{M, S, T, VT},
-) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
+    solver::HomotopySolver{M,S,T,VT},
+) where {M,S<:SolverCore.AbstractOptimizationSolver,T,VT}
     return solver.opts.nlp_solver_options[:print_level] = 0
 end
 
 function set_silent!(
-    solver::HomotopySolver{M, S, T, VT},
-) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
+    solver::HomotopySolver{M,S,T,VT},
+) where {M,S<:MadNLP.AbstractMadNLPSolver,T,VT}
     return solver.opts.nlp_solver_options[:print_level] = MadNLP.ERROR
 end
 
@@ -239,14 +239,14 @@ function convert_nlp_solve(nlp_stats::MadNLP.MadNLPExecutionStats)
 end
 
 function reset_nlp_solver!(
-    solver::HomotopySolver{M, S, T, VT},
-) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
+    solver::HomotopySolver{M,S,T,VT},
+) where {M,S<:SolverCore.AbstractOptimizationSolver,T,VT}
     # Do nothing
 end
 
 function reset_nlp_solver!(
-    solver::HomotopySolver{M, S, T, VT},
-) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
+    solver::HomotopySolver{M,S,T,VT},
+) where {M,S<:MadNLP.AbstractMadNLPSolver,T,VT}
     solver.solver.cnt.k = 0
     solver.solver.cnt.l = 0
     solver.solver.cnt.t = 0
@@ -256,23 +256,23 @@ function reset_nlp_solver!(
 end
 
 function update_times!(
-    solver::HomotopySolver{M, S, T, VT},
+    solver::HomotopySolver{M,S,T,VT},
     nlp_stats::AbstractExecutionStats,
-) where {M, S <: SolverCore.AbstractOptimizationSolver, T, VT}
+) where {M,S<:SolverCore.AbstractOptimizationSolver,T,VT}
     # TODO(@anton) ipopt interface doesn't give detailed times
     return solver.stats.iter += nlp_stats.iter
 end
 
 function update_times!(
-    solver::HomotopySolver{M, S, T, VT},
+    solver::HomotopySolver{M,S,T,VT},
     nlp_stats::MadNLP.MadNLPExecutionStats,
-) where {M, S <: MadNLP.AbstractMadNLPSolver, T, VT}
+) where {M,S<:MadNLP.AbstractMadNLPSolver,T,VT}
     solver.stats.eval_function_time = nlp_stats.counters.eval_function_time
     solver.stats.linear_solver_time = nlp_stats.counters.linear_solver_time
     return solver.stats.iter += nlp_stats.iter
 end
 
-function print_headers(solver::HomotopySolver{M, S, T, VT}) where {M, S, T, VT}
+function print_headers(solver::HomotopySolver{M,S,T,VT}) where {M,S,T,VT}
     # TODO(@anton) also log nlpsolver output
     header = SolverCore.log_header(
         [:iter, :solver_status, :objective, :inf_cc, :nlp_iters],
@@ -297,20 +297,20 @@ end
 
 ######################### Main loop #########################
 function solve!(
-    solver::HomotopySolver{M, T, VT};
-    x=nothing,
-    y=nothing,
+    solver::HomotopySolver{M,T,VT};
+    x = nothing,
+    y = nothing,
     kwargs...,
-) where {M, T, VT}
-    return solve!(solver.mpcc, solver, solver.stats; x=x, y=y, kwargs...)
+) where {M,T,VT}
+    return solve!(solver.mpcc, solver, solver.stats; x = x, y = y, kwargs...)
 end
 
 function solve!(
     mpcc::AbstractMPCCModel,
     solver::HomotopySolver,
     stats::HomotopySolverStats;
-    x=nothing,
-    y=nothing,
+    x = nothing,
+    y = nothing,
     kwargs...,
 )
     solver.start_time = time()

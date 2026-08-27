@@ -1,14 +1,14 @@
-struct LinearModel{T, VT, MAT <: AbstractMatrix{T}} <: NLPModels.AbstractNLPModel{T, VT}
+struct LinearModel{T,VT,MAT<:AbstractMatrix{T}} <: NLPModels.AbstractNLPModel{T,VT}
     f0::T
     c::VT
     A::MAT
     x0::VT
 
-    meta::NLPModelMeta{T, VT}
+    meta::NLPModelMeta{T,VT}
     counters::NLPModels.Counters
 end
 
-function LinearModel(nlp::AbstractNLPModel{T, VT}, x_lin::VT; tr=Inf) where {T, VT}
+function LinearModel(nlp::AbstractNLPModel{T,VT}, x_lin::VT; tr = Inf) where {T,VT}
     lvar = copy(get_lvar(nlp))
     uvar = copy(get_uvar(nlp))
     lvar .-= x_lin
@@ -28,18 +28,18 @@ function LinearModel(nlp::AbstractNLPModel{T, VT}, x_lin::VT; tr=Inf) where {T, 
 
     meta = NLPModels.NLPModelMeta(
         nlp.meta;
-        lcon=lcon,
-        ucon=ucon,
-        lvar=lvar,
-        uvar=uvar,
-        x0=x0,
-        nnzj=nnz(A),
-        nln_nnzj=0,
-        lin_nnzj=nnz(A),
-        nnzh=0,
-        lin=1:get_ncon(nlp),
-        islp=true,
-        y0=y0,
+        lcon = lcon,
+        ucon = ucon,
+        lvar = lvar,
+        uvar = uvar,
+        x0 = x0,
+        nnzj = nnz(A),
+        nln_nnzj = 0,
+        lin_nnzj = nnz(A),
+        nnzh = 0,
+        lin = 1:get_ncon(nlp),
+        islp = true,
+        y0 = y0,
     )
 
     return LinearModel(obj(nlp, x_lin), grad(nlp, x_lin), A, x0, meta, NLPModels.Counters())
@@ -87,19 +87,19 @@ function fill_coord!(S::SparseMatrixCSC, vals)
 end
 
 function NLPModels.jac_structure!(
-    lp::LinearModel{T, VT, MT},
+    lp::LinearModel{T,VT,MT},
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
-) where {T, VT, MT <: SparseMatrixCSC}
+) where {T,VT,MT<:SparseMatrixCSC}
     fill_structure!(lp.A, rows, cols)
     return rows, cols
 end
 
 function NLPModels.jac_lin_structure!(
-    lp::LinearModel{T, VT, MT},
+    lp::LinearModel{T,VT,MT},
     rows::AbstractVector{<:Integer},
     cols::AbstractVector{<:Integer},
-) where {T, VT, MT <: SparseMatrixCSC}
+) where {T,VT,MT<:SparseMatrixCSC}
     fill_structure!(lp.A, rows, cols)
     return rows, cols
 end
@@ -190,22 +190,22 @@ function NLPModels.hess_structure!(
 end
 
 function NLPModels.hess_coord!(
-    lp::LinearModel{T, VT},
+    lp::LinearModel{T,VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     H::AbstractVector{T};
-    obj_weight::Real=one(T),
-) where {T, VT}
+    obj_weight::Real = one(T),
+) where {T,VT}
     return H
 end
 
 function NLPModels.hprod!(
-    lp::LinearModel{T, VT},
+    lp::LinearModel{T,VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     v::AbstractVector{T},
     Hv::AbstractVector;
-    obj_weight::Real=one(T),
-) where {T, VT}
+    obj_weight::Real = one(T),
+) where {T,VT}
     return Hv
 end

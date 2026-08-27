@@ -41,9 +41,9 @@ end
 
 function log_iter(
     logger::IterateLogger,
-    solver::RelaxationSolver{T, VT};
-    magic=false,
-) where {T, VT}
+    solver::RelaxationSolver{T,VT};
+    magic = false,
+) where {T,VT}
     if isnothing(logger.file)
         return nothing
     end
@@ -150,10 +150,10 @@ function get_inf_pr_cc(solver::RelaxationSolver{T}) where {T}
             get_lvar(solver.mpcc)[get_ind_cc2(solver.mpcc)],
         )
     end
-    return reduce(max, solver._cc1; init=zero(T))
+    return reduce(max, solver._cc1; init = zero(T))
 end
 
-function MadNLP.print_iter(solver::RelaxationSolver; is_resto=false)
+function MadNLP.print_iter(solver::RelaxationSolver; is_resto = false)
     ipm = solver.ipm
     obj_scale = ipm.cb.obj_scale[]
     mod(ipm.cnt.k, 10)==0 && MadNLP.@info(

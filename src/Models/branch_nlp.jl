@@ -1,12 +1,11 @@
-struct BranchNLP{T, VT, MPCC <: AbstractMPCCModel{T, VT}} <:
-       NLPModels.AbstractNLPModel{T, VT}
+struct BranchNLP{T,VT,MPCC<:AbstractMPCCModel{T,VT}} <: NLPModels.AbstractNLPModel{T,VT}
     mpcc::MPCC
-    meta::NLPModels.NLPModelMeta{T, VT}
+    meta::NLPModels.NLPModelMeta{T,VT}
     b::Vector{Bool}
     counters::NLPModels.Counters
 end
 
-function BranchNLP(mpcc::AbstractMPCCModel{T, VT}, b::Vector{Bool}) where {T, VT}
+function BranchNLP(mpcc::AbstractMPCCModel{T,VT}, b::Vector{Bool}) where {T,VT}
     if !is_vertical(mpcc)
         # TODO(@anton) Perhaps we should do this automatically in the future or we can support non-vertical form scholtes
         #              though this makes the callbacks a bit more complicated
@@ -22,7 +21,7 @@ function BranchNLP(mpcc::AbstractMPCCModel{T, VT}, b::Vector{Bool}) where {T, VT
     uvar[get_ind_cc2(mpcc)[b]] .= get_lvar(mpcc)[get_ind_cc2(mpcc)[b]]
     x0=copy(get_x0(mpcc))
     # Copy x0 so changing BNLP x0 does not change mpcc x0
-    meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, uvar=uvar, x0=x0)
+    meta = NLPModels.NLPModelMeta(mpcc.nlp.meta, uvar = uvar, x0 = x0)
     return BranchNLP(mpcc, meta, b, mpcc.counters)
 end
 
@@ -178,22 +177,22 @@ function NLPModels.hess_structure!(
     return hess_structure!(bnlp.mpcc, rows, cols)
 end
 function NLPModels.hess_coord!(
-    bnlp::BranchNLP{T, VT},
+    bnlp::BranchNLP{T,VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     H::AbstractVector{T};
-    obj_weight::Real=one(T),
-) where {T, VT}
-    return hess_coord!(bnlp.mpcc, x, y, H; obj_weight=obj_weight)
+    obj_weight::Real = one(T),
+) where {T,VT}
+    return hess_coord!(bnlp.mpcc, x, y, H; obj_weight = obj_weight)
 end
 
 function NLPModels.hprod!(
-    bnlp::BranchNLP{T, VT},
+    bnlp::BranchNLP{T,VT},
     x::AbstractVector{T},
     y::AbstractVector{T},
     v::AbstractVector{T},
     Hv::AbstractVector;
-    obj_weight::Real=one(T),
-) where {T, VT}
-    return hess_coord!(bnlp.mpcc, x, y, v, Hv; obj_weight=obj_weight)
+    obj_weight::Real = one(T),
+) where {T,VT}
+    return hess_coord!(bnlp.mpcc, x, y, v, Hv; obj_weight = obj_weight)
 end

@@ -6,7 +6,6 @@ using NLPModelsJuMP
 using MathOptComplements
 using CCOpt
 
-
 # Add bridges defined in MathOptComplements
 const _ALL_BRIDGE_TYPES = Any[
     MathOptComplements.Bridges.SpecifySetTypeBridge,
@@ -52,17 +51,17 @@ function test_runtests()
             r"test_linear_DUAL_INFEASIBLE*", # diverging iterate
             "test_linear_integration_delete_variables",
             "test_linear_VectorAffineFunction_empty_row",
-           "test_model_copy_to_UnsupportedAttribute",
-           "test_nonlinear_expression_hs109",
-           "test_nonlinear_duals", #NLPModelsJuMP issue
-           "test_nonlinear_hs071_no_hessian", # require support for LBFGS in MOI interface
-           "test_nonlinear_hs071_hessian_vector_product", # not supported
-           "test_nonlinear_mixed_complementarity", # issue with MathOptComplements
-           "test_nonlinear_qp_complementarity_constraint", # issue with MathOptComplements
-           "test_nonlinear_expression_multivariate_function", # legacy issue
+            "test_model_copy_to_UnsupportedAttribute",
+            "test_nonlinear_expression_hs109",
+            "test_nonlinear_duals", #NLPModelsJuMP issue
+            "test_nonlinear_hs071_no_hessian", # require support for LBFGS in MOI interface
+            "test_nonlinear_hs071_hessian_vector_product", # not supported
+            "test_nonlinear_mixed_complementarity", # issue with MathOptComplements
+            "test_nonlinear_qp_complementarity_constraint", # issue with MathOptComplements
+            "test_nonlinear_expression_multivariate_function", # legacy issue
             "test_nonlinear_invalid", # require support for ExprGraph
-           "test_solve_TerminationStatus_DUAL_INFEASIBLE", # diverging iterate
-           r"test_solve_VariableIndex_ConstraintDual*", # symbolic exception
+            "test_solve_TerminationStatus_DUAL_INFEASIBLE", # diverging iterate
+            r"test_solve_VariableIndex_ConstraintDual*", # symbolic exception
             r"test_conic*",
         ],
     )

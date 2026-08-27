@@ -10,10 +10,10 @@ function solve_homotopy!(
     nlp::AbstractMPCCPenaltyModel,
     solver::PenaltySolver,
     stats::CCOptExecutionStats;
-    x=nothing,
-    y=nothing,
-    zl=nothing,
-    zu=nothing,
+    x = nothing,
+    y = nothing,
+    zl = nothing,
+    zu = nothing,
     kwargs...,
 )
     ipm = solver.ipm
@@ -105,7 +105,7 @@ function solve_homotopy!(
     return stats
 end
 
-function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
+function homotopy!(solver::PenaltySolver{T,VT}) where {T,VT}
     ipm = solver.ipm
     nlp = solver.pnlp
     mpcc = solver.mpcc
@@ -311,7 +311,7 @@ function homotopy!(solver::PenaltySolver{T, VT}) where {T, VT}
 end
 
 # evaluate mpcc objective instead of ell1 objective (though they should be the same)
-function update!(stats::CCOptExecutionStats, solver::PenaltySolver{T, VT}) where {T, VT}
+function update!(stats::CCOptExecutionStats, solver::PenaltySolver{T,VT}) where {T,VT}
     ipm = solver.ipm
     n, m = NLPModels.get_nvar(ipm.nlp), get_ncon(solver.mpcc)
     ncc = get_ncc(solver.mpcc)
