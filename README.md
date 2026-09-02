@@ -21,7 +21,7 @@ For details check out the [implementation paper](https://arxiv.org/abs/2604.1872
 
 To install CCOpt, simply proceed to
 ```julia
-pkg> add https://github.com/madsuite-org/CCOpt.jl
+pkg> add CCOpt
 ```
 
 ## Usage
