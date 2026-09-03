@@ -250,7 +250,7 @@ function RelaxationSolver(
     if haskey(ipm_options, :bound_relax_factor)
         ipm_options[:bound_relax_factor] == zero(T) || MadNLP.@warn(
             logger,
-            "You have set a nonzero 'bound_relax_factor', this is probably a mistake!"
+            "You have set a positive 'bound_relax_factor', this is probably a mistake! Allowing bound relaxation means complementarity variables are no longer strictly positive which can cause the algorithm to stall at non-physical, inaccurate solutions."
         )
         ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
     else
