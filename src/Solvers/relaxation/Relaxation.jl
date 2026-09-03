@@ -240,16 +240,24 @@ function RelaxationSolver(
 ) where {T,VT}
     start_time = time()
     rnlp = solver_opts.relaxation(mpcc)
-    ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
-    cnt = CCOptCounters(counters = ipm.cnt)
-    initialize_relaxation(rnlp, ipm.opt.barrier.mu_init, solver_opts.delta_init)
-
     logger = MadNLP.MadNLPLogger(
         print_level = solver_opts.print_level,
         file_print_level = solver_opts.file_print_level,
         file = solver_opts.output_file == "" ? nothing :
                open(solver_opts.output_file, "w+"),
     )
+
+    if haskey(ipm_options, :bound_relax_factor)
+        ipm_options[:bound_relax_factor] == zero(T) || MadNLP.@warn(
+            logger,
+            "You have set a positive 'bound_relax_factor', this is probably a mistake! Allowing bound relaxation means complementarity variables are no longer strictly positive which can cause the algorithm to stall at non-physical, inaccurate solutions."
+        )
+        ipm = MadNLP.MadNLPSolver(rnlp; ipm_options...)
+    else
+        ipm = MadNLP.MadNLPSolver(rnlp; bound_relax_factor = zero(T), ipm_options...)
+    end
+    cnt = CCOptCounters(counters = ipm.cnt)
+    initialize_relaxation(rnlp, ipm.opt.barrier.mu_init, solver_opts.delta_init)
 
     iterates_logger = IterateLogger(
         file = solver_opts.iterates_fname == "" ? nothing :

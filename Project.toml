@@ -1,6 +1,6 @@
 name = "CCOpt"
 uuid = "6689419a-93c1-455a-8ac6-77991ec4f86b"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
         "Anton Edvinovich Pozharskiy <apozharski@gmail.com>",
         "François Pacaud  <francoispacaud8@gmail.com>",
